@@ -1,0 +1,46 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - omnivoice_data:/data
+    environment:
+      - DATABASE_URL=sqlite+aiosqlite:////data/omnivoice.db
+      - OMNIVOICE_MODEL=k2-fsa/OmniVoice
+      - LOAD_ASR=false
+      - HF_HOME=/data/models
+      - CORS_ORIGINS=["http://localhost:3000","http://frontend:3000"]
+      - DEBUG=false
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  omnivoice_data:
