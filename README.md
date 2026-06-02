@@ -16,14 +16,14 @@ A self-hosted Voice Cloning and Text-to-Speech (TTS) web application powered by 
 
 ## Tech Stack
 
-| Layer       | Technology                                                |
-| ----------- | --------------------------------------------------------- |
-| Frontend    | Next.js 15, TypeScript, Tailwind CSS, shadcn/ui           |
-| State       | React Query (TanStack), Zustand                           |
-| Backend     | FastAPI, Python 3.11+, SQLAlchemy, Pydantic               |
-| AI Engine   | OmniVoice (k2-fsa/OmniVoice)                              |
-| Storage     | SQLite (default), PostgreSQL-ready                        |
-| Infra       | Docker, Docker Compose                                    |
+| Layer     | Technology                                      |
+| --------- | ----------------------------------------------- |
+| Frontend  | Next.js 15, TypeScript, Tailwind CSS, shadcn/ui |
+| State     | React Query (TanStack), Zustand                 |
+| Backend   | FastAPI, Python 3.11+, SQLAlchemy, Pydantic     |
+| AI Engine | OmniVoice (k2-fsa/OmniVoice)                    |
+| Storage   | SQLite (default), PostgreSQL-ready              |
+| Infra     | Docker, Docker Compose                          |
 
 ## Quick Start
 
@@ -35,8 +35,10 @@ A self-hosted Voice Cloning and Text-to-Speech (TTS) web application powered by 
 ### Run
 
 ```bash
-git clone <your-repo>
+git clone git@github.com:brunos3d/omnivoice-app.git
 cd omnivoice-app
+
+cp .env.example .env
 
 # Start all services
 docker compose up --build
@@ -50,14 +52,14 @@ Open **http://localhost:3000** in your browser.
 
 See `.env.example` for all configuration options.
 
-| Variable            | Default                  | Description                          |
-| ------------------- | ------------------------ | ------------------------------------ |
-| `DATABASE_URL`      | `sqlite+aiosqlite://...` | Database connection URL              |
-| `OMNIVOICE_MODEL`   | `k2-fsa/OmniVoice`       | HuggingFace model repo or local path |
-| `LOAD_ASR`          | `false`                  | Load Whisper ASR for auto-transcription |
-| `ASR_MODEL`         | `openai/whisper-...`     | ASR model for reference transcription |
-| `HF_HOME`           | `/data/models`           | HuggingFace cache directory          |
-| `CORS_ORIGINS`      | `["http://localhost:...` | Allowed CORS origins                 |
+| Variable          | Default                  | Description                             |
+| ----------------- | ------------------------ | --------------------------------------- |
+| `DATABASE_URL`    | `sqlite+aiosqlite://...` | Database connection URL                 |
+| `OMNIVOICE_MODEL` | `k2-fsa/OmniVoice`       | HuggingFace model repo or local path    |
+| `LOAD_ASR`        | `false`                  | Load Whisper ASR for auto-transcription |
+| `ASR_MODEL`       | `openai/whisper-...`     | ASR model for reference transcription   |
+| `HF_HOME`         | `/data/models`           | HuggingFace cache directory             |
+| `CORS_ORIGINS`    | `["http://localhost:...` | Allowed CORS origins                    |
 
 ## Architecture
 
@@ -99,19 +101,19 @@ See `.env.example` for all configuration options.
 
 ## API Endpoints
 
-| Method | Path                  | Description                        |
-| ------ | --------------------- | ---------------------------------- |
-| GET    | `/health`             | Health check + model status        |
-| GET    | `/models/status`      | Detailed model loading status      |
-| GET    | `/voices`             | List all voice profiles            |
-| POST   | `/voices`             | Create voice profile (multipart)   |
-| GET    | `/voices/{id}`        | Get voice profile details          |
-| PUT    | `/voices/{id}`        | Update voice profile               |
-| DELETE | `/voices/{id}`        | Delete voice profile               |
-| GET    | `/voices/{id}/audio`  | Download reference audio           |
-| POST   | `/generate`           | Submit a TTS generation job        |
-| GET    | `/jobs/{id}`          | Poll job status                    |
-| GET    | `/jobs/{id}/audio`    | Download generated audio           |
+| Method | Path                 | Description                      |
+| ------ | -------------------- | -------------------------------- |
+| GET    | `/health`            | Health check + model status      |
+| GET    | `/models/status`     | Detailed model loading status    |
+| GET    | `/voices`            | List all voice profiles          |
+| POST   | `/voices`            | Create voice profile (multipart) |
+| GET    | `/voices/{id}`       | Get voice profile details        |
+| PUT    | `/voices/{id}`       | Update voice profile             |
+| DELETE | `/voices/{id}`       | Delete voice profile             |
+| GET    | `/voices/{id}/audio` | Download reference audio         |
+| POST   | `/generate`          | Submit a TTS generation job      |
+| GET    | `/jobs/{id}`         | Poll job status                  |
+| GET    | `/jobs/{id}/audio`   | Download generated audio         |
 
 ## Development
 
