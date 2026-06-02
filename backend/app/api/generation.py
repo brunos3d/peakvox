@@ -5,20 +5,74 @@ import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import AsyncSessionLocal, get_db
-from app.core.config import settings
 from app.models.db import GenerationJob, VoiceProfile
 from app.schemas.job import GenerationRequest, JobResponse
 from app.services.omnivoice_service import omnivoice_service
-from app.utils.audio import get_audio_duration, load_audio_as_wav
+from app.services.storage import storage
+from app.api.voices import resolve_voice_audio_key
+from app.utils.streaming import stream_object
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _audio_url_for(job: GenerationJob) -> Optional[str]:
+    """Public audio URL for a completed job (preserves the /audio/{name} contract)."""
+    if job.status == "completed" and job.output_path:
+        return f"/audio/{Path(job.output_path).name}"
+    return None
+
+
+def _job_to_response(job: GenerationJob) -> JobResponse:
+    return JobResponse(
+        id=job.id,
+        status=job.status,
+        text=job.text,
+        voice_profile_id=job.voice_profile_id,
+        language=job.language,
+        instruct=job.instruct,
+        generation_params=job.generation_params,
+        audio_url=_audio_url_for(job),
+        audio_duration=job.audio_duration,
+        error_message=job.error_message,
+        logs=job.logs,
+        created_at=job.created_at,
+        started_at=job.started_at,
+        completed_at=job.completed_at,
+    )
+
+
+async def _ensure_mp3(wav_key: str) -> str:
+    """Ensure an MP3 sibling of a generated WAV object exists; return its key."""
+    mp3_key = wav_key[: -len(".wav")] + ".mp3" if wav_key.endswith(".wav") else wav_key + ".mp3"
+    if await storage.exists(mp3_key):
+        return mp3_key
+    if not await storage.exists(wav_key):
+        raise HTTPException(status_code=404, detail="Audio file not found")
+
+    wav_tmp = await storage.download_to_temp(wav_key, suffix=".wav")
+    mp3_tmp = wav_tmp.with_suffix(".mp3")
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-y", "-i", str(wav_tmp), "-codec:a", "libmp3lame", "-qscale:a", "2", str(mp3_tmp)],
+            capture_output=True,
+            timeout=120,
+        )
+        if result.returncode != 0:
+            logger.error("ffmpeg MP3 conversion failed for %s: %s", wav_key, result.stderr.decode())
+            raise HTTPException(status_code=500, detail="Failed to convert audio to MP3")
+        await storage.put_file(mp3_key, mp3_tmp, "audio/mpeg")
+    finally:
+        wav_tmp.unlink(missing_ok=True)
+        mp3_tmp.unlink(missing_ok=True)
+    return mp3_key
 
 
 @router.post("/generate")
@@ -37,35 +91,30 @@ async def create_generation_job(
             detail="A generation is already in progress. Please wait for it to complete.",
         )
 
-    ref_audio_path: str | None = None
+    ref_audio_key: str | None = None
 
     if request.voice_profile_id:
         profile = await db.get(VoiceProfile, request.voice_profile_id)
         if not profile:
             raise HTTPException(status_code=404, detail="Voice profile not found")
-        for _name in ("reference.wav", "voice.wav"):
-            audio_file = settings.VOICES_DIR / profile.id / _name
-            if audio_file.exists():
-                break
-        else:
+        ref_audio_key = await resolve_voice_audio_key(profile.id)
+        if not ref_audio_key:
             raise HTTPException(status_code=404, detail="Voice profile audio file not found")
-        ref_audio_path = str(audio_file)
         profile.last_used_at = datetime.now(timezone.utc)
 
     gen_params = request.model_dump(exclude={"text", "voice_profile_id", "ref_text", "language", "instruct"})
 
-    output_filename = f"{os.urandom(8).hex()}.wav"
-    output_path = str(settings.GENERATED_DIR / output_filename)
+    output_key = f"generated/{os.urandom(8).hex()}.wav"
 
     job = GenerationJob(
         text=request.text,
         voice_profile_id=request.voice_profile_id,
-        ref_audio_path=ref_audio_path,
+        ref_audio_path=ref_audio_key,
         ref_text=request.ref_text,
         language=request.language,
         instruct=request.instruct,
         generation_params=gen_params,
-        output_path=output_path,
+        output_path=output_key,
     )
     db.add(job)
     await db.commit()
@@ -80,7 +129,7 @@ async def create_generation_job(
         len(request.text),
         request.language or "auto",
         bool(request.instruct),
-        output_filename,
+        output_key,
     )
 
     asyncio.create_task(_process_job(job.id))
@@ -88,95 +137,92 @@ async def create_generation_job(
     return {"job_id": job.id}
 
 
+@router.get("/jobs", response_model=list[JobResponse])
+async def list_jobs(
+    limit: int = 50,
+    offset: int = 0,
+    status: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    limit = max(1, min(limit, 200))
+    stmt = select(GenerationJob).order_by(GenerationJob.created_at.desc())
+    if status:
+        stmt = stmt.where(GenerationJob.status == status)
+    stmt = stmt.limit(limit).offset(max(0, offset))
+    jobs = (await db.execute(stmt)).scalars().all()
+    return [_job_to_response(j) for j in jobs]
+
+
 @router.get("/jobs/{job_id}", response_model=JobResponse)
 async def get_job_status(job_id: str, db: AsyncSession = Depends(get_db)):
     job = await db.get(GenerationJob, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    return _job_to_response(job)
 
-    audio_url = None
-    if job.status == "completed" and job.output_path:
-        filename = Path(job.output_path).name
-        audio_url = f"/audio/{filename}"
 
-    return JobResponse(
-        id=job.id,
-        status=job.status,
-        text=job.text,
-        voice_profile_id=job.voice_profile_id,
-        language=job.language,
-        instruct=job.instruct,
-        generation_params=job.generation_params,
-        audio_url=audio_url,
-        audio_duration=job.audio_duration,
-        error_message=job.error_message,
-        logs=job.logs,
-        created_at=job.created_at,
-        started_at=job.started_at,
-        completed_at=job.completed_at,
-    )
+@router.delete("/jobs/{job_id}")
+async def delete_job(job_id: str, db: AsyncSession = Depends(get_db)):
+    job = await db.get(GenerationJob, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.output_path:
+        wav_key = job.output_path
+        await storage.delete(wav_key)
+        if wav_key.endswith(".wav"):
+            await storage.delete(wav_key[: -len(".wav")] + ".mp3")
+    await db.delete(job)
+    await db.commit()
+    logger.info("Deleted job %s", job_id)
+    return {"detail": "Job deleted"}
 
 
 @router.get("/jobs/{job_id}/audio")
-async def get_job_audio(job_id: str, db: AsyncSession = Depends(get_db)):
+async def get_job_audio(job_id: str, request: Request, db: AsyncSession = Depends(get_db)):
     job = await db.get(GenerationJob, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    if job.status != "completed":
+    if job.status != "completed" or not job.output_path:
         raise HTTPException(status_code=400, detail="Job is not completed yet")
-    if not job.output_path or not Path(job.output_path).exists():
-        raise HTTPException(status_code=404, detail="Audio file not found")
-
-    return FileResponse(job.output_path, media_type="audio/wav", filename=f"omnivoice-{job.id}.wav")
+    return await stream_object(
+        job.output_path, request=request, content_type="audio/wav",
+        download_name=f"omnivoice-{job.id}.wav",
+    )
 
 
 @router.get("/jobs/{job_id}/audio/mp3")
-async def get_job_audio_mp3(job_id: str, db: AsyncSession = Depends(get_db)):
+async def get_job_audio_mp3(job_id: str, request: Request, db: AsyncSession = Depends(get_db)):
     job = await db.get(GenerationJob, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    if job.status != "completed":
+    if job.status != "completed" or not job.output_path:
         raise HTTPException(status_code=400, detail="Job is not completed yet")
-    if not job.output_path or not Path(job.output_path).exists():
-        raise HTTPException(status_code=404, detail="Audio file not found")
-
-    wav_path = job.output_path
-    mp3_path = wav_path.replace(".wav", ".mp3")
-
-    if not Path(mp3_path).exists():
-        result = subprocess.run(
-            ["ffmpeg", "-y", "-i", wav_path, "-codec:a", "libmp3lame", "-qscale:a", "2", mp3_path],
-            capture_output=True,
-            timeout=120,
-        )
-        if result.returncode != 0:
-            logger.error("ffmpeg MP3 conversion failed for job %s: %s", job_id, result.stderr.decode())
-            raise HTTPException(status_code=500, detail="Failed to convert audio to MP3")
-
-    return FileResponse(mp3_path, media_type="audio/mpeg", filename=f"omnivoice-{job.id}.mp3")
+    mp3_key = await _ensure_mp3(job.output_path)
+    return await stream_object(
+        mp3_key, request=request, content_type="audio/mpeg",
+        download_name=f"omnivoice-{job.id}.mp3",
+    )
 
 
 @router.get("/convert/mp3/{filename:path}")
-async def convert_to_mp3(filename: str):
-    wav_path = str(settings.GENERATED_DIR / filename)
-    if not wav_path.endswith(".wav") or not Path(wav_path).exists():
+async def convert_to_mp3(filename: str, request: Request):
+    if not filename.endswith(".wav"):
         raise HTTPException(status_code=404, detail="Audio file not found")
-    mp3_path = wav_path.replace(".wav", ".mp3")
-    if not Path(mp3_path).exists():
-        result = subprocess.run(
-            ["ffmpeg", "-y", "-i", wav_path, "-codec:a", "libmp3lame", "-qscale:a", "2", mp3_path],
-            capture_output=True,
-            timeout=120,
-        )
-        if result.returncode != 0:
-            logger.error("ffmpeg conversion failed: %s", result.stderr.decode())
-            raise HTTPException(status_code=500, detail="Failed to convert audio to MP3")
+    wav_key = f"generated/{filename}"
+    mp3_key = await _ensure_mp3(wav_key)
     base = Path(filename).stem
-    return FileResponse(mp3_path, media_type="audio/mpeg", filename=f"{base}.mp3")
+    return await stream_object(
+        mp3_key, request=request, content_type="audio/mpeg",
+        download_name=f"{base}.mp3",
+    )
 
 
 async def _process_job(job_id: str) -> None:
-    """Background task: run inference for a single job, fully isolated by job_id."""
+    """Background task: run inference for a single job, fully isolated by job_id.
+
+    The OmniVoice model reads/writes local paths, so the reference object is
+    downloaded to scratch first and the result is uploaded to MinIO afterwards.
+    """
 
     # ── 1. Load the exact job payload from the database ──────────────────────
     async with AsyncSessionLocal() as session:
@@ -185,7 +231,6 @@ async def _process_job(job_id: str) -> None:
             logger.warning("Job %s not found — skipping", job_id)
             return
 
-        # Resolve voice name for structured logging
         voice_name: str | None = None
         if job.voice_profile_id:
             profile = await session.get(VoiceProfile, job.voice_profile_id)
@@ -208,28 +253,44 @@ async def _process_job(job_id: str) -> None:
         job.started_at = datetime.now(timezone.utc)
         await session.commit()
 
-    # ── 2. Run inference — all inputs come exclusively from the job record ────
-    try:
-        params = job.generation_params or {}
+        # Snapshot fields needed outside the session
+        job_text = job.text
+        job_voice_id = job.voice_profile_id
+        job_ref_key = job.ref_audio_path
+        job_ref_text = job.ref_text
+        job_language = job.language
+        job_instruct = job.instruct
+        job_output_key = job.output_path
+        job_params = job.generation_params or {}
 
+    # ── 2. Stage local scratch files ─────────────────────────────────────────
+    local_ref: Optional[Path] = None
+    local_output = settings_tmp_output(job_output_key)
+    try:
+        if job_ref_key:
+            local_ref = await storage.download_to_temp(job_ref_key, suffix=".wav")
+
+        # ── 3. Run inference — all inputs come from the job record ───────────
         duration, logs = await omnivoice_service.generate_async(
-            text=job.text,
-            output_path=Path(job.output_path),
-            voice_profile_id=job.voice_profile_id,
-            ref_audio_path=job.ref_audio_path,
-            ref_text=job.ref_text,
-            language=job.language,
-            instruct=job.instruct,
-            num_step=params.get("num_step", 32),
-            guidance_scale=params.get("guidance_scale", 2.0),
-            speed=params.get("speed"),
-            duration=params.get("duration"),
-            t_shift=params.get("t_shift", 0.1),
-            denoise=params.get("denoise", True),
+            text=job_text,
+            output_path=local_output,
+            voice_profile_id=job_voice_id,
+            ref_audio_path=str(local_ref) if local_ref else None,
+            ref_text=job_ref_text,
+            language=job_language,
+            instruct=job_instruct,
+            num_step=job_params.get("num_step", 32),
+            guidance_scale=job_params.get("guidance_scale", 2.0),
+            speed=job_params.get("speed"),
+            duration=job_params.get("duration"),
+            t_shift=job_params.get("t_shift", 0.1),
+            denoise=job_params.get("denoise", True),
             job_id=job_id,
         )
 
-        # ── 3. Persist successful result ──────────────────────────────────────
+        # ── 4. Upload result to MinIO ────────────────────────────────────────
+        await storage.put_file(job_output_key, local_output, "audio/wav")
+
         async with AsyncSessionLocal() as session:
             job = await session.get(GenerationJob, job_id)
             job.status = "completed"
@@ -240,15 +301,10 @@ async def _process_job(job_id: str) -> None:
 
         logger.info(
             "Job completed | job_id=%s duration=%.2fs voice=%s text_hash=%s",
-            job_id,
-            duration,
-            job.voice_profile_id or "none",
-            text_hash,
+            job_id, duration, job_voice_id or "none", text_hash,
         )
 
     except Exception as exc:
-        # ── 4. Persist failure — GPU cleanup already happened in _do_generate's
-        #       finally block, so VRAM is safe regardless of where the error was.
         logger.exception("Job failed | job_id=%s error=%s", job_id, exc)
         async with AsyncSessionLocal() as session:
             job = await session.get(GenerationJob, job_id)
@@ -258,3 +314,14 @@ async def _process_job(job_id: str) -> None:
                 job.logs = (job.logs or []) + [f"ERROR: {exc}"]
                 job.completed_at = datetime.now(timezone.utc)
                 await session.commit()
+    finally:
+        if local_ref:
+            local_ref.unlink(missing_ok=True)
+        local_output.unlink(missing_ok=True)
+
+
+def settings_tmp_output(output_key: str) -> Path:
+    """Local scratch path the model writes to before the WAV is uploaded."""
+    from app.core.config import settings
+    settings.TMP_DIR.mkdir(parents=True, exist_ok=True)
+    return settings.TMP_DIR / Path(output_key).name

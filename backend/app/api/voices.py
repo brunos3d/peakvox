@@ -6,8 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,17 +22,20 @@ from app.services.audio_preprocessing_service import (
     MAX_REFERENCE_DURATION,
 )
 from app.services.omnivoice_service import omnivoice_service
+from app.services.storage import storage
+from app.utils.streaming import stream_object
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _resolve_audio_path(profile_id: str) -> Optional[Path]:
-    """Return the audio path for a profile, checking reference.wav then voice.wav."""
+async def resolve_voice_audio_key(profile_id: str) -> Optional[str]:
+    """Return the object key for a profile's reference audio (reference.wav,
+    falling back to the legacy voice.wav), or None if neither exists."""
     for name in ("reference.wav", "voice.wav"):
-        p = settings.VOICES_DIR / profile_id / name
-        if p.exists():
-            return p
+        key = f"voices/{profile_id}/{name}"
+        if await storage.exists(key):
+            return key
     return None
 
 
@@ -56,6 +58,57 @@ def _parse_generation_defaults(raw: Optional[str]) -> Optional[dict]:
         return None
 
 
+async def _process_and_upload(
+    profile_id: str,
+    file: UploadFile,
+    crop_start: float,
+    crop_end: Optional[float],
+    name: str,
+    language: Optional[str],
+    transcript: Optional[str],
+    created_at: Optional[str],
+) -> dict:
+    """Process an uploaded audio file in local scratch, then upload the
+    reference.wav + metadata.json objects to MinIO. Returns the audio meta."""
+    work_dir = settings.TMP_DIR / f"voice-{profile_id}-{uuid.uuid4().hex}"
+    work_dir.mkdir(parents=True, exist_ok=True)
+
+    suffix = Path(file.filename).suffix if file.filename else ".audio"
+    tmp_path = work_dir / f"source{suffix}"
+    output_path = work_dir / "reference.wav"
+    meta_path = work_dir / "metadata.json"
+
+    try:
+        content = await file.read()
+        with open(tmp_path, "wb") as f_:
+            f_.write(content)
+
+        crop_end_val = _effective_crop_end(tmp_path, crop_end)
+        meta = process_audio(
+            source_path=tmp_path,
+            output_path=output_path,
+            crop_start=crop_start,
+            crop_end=crop_end_val,
+            source_filename=file.filename or "",
+        )
+
+        write_metadata_json(
+            meta_path,
+            profile_id=profile_id,
+            name=name,
+            meta=meta,
+            language=language,
+            transcript=transcript,
+            created_at=created_at,
+        )
+
+        await storage.put_file(f"voices/{profile_id}/reference.wav", output_path, "audio/wav")
+        await storage.put_file(f"voices/{profile_id}/metadata.json", meta_path, "application/json")
+        return meta
+    finally:
+        shutil.rmtree(work_dir, ignore_errors=True)
+
+
 @router.get("", response_model=list[VoiceProfileResponse])
 async def list_voices(db: AsyncSession = Depends(get_db)):
     result = await db.execute(
@@ -76,14 +129,14 @@ async def get_voice(profile_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/{profile_id}/audio")
-async def get_voice_audio(profile_id: str, db: AsyncSession = Depends(get_db)):
+async def get_voice_audio(profile_id: str, request: Request, db: AsyncSession = Depends(get_db)):
     profile = await db.get(VoiceProfile, profile_id)
     if not profile:
         raise HTTPException(status_code=404, detail="Voice profile not found")
-    audio_path = _resolve_audio_path(profile.id)
-    if not audio_path:
+    key = await resolve_voice_audio_key(profile.id)
+    if not key:
         raise HTTPException(status_code=404, detail="Audio file not found")
-    return FileResponse(str(audio_path), media_type="audio/wav")
+    return await stream_object(key, request=request, content_type="audio/wav")
 
 
 @router.post("", response_model=VoiceProfileResponse, status_code=201)
@@ -99,48 +152,21 @@ async def create_voice(
     db: AsyncSession = Depends(get_db),
 ):
     profile_id = str(uuid.uuid4())
-    voice_dir = settings.VOICES_DIR / profile_id
-    voice_dir.mkdir(parents=True, exist_ok=True)
-
-    suffix = Path(file.filename).suffix if file.filename else ".audio"
-    tmp_path = voice_dir / f"source{suffix}"
+    now = datetime.now(timezone.utc)
 
     try:
-        content = await file.read()
-        with open(tmp_path, "wb") as f_:
-            f_.write(content)
-
-        crop_end_val = _effective_crop_end(tmp_path, crop_end)
-        output_path = voice_dir / "reference.wav"
-
-        meta = process_audio(
-            source_path=tmp_path,
-            output_path=output_path,
-            crop_start=crop_start,
-            crop_end=crop_end_val,
-            source_filename=file.filename or "",
+        meta = await _process_and_upload(
+            profile_id, file, crop_start, crop_end,
+            name=name, language=language, transcript=transcript,
+            created_at=now.isoformat(),
         )
-
     except AudioPreprocessingError as exc:
-        shutil.rmtree(voice_dir, ignore_errors=True)
+        await storage.delete_prefix(f"voices/{profile_id}/")
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:
-        shutil.rmtree(voice_dir, ignore_errors=True)
+        await storage.delete_prefix(f"voices/{profile_id}/")
         logger.exception("Unexpected error processing audio for new voice profile")
         raise HTTPException(status_code=500, detail=f"Audio processing failed: {exc}")
-    finally:
-        tmp_path.unlink(missing_ok=True)
-
-    now = datetime.now(timezone.utc)
-    write_metadata_json(
-        voice_dir / "metadata.json",
-        profile_id=profile_id,
-        name=name,
-        meta=meta,
-        language=language,
-        transcript=transcript,
-        created_at=now.isoformat(),
-    )
 
     profile = VoiceProfile(
         id=profile_id,
@@ -195,46 +221,19 @@ async def update_voice(
         profile.generation_defaults = _parse_generation_defaults(generation_defaults) if generation_defaults else None
 
     if file is not None and file.filename:
-        voice_dir = settings.VOICES_DIR / profile.id
-        voice_dir.mkdir(parents=True, exist_ok=True)
-
-        suffix = Path(file.filename).suffix if file.filename else ".audio"
-        tmp_path = voice_dir / f"source{suffix}"
-
         try:
-            content = await file.read()
-            with open(tmp_path, "wb") as f_:
-                f_.write(content)
-
-            crop_end_val = _effective_crop_end(tmp_path, crop_end)
-            output_path = voice_dir / "reference.wav"
-
-            meta = process_audio(
-                source_path=tmp_path,
-                output_path=output_path,
-                crop_start=crop_start,
-                crop_end=crop_end_val,
-                source_filename=file.filename or "",
+            meta = await _process_and_upload(
+                profile.id, file, crop_start, crop_end,
+                name=profile.name if name is None else name,
+                language=profile.language if language is None else language,
+                transcript=profile.transcript if transcript is None else transcript,
+                created_at=profile.created_at.isoformat() if profile.created_at else None,
             )
-
         except AudioPreprocessingError as exc:
             raise HTTPException(status_code=422, detail=str(exc))
         except Exception as exc:
             logger.exception("Unexpected error processing audio for profile %s", profile_id)
             raise HTTPException(status_code=500, detail=f"Audio processing failed: {exc}")
-        finally:
-            tmp_path.unlink(missing_ok=True)
-
-        meta_path = voice_dir / "metadata.json"
-        write_metadata_json(
-            meta_path,
-            profile_id=profile.id,
-            name=profile.name if name is None else name,
-            meta=meta,
-            language=profile.language if language is None else language,
-            transcript=profile.transcript if transcript is None else transcript,
-            created_at=profile.created_at.isoformat() if profile.created_at else None,
-        )
 
         profile.audio_filename = "reference.wav"
         profile.audio_duration = meta["duration"]
@@ -273,9 +272,7 @@ async def delete_voice(profile_id: str, db: AsyncSession = Depends(get_db)):
     profile = await db.get(VoiceProfile, profile_id)
     if not profile:
         raise HTTPException(status_code=404, detail="Voice profile not found")
-    voice_dir = settings.VOICES_DIR / profile.id
-    if voice_dir.exists():
-        shutil.rmtree(voice_dir)
+    await storage.delete_prefix(f"voices/{profile.id}/")
     omnivoice_service.invalidate_voice_cache(profile.id)
     await db.delete(profile)
     await db.commit()
