@@ -132,15 +132,19 @@ export function GenerationForm() {
 
       <GenerationSettings />
 
+      {generateMutation.isError && (
+        <p className="text-xs text-destructive rounded-md bg-destructive/10 px-3 py-2">
+          {(generateMutation.error as Error)?.message ?? "Generation failed. Please try again."}
+        </p>
+      )}
+
       <Button
         className="w-full gap-2 h-11 text-base"
         onClick={handleGenerate}
         disabled={!text.trim() || !hasAudioSource || isGenerating}
       >
         {isGenerating ? (
-          <>
-            <span className="animate-pulse">Generating...</span>
-          </>
+          <span className="animate-pulse">Generating...</span>
         ) : (
           <>
             <Wand2 className="h-5 w-5" />

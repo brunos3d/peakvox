@@ -1,4 +1,5 @@
 import asyncio
+import gc
 import logging
 import os
 from pathlib import Path
@@ -13,8 +14,30 @@ from app.utils.audio import save_numpy_as_wav
 logger = logging.getLogger(__name__)
 
 
+def _vram_snapshot() -> str:
+    """Return a compact VRAM usage string, or empty string if CUDA unavailable."""
+    try:
+        if not torch.cuda.is_available():
+            return ""
+        alloc = torch.cuda.memory_allocated() / 1024 ** 3
+        reserved = torch.cuda.memory_reserved() / 1024 ** 3
+        return f"alloc={alloc:.2f}GB reserved={reserved:.2f}GB"
+    except Exception:
+        return ""
+
+
 class OmniVoiceService:
-    """Singleton that wraps the OmniVoice model, offloading to CPU when idle."""
+    """
+    Singleton wrapping the OmniVoice model.
+
+    GPU safety contract
+    -------------------
+    • Only one inference runs at a time, enforced by ``_generation_lock``.
+    • ``_do_generate`` always calls ``_offload_to_cpu`` + ``torch.cuda.empty_cache``
+      in its ``finally`` block, so VRAM is released on both success and failure.
+    • ``is_generating`` is checked by the HTTP endpoint to return 409 instead of
+      queuing a second job when the GPU is already busy.
+    """
 
     _instance: Optional["OmniVoiceService"] = None
 
@@ -26,6 +49,8 @@ class OmniVoiceService:
         self._loaded: bool = False
         self._load_error: Optional[str] = None
         self._voice_prompt_cache: dict = {}
+        # Initialised lazily inside generate_async (must run inside a live event loop).
+        self._generation_lock: Optional[asyncio.Lock] = None
 
     @classmethod
     def get_instance(cls) -> "OmniVoiceService":
@@ -61,7 +86,7 @@ class OmniVoiceService:
         self._device = get_best_device()
         dtype = torch.float16 if self._device in ("cuda", "xpu") else torch.float32
 
-        logger.info(f"Loading OmniVoice model '{settings.OMNIVOICE_MODEL}' ({dtype})")
+        logger.info("Loading OmniVoice model '%s' on %s (%s)", settings.OMNIVOICE_MODEL, self._device, dtype)
         self._model = OmniVoice.from_pretrained(
             settings.OMNIVOICE_MODEL,
             device_map=self._device,
@@ -73,7 +98,7 @@ class OmniVoiceService:
         if torch.cuda.is_available():
             self._model.to("cpu")
             torch.cuda.empty_cache()
-            logger.info("Offloaded model to CPU — GPU is free until generation")
+            logger.info("Model offloaded to CPU after load — VRAM is free until first generation")
 
         logger.info("OmniVoice model loaded successfully")
 
@@ -86,7 +111,7 @@ class OmniVoiceService:
             self._loaded = True
         except Exception as exc:
             self._load_error = str(exc)
-            logger.error(f"OmniVoice model load failed: {exc}")
+            logger.error("OmniVoice model load failed: %s", exc)
         finally:
             self._loading = False
 
@@ -100,23 +125,24 @@ class OmniVoiceService:
         try:
             p = next(self._model.parameters())
             if p.device.type != "cuda":
-                logger.debug("Moving model to GPU")
+                logger.debug("Moving model to GPU | before: %s", _vram_snapshot())
                 self._model.to("cuda")
-                torch.cuda.empty_cache()
         except StopIteration:
             pass
 
     def _offload_to_cpu(self) -> None:
+        """Move model to CPU and free the VRAM allocator cache."""
         if self._model is None:
             return
         try:
             p = next(self._model.parameters())
             if p.device.type == "cuda":
-                logger.debug("Offloading model to CPU")
                 self._model.to("cpu")
-                torch.cuda.empty_cache()
         except StopIteration:
             pass
+        # Always run empty_cache regardless of where the model was.
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     # ------------------------------------------------------------------
     # Properties
@@ -135,6 +161,11 @@ class OmniVoiceService:
         return self._load_error
 
     @property
+    def is_generating(self) -> bool:
+        """True while a generation is holding the lock."""
+        return self._generation_lock is not None and self._generation_lock.locked()
+
+    @property
     def sampling_rate(self) -> int:
         if self._model is not None:
             return self._model.sampling_rate
@@ -151,18 +182,22 @@ class OmniVoiceService:
         ref_text: Optional[str] = None,
     ):
         if voice_id in self._voice_prompt_cache:
+            logger.debug("Voice prompt cache hit | voice_id=%s", voice_id)
             return self._voice_prompt_cache[voice_id]
 
+        logger.debug("Extracting voice clone prompt | voice_id=%s ref=%s", voice_id, ref_audio_path)
         self._ensure_on_gpu()
         prompt = self._model.create_voice_clone_prompt(
             ref_audio=ref_audio_path,
             ref_text=ref_text or None,
         )
         self._voice_prompt_cache[voice_id] = prompt
+        logger.debug("Voice prompt cached | voice_id=%s cache_size=%d", voice_id, len(self._voice_prompt_cache))
         return prompt
 
     def invalidate_voice_cache(self, voice_id: str) -> None:
-        self._voice_prompt_cache.pop(voice_id, None)
+        if self._voice_prompt_cache.pop(voice_id, None) is not None:
+            logger.debug("Voice prompt cache invalidated | voice_id=%s", voice_id)
 
     # ------------------------------------------------------------------
     # Generation
@@ -189,56 +224,76 @@ class OmniVoiceService:
         logs: list[str] = []
 
         self._ensure_on_gpu()
-        if self._use_gpu and self._device == "cuda":
-            logs.append("Using GPU for generation")
-        else:
-            logs.append("Using CPU for generation")
+        try:
+            device_label = "GPU" if (self._use_gpu and self._device == "cuda") else "CPU"
+            logs.append(f"Using {device_label} for generation | {_vram_snapshot()}")
+            logger.debug("Inference start | device=%s vram=%s", device_label, _vram_snapshot())
 
-        gen_config = OmniVoiceGenerationConfig(
-            num_step=num_step,
-            guidance_scale=guidance_scale,
-            t_shift=t_shift,
-            denoise=denoise,
-        )
-
-        voice_clone_prompt = None
-
-        if voice_profile_id and ref_audio_path:
-            logs.append(f"Extracting voice clone prompt for profile {voice_profile_id}")
-            voice_clone_prompt = self.get_or_create_voice_prompt(
-                voice_id=voice_profile_id,
-                ref_audio_path=ref_audio_path,
-                ref_text=ref_text,
-            )
-        elif ref_audio_path and not voice_profile_id:
-            logs.append("Extracting voice clone prompt from uploaded audio")
-            self._ensure_on_gpu()
-            voice_clone_prompt = self._model.create_voice_clone_prompt(
-                ref_audio=ref_audio_path,
-                ref_text=ref_text or None,
+            gen_config = OmniVoiceGenerationConfig(
+                num_step=num_step,
+                guidance_scale=guidance_scale,
+                t_shift=t_shift,
+                denoise=denoise,
             )
 
-        logs.append(f"Generating speech ({num_step} steps, guidance={guidance_scale})")
+            voice_clone_prompt = None
 
-        audios: list[np.ndarray] = self._model.generate(
-            text=text,
-            language=language or None,
-            voice_clone_prompt=voice_clone_prompt,
-            instruct=instruct or None,
-            duration=duration,
-            speed=speed,
-            generation_config=gen_config,
-        )
+            if voice_profile_id and ref_audio_path:
+                logs.append(f"Loading voice clone prompt | voice_id={voice_profile_id}")
+                logger.debug("Fetching voice prompt | voice_id=%s", voice_profile_id)
+                voice_clone_prompt = self.get_or_create_voice_prompt(
+                    voice_id=voice_profile_id,
+                    ref_audio_path=ref_audio_path,
+                    ref_text=ref_text,
+                )
+            elif ref_audio_path:
+                logs.append("Extracting voice clone prompt from ad-hoc reference audio")
+                logger.debug("Extracting ad-hoc voice prompt | ref=%s", ref_audio_path)
+                self._ensure_on_gpu()
+                voice_clone_prompt = self._model.create_voice_clone_prompt(
+                    ref_audio=ref_audio_path,
+                    ref_text=ref_text or None,
+                )
 
-        audio = audios[0]
-        audio_duration = save_numpy_as_wav(audio, output_path, self._model.sampling_rate)
-        logs.append(f"Generated {audio_duration:.2f}s of audio -> {output_path.name}")
+            logs.append(
+                f"Generating speech | steps={num_step} guidance={guidance_scale} "
+                f"speed={speed or 'auto'} duration={duration or 'auto'}"
+            )
+            logger.debug("Calling model.generate | text_len=%d", len(text))
 
-        self._offload_to_cpu()
-        if self._use_gpu and self._device == "cuda" and torch.cuda.is_available():
-            logs.append("Offloaded model to CPU -> GPU memory freed")
+            audios: list[np.ndarray] = self._model.generate(
+                text=text,
+                language=language or None,
+                voice_clone_prompt=voice_clone_prompt,
+                instruct=instruct or None,
+                duration=duration,
+                speed=speed,
+                generation_config=gen_config,
+            )
 
-        return audio_duration, logs
+            audio = audios[0]
+            audio_duration = save_numpy_as_wav(audio, output_path, self._model.sampling_rate)
+            logs.append(f"Audio saved | duration={audio_duration:.2f}s path={output_path.name}")
+            logger.debug("Inference done | output_duration=%.2fs output=%s", audio_duration, output_path.name)
+
+            # Release the numpy arrays before the VRAM offload
+            del audios, audio, voice_clone_prompt
+
+            return audio_duration, logs
+
+        finally:
+            # Always release GPU memory, on both success and any exception.
+            # Python executes finally AFTER storing the return value, so any
+            # appends here ARE included in the returned `logs` list.
+            logger.debug("Cleanup start | vram_before=%s", _vram_snapshot())
+            self._offload_to_cpu()
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            snapshot = _vram_snapshot()
+            logger.debug("Cleanup done | vram_after=%s", snapshot)
+            if snapshot:
+                logs.append(f"GPU memory released | {snapshot}")
 
     async def generate_async(
         self,
@@ -255,26 +310,55 @@ class OmniVoiceService:
         duration: Optional[float] = None,
         t_shift: float = 0.1,
         denoise: bool = True,
+        job_id: Optional[str] = None,
     ) -> tuple[float, list[str]]:
         if not self._loaded:
             raise RuntimeError("OmniVoice model is not loaded yet")
 
-        return await asyncio.to_thread(
-            self._do_generate,
-            text,
-            voice_profile_id,
-            ref_audio_path,
-            ref_text,
-            language,
-            instruct,
-            num_step,
-            guidance_scale,
-            speed,
-            duration,
-            t_shift,
-            denoise,
-            output_path,
-        )
+        # Lazy-initialise inside the running event loop.
+        if self._generation_lock is None:
+            self._generation_lock = asyncio.Lock()
+
+        if self._generation_lock.locked():
+            raise RuntimeError(
+                "A generation is already in progress. Please wait for it to complete."
+            )
+
+        async with self._generation_lock:
+            logger.info(
+                "Generation start | job=%s voice=%s lang=%s steps=%d guidance=%.2f vram=%s",
+                job_id or "adhoc",
+                voice_profile_id or "none",
+                language or "auto",
+                num_step,
+                guidance_scale,
+                _vram_snapshot(),
+            )
+
+            result = await asyncio.to_thread(
+                self._do_generate,
+                text,
+                voice_profile_id,
+                ref_audio_path,
+                ref_text,
+                language,
+                instruct,
+                num_step,
+                guidance_scale,
+                speed,
+                duration,
+                t_shift,
+                denoise,
+                output_path,
+            )
+
+            logger.info(
+                "Generation end | job=%s output_duration=%.2fs vram=%s",
+                job_id or "adhoc",
+                result[0],
+                _vram_snapshot(),
+            )
+            return result
 
 
 omnivoice_service = OmniVoiceService.get_instance()

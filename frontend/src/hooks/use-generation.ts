@@ -60,7 +60,17 @@ export function useJobStatus(jobId: string | null) {
       const data = await fetchJob(jobId!);
       setActiveJobStatus(data.status);
       if (data.status === "completed" || data.status === "failed") {
-        setTimeout(() => setActiveJob(null), 3000); // Clear active job after 3 seconds
+        // Capture the job ID at the time the query resolves. Only clear the
+        // active-job state if this job is STILL the active one when the timer
+        // fires. Without this guard, starting a new generation within the
+        // 3-second window caused the old timer to wipe the new job's ID from
+        // the store, stopping its poll and hiding its result.
+        const completedJobId = jobId;
+        setTimeout(() => {
+          if (useAppStore.getState().activeJobId === completedJobId) {
+            setActiveJob(null);
+          }
+        }, 3000);
       }
       return data;
     },

@@ -10,6 +10,8 @@ import { VoiceLibrary } from "@/components/VoiceLibrary"
 import { Separator } from "@/components/ui/separator"
 import { useAppStore } from "@/store/use-store"
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+
 function ModelLoadingScreen() {
   const { data: status } = useModelStatus()
 
@@ -53,19 +55,28 @@ export default function Home() {
 
   const { data: jobData } = useJobStatus(activeJobId)
 
-  useEffect(() => {
-    if (activeJobStatus === "completed" && jobData?.audio_url) {
-      setAudioUrl(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}${jobData.audio_url}`)
-      setAudioDuration(jobData.audio_duration ?? null)
-    }
-  }, [activeJobStatus, jobData])
-
+  // Clear stale audio as soon as a new generation starts.
   useEffect(() => {
     if (activeJobStatus === "pending" || activeJobStatus === "processing") {
       setAudioUrl(null)
       setAudioDuration(null)
     }
   }, [activeJobStatus])
+
+  // Set the audio URL only when the completed job data belongs to the job that
+  // is currently active. Guards against a Zustand/React Query desync where
+  // `activeJobStatus` is briefly "completed" from job N-1 while `jobData` is
+  // already updating for job N.
+  useEffect(() => {
+    if (
+      activeJobStatus === "completed" &&
+      jobData?.audio_url &&
+      jobData.id === activeJobId
+    ) {
+      setAudioUrl(`${API_URL}${jobData.audio_url}`)
+      setAudioDuration(jobData.audio_duration ?? null)
+    }
+  }, [activeJobStatus, jobData, activeJobId])
 
   if (statusLoading) {
     return <ModelLoadingScreen />
@@ -122,5 +133,3 @@ export default function Home() {
     </div>
   )
 }
-
-
