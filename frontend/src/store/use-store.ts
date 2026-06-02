@@ -96,12 +96,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   currentAudio: null,
   ttsText: "",
   lastRequest: null,
-  outputFormat: "wav",
+  outputFormat:
+    (typeof window !== "undefined" && (localStorage.getItem("omnivoice:outputFormat") as "wav" | "mp3")) || "wav",
 
   setCurrentAudio: (audio) => set({ currentAudio: audio }),
   setTtsText: (text) => set({ ttsText: text }),
   setLastRequest: (req) => set({ lastRequest: req }),
-  setOutputFormat: (format) => set({ outputFormat: format }),
+  setOutputFormat: (format) => {
+    if (typeof window !== "undefined") localStorage.setItem("omnivoice:outputFormat", format)
+    set({ outputFormat: format })
+  },
 
   setSelectedProfile: (profile) => {
     if (!profile) {
