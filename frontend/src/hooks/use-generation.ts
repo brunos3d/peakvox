@@ -40,12 +40,17 @@ export function useModelStatus() {
 export function useSubmitGeneration() {
   const queryClient = useQueryClient();
   const setActiveJob = useAppStore((s) => s.setActiveJob);
+  const setLastRequest = useAppStore((s) => s.setLastRequest);
 
   return useMutation({
     mutationFn: (data: GenerationRequest) => submitGeneration(data),
+    onMutate: (data) => {
+      setLastRequest(data);
+    },
     onSuccess: (result) => {
       setActiveJob(result.job_id, "pending");
       queryClient.invalidateQueries({ queryKey: ["voices"] });
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
     },
   });
 }

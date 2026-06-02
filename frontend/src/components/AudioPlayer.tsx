@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Play, Pause, Square, Download, Loader2 } from "lucide-react"
+import { Play, Pause, Download, Loader2, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -11,18 +11,57 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { WaveformDisplay } from "@/components/WaveformDisplay"
 import { formatDuration } from "@/lib/utils"
-import { Card } from "@/components/ui/card"
+import { cn } from "@/lib/utils"
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 interface AudioPlayerProps {
   audioUrl: string | null
   title?: string
+  subtitle?: string
   duration?: number | null
   loading?: boolean
   className?: string
   jobId?: string | null
+  variant?: "card" | "bar"
+  autoPlay?: boolean
+  onRegenerate?: () => void
 }
 
-export function AudioPlayer({ audioUrl, title, duration, loading, className, jobId }: AudioPlayerProps) {
+async function downloadAudio(url: string, filename: string) {
+  try {
+    const res = await fetch(url)
+    const blob = await res.blob()
+    const objectUrl = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = objectUrl
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(objectUrl)
+  } catch {
+    const a = document.createElement("a")
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }
+}
+
+export function AudioPlayer({
+  audioUrl,
+  title,
+  subtitle,
+  duration,
+  loading,
+  className,
+  jobId,
+  variant = "card",
+  autoPlay = false,
+  onRegenerate,
+}: AudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [naturalDuration, setNaturalDuration] = useState(0)
@@ -39,11 +78,8 @@ export function AudioPlayer({ audioUrl, title, duration, loading, className, job
   const togglePlay = () => {
     const el = audioRef.current
     if (!el || !audioUrl) return
-    if (isPlaying) {
-      el.pause()
-    } else {
-      el.play()
-    }
+    if (isPlaying) el.pause()
+    else el.play()
   }
 
   const handleSeek = (time: number) => {
@@ -53,128 +89,159 @@ export function AudioPlayer({ audioUrl, title, duration, loading, className, job
     setCurrentTime(time)
   }
 
-  const handleStop = () => {
-    const el = audioRef.current
-    if (!el) return
-    el.pause()
-    el.currentTime = 0
-    setIsPlaying(false)
+  const wavUrl = audioUrl
+  const mp3Url = jobId
+    ? `${API_URL}/jobs/${jobId}/audio/mp3`
+    : audioUrl
+      ? `${API_URL}/convert/mp3/${audioUrl.split("/").pop()}`
+      : ""
+
+  const downloadMenu = wavUrl ? (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" title="Download">
+          <Download className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => downloadAudio(wavUrl, `omnivoice-${jobId || "output"}.wav`)}>
+          Download WAV
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => downloadAudio(mp3Url, `omnivoice-${jobId || "output"}.mp3`)}>
+          Download MP3
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  ) : null
+
+  const mediaEl = audioUrl ? (
+    <audio
+      ref={audioRef}
+      src={audioUrl}
+      autoPlay={autoPlay}
+      onLoadedMetadata={() => {
+        if (audioRef.current) setNaturalDuration(audioRef.current.duration)
+      }}
+      onTimeUpdate={() => {
+        if (audioRef.current) setCurrentTime(audioRef.current.currentTime)
+      }}
+      onPlay={() => setIsPlaying(true)}
+      onPause={() => setIsPlaying(false)}
+      onEnded={() => setIsPlaying(false)}
+      className="hidden"
+    />
+  ) : null
+
+  // ── Bar variant — for the persistent bottom player ───────────────────────
+  if (variant === "bar") {
+    return (
+      <div className={cn("flex items-center gap-4 w-full", className)}>
+        <Button
+          variant="default"
+          size="icon"
+          className="h-10 w-10 rounded-full shrink-0"
+          onClick={togglePlay}
+          disabled={!audioUrl || loading}
+          title={isPlaying ? "Pause" : "Play"}
+        >
+          {loading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : isPlaying ? (
+            <Pause className="h-4 w-4" />
+          ) : (
+            <Play className="h-4 w-4" />
+          )}
+        </Button>
+
+        <div className="min-w-0 w-44 shrink-0">
+          <p className="text-card-title truncate">{title || "Output"}</p>
+          <p className="text-caption truncate">
+            {loading ? "Generating…" : subtitle || "Ready"}
+          </p>
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <WaveformDisplay
+            audioUrl={audioUrl}
+            isActive={isPlaying}
+            currentTime={currentTime}
+            duration={effectiveDuration}
+            onSeek={handleSeek}
+            className="h-10"
+          />
+        </div>
+
+        <span className="text-caption tabular-nums shrink-0 w-24 text-right">
+          {formatDuration(currentTime)} / {formatDuration(effectiveDuration || duration)}
+        </span>
+
+        <div className="flex items-center gap-1 shrink-0">
+          {onRegenerate && (
+            <Button variant="ghost" size="icon" onClick={onRegenerate} title="Regenerate" disabled={loading}>
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          )}
+          {downloadMenu}
+        </div>
+        {mediaEl}
+      </div>
+    )
   }
 
-  const downloadAudio = async (url: string, filename: string) => {
-    try {
-      const res = await fetch(url)
-      const blob = await res.blob()
-      const objectUrl = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = objectUrl
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(objectUrl)
-    } catch {
-      const a = document.createElement("a")
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-    }
-  }
-
+  // ── Card variant — previews, drawer, etc. ────────────────────────────────
   if (loading) {
     return (
-      <Card className={`p-6 flex items-center justify-center ${className || ""}`}>
+      <div className={cn("rounded-xl border bg-surface p-6 flex items-center justify-center", className)}>
         <div className="flex flex-col items-center gap-2 text-muted-foreground">
-          <Loader2 className="h-8 w-8 animate-spin" />
-          <span className="text-sm">Generating audio...</span>
+          <Loader2 className="h-7 w-7 animate-spin" />
+          <span className="text-sm">Generating audio…</span>
         </div>
-      </Card>
+      </div>
     )
   }
 
   if (!audioUrl) {
     return (
-      <Card className={`p-6 flex items-center justify-center ${className || ""}`}>
+      <div className={cn("rounded-xl border border-dashed bg-surface p-6 flex items-center justify-center", className)}>
         <div className="flex flex-col items-center gap-2 text-muted-foreground">
-          <div className="h-8 w-8 rounded-full border-2 border-dashed border-muted-foreground/40 flex items-center justify-center">
+          <div className="h-9 w-9 rounded-full border-2 border-dashed border-muted-foreground/40 flex items-center justify-center">
             <Play className="h-4 w-4" />
           </div>
-          <span className="text-sm">No audio generated yet</span>
+          <span className="text-sm">No audio yet</span>
         </div>
-      </Card>
+      </div>
     )
   }
 
   return (
-    <Card className={`p-4 ${className || ""}`}>
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="text-sm font-medium">{title || "Generated Audio"}</h4>
-            <p className="text-xs text-muted-foreground tabular-nums">
-              {formatDuration(currentTime)} / {formatDuration(effectiveDuration || duration)}
-            </p>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" onClick={togglePlay}>
-              {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-            </Button>
-            <Button variant="ghost" size="icon" onClick={handleStop}>
-              <Square className="h-4 w-4" />
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Download className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => downloadAudio(audioUrl, `omnivoice-${jobId || "output"}.wav`)}>
-                  Download WAV
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-                    let mp3Url: string
-                    if (jobId) {
-                      mp3Url = `${apiUrl}/jobs/${jobId}/audio/mp3`
-                    } else {
-                      const filename = audioUrl.split("/").pop()
-                      mp3Url = `${apiUrl}/convert/mp3/${filename}`
-                    }
-                    downloadAudio(mp3Url, `omnivoice-${jobId || "output"}.mp3`)
-                  }}
-                >
-                  Download MP3
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+    <div className={cn("rounded-xl border bg-surface p-4 space-y-3", className)}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-card-title truncate">{title || "Generated Audio"}</p>
+          <p className="text-caption tabular-nums">
+            {formatDuration(currentTime)} / {formatDuration(effectiveDuration || duration)}
+          </p>
         </div>
-        <WaveformDisplay
-          audioUrl={audioUrl}
-          isActive={isPlaying}
-          currentTime={currentTime}
-          duration={effectiveDuration || duration || 0}
-          onSeek={handleSeek}
-        />
-        <audio
-          ref={audioRef}
-          src={audioUrl}
-          onLoadedMetadata={() => {
-            if (audioRef.current) setNaturalDuration(audioRef.current.duration)
-          }}
-          onTimeUpdate={() => {
-            if (audioRef.current) setCurrentTime(audioRef.current.currentTime)
-          }}
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          onEnded={() => setIsPlaying(false)}
-          className="hidden"
-        />
+        <div className="flex items-center gap-1 shrink-0">
+          <Button variant="ghost" size="icon" onClick={togglePlay} title={isPlaying ? "Pause" : "Play"}>
+            {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+          </Button>
+          {onRegenerate && (
+            <Button variant="ghost" size="icon" onClick={onRegenerate} title="Regenerate">
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          )}
+          {downloadMenu}
+        </div>
       </div>
-    </Card>
+      <WaveformDisplay
+        audioUrl={audioUrl}
+        isActive={isPlaying}
+        currentTime={currentTime}
+        duration={effectiveDuration || duration || 0}
+        onSeek={handleSeek}
+      />
+      {mediaEl}
+    </div>
   )
 }

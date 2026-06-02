@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import type { VoiceProfile, JobStatus, GenerationSettings, VoiceGenerationDefaults } from "@/types"
+import type { VoiceProfile, JobStatus, GenerationSettings, VoiceGenerationDefaults, GenerationRequest } from "@/types"
 
 // The application's built-in defaults — used when no voice profile is selected
 // or when the selected profile has no saved generation_defaults.
@@ -30,6 +30,15 @@ interface UploadedAudio {
   duration: number | null
 }
 
+// The audio currently loaded into the persistent bottom player.
+export interface CurrentAudio {
+  url: string
+  duration: number | null
+  jobId: string | null
+  title: string
+  subtitle?: string
+}
+
 interface AppState {
   selectedProfile: VoiceProfile | null
   uploadedAudio: UploadedAudio | null
@@ -42,8 +51,18 @@ interface AppState {
   // null means no profile is selected (or the profile has no saved defaults).
   activeVoiceDefaults: VoiceGenerationDefaults | null
   voices: VoiceProfile[]
+  // Persistent bottom-player audio + the text bound to the TTS canvas (lifted
+  // into the store so History "Regenerate" can prefill it across routes).
+  currentAudio: CurrentAudio | null
+  ttsText: string
+  // The most recent generation request — enables one-click "Regenerate" from
+  // the persistent bottom player regardless of the current route.
+  lastRequest: GenerationRequest | null
 
   setSelectedProfile: (profile: VoiceProfile | null) => void
+  setCurrentAudio: (audio: CurrentAudio | null) => void
+  setTtsText: (text: string) => void
+  setLastRequest: (req: GenerationRequest | null) => void
   setUploadedAudio: (audio: UploadedAudio | null) => void
   setRecordedAudio: (audio: UploadedAudio | null) => void
   setActiveJob: (jobId: string | null, status?: JobStatus | null) => void
@@ -71,6 +90,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   useGpu: SYSTEM_DEFAULTS.use_gpu,
   activeVoiceDefaults: null,
   voices: [],
+  currentAudio: null,
+  ttsText: "",
+  lastRequest: null,
+
+  setCurrentAudio: (audio) => set({ currentAudio: audio }),
+  setTtsText: (text) => set({ ttsText: text }),
+  setLastRequest: (req) => set({ lastRequest: req }),
 
   setSelectedProfile: (profile) => {
     if (!profile) {
