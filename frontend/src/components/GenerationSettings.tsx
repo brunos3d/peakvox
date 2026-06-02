@@ -1,13 +1,22 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useRef } from "react"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Button } from "@/components/ui/button"
-import { RotateCcw, Save, CheckCircle } from "lucide-react"
-import { GenerationSettingsFields } from "@/components/GenerationSettingsFields"
-import { useAppStore, SYSTEM_DEFAULTS } from "@/store/use-store"
-import { saveVoiceGenerationDefaults, fetchDeviceSettings, updateDeviceSettings } from "@/lib/api"
-import type { VoiceGenerationDefaults } from "@/types"
+import { useState, useEffect, useRef } from "react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Button } from "@/components/ui/button";
+import { RotateCcw, Save, CheckCircle } from "lucide-react";
+import { GenerationSettingsFields } from "@/components/GenerationSettingsFields";
+import { useAppStore, SYSTEM_DEFAULTS } from "@/store/use-store";
+import {
+  saveVoiceGenerationDefaults,
+  fetchDeviceSettings,
+  updateDeviceSettings,
+} from "@/lib/api";
+import type { VoiceGenerationDefaults } from "@/types";
 
 function settingsEqual(
   a: VoiceGenerationDefaults,
@@ -21,24 +30,26 @@ function settingsEqual(
     Math.abs(a.t_shift - b.t_shift) < 0.001 &&
     a.denoise === b.denoise &&
     a.use_gpu === b.use_gpu
-  )
+  );
 }
 
 export function GenerationSettings() {
-  const generationSettings = useAppStore((s) => s.generationSettings)
-  const useGpu = useAppStore((s) => s.useGpu)
-  const updateGenerationSettings = useAppStore((s) => s.updateGenerationSettings)
-  const setUseGpu = useAppStore((s) => s.setUseGpu)
-  const activeVoiceDefaults = useAppStore((s) => s.activeVoiceDefaults)
-  const selectedProfile = useAppStore((s) => s.selectedProfile)
-  const setActiveVoiceDefaults = useAppStore((s) => s.setActiveVoiceDefaults)
-  const resetSettings = useAppStore((s) => s.resetSettings)
-  const updateVoice = useAppStore((s) => s.updateVoice)
+  const generationSettings = useAppStore((s) => s.generationSettings);
+  const useGpu = useAppStore((s) => s.useGpu);
+  const updateGenerationSettings = useAppStore(
+    (s) => s.updateGenerationSettings,
+  );
+  const setUseGpu = useAppStore((s) => s.setUseGpu);
+  const activeVoiceDefaults = useAppStore((s) => s.activeVoiceDefaults);
+  const selectedProfile = useAppStore((s) => s.selectedProfile);
+  const setActiveVoiceDefaults = useAppStore((s) => s.setActiveVoiceDefaults);
+  const resetSettings = useAppStore((s) => s.resetSettings);
+  const updateVoice = useAppStore((s) => s.updateVoice);
 
-  const [cudaAvailable, setCudaAvailable] = useState(false)
-  const [gpuLoading, setGpuLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [saveSuccess, setSaveSuccess] = useState(false)
+  const [cudaAvailable, setCudaAvailable] = useState(false);
+  const [gpuLoading, setGpuLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Fetch server GPU state on mount and sync into store
   useEffect(() => {
@@ -47,35 +58,35 @@ export function GenerationSettings() {
         // Only update if no voice-profile defaults have already been loaded;
         // that way a freshly-selected voice always wins over the server state.
         if (!useAppStore.getState().activeVoiceDefaults) {
-          setUseGpu(res.use_gpu)
+          setUseGpu(res.use_gpu);
         }
-        setCudaAvailable(res.cuda_available)
+        setCudaAvailable(res.cuda_available);
       })
       .catch(() => {})
-      .finally(() => setGpuLoading(false))
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+      .finally(() => setGpuLoading(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // When the selected profile changes, sync use_gpu to the server so the
   // backend immediately reflects the loaded voice's GPU preference.
-  const prevProfileIdRef = useRef<string | undefined>(undefined)
+  const prevProfileIdRef = useRef<string | undefined>(undefined);
   useEffect(() => {
-    const currentId = selectedProfile?.id
+    const currentId = selectedProfile?.id;
     if (currentId !== prevProfileIdRef.current) {
-      prevProfileIdRef.current = currentId
+      prevProfileIdRef.current = currentId;
       if (activeVoiceDefaults !== null) {
-        updateDeviceSettings(activeVoiceDefaults.use_gpu).catch(() => {})
+        updateDeviceSettings(activeVoiceDefaults.use_gpu).catch(() => {});
       }
     }
-  }, [selectedProfile?.id, activeVoiceDefaults])
+  }, [selectedProfile?.id, activeVoiceDefaults]);
 
   // Build the combined current state for comparison
   const current: VoiceGenerationDefaults = {
     ...generationSettings,
     use_gpu: useGpu,
-  }
+  };
 
-  const reference = activeVoiceDefaults ?? SYSTEM_DEFAULTS
-  const isDirty = !settingsEqual(current, reference)
+  const reference = activeVoiceDefaults ?? SYSTEM_DEFAULTS;
+  const isDirty = !settingsEqual(current, reference);
 
   const handleFieldChange = (next: VoiceGenerationDefaults) => {
     updateGenerationSettings({
@@ -85,29 +96,34 @@ export function GenerationSettings() {
       duration: next.duration,
       t_shift: next.t_shift,
       denoise: next.denoise,
-    })
+    });
     if (next.use_gpu !== useGpu) {
-      setUseGpu(next.use_gpu)
-      updateDeviceSettings(next.use_gpu).catch(() => {})
+      setUseGpu(next.use_gpu);
+      updateDeviceSettings(next.use_gpu).catch(() => {});
     }
-  }
+  };
 
   const handleSave = async () => {
-    if (!selectedProfile || !isDirty) return
-    setSaving(true)
+    if (!selectedProfile || !isDirty) return;
+    setSaving(true);
     try {
-      const updated = await saveVoiceGenerationDefaults(selectedProfile.id, current)
+      const updated = await saveVoiceGenerationDefaults(
+        selectedProfile.id,
+        current,
+      );
       // Sync the store so the dirty indicator clears
-      setActiveVoiceDefaults(current)
-      updateVoice(selectedProfile.id, { generation_defaults: updated.generation_defaults })
-      setSaveSuccess(true)
-      setTimeout(() => setSaveSuccess(false), 2500)
+      setActiveVoiceDefaults(current);
+      updateVoice(selectedProfile.id, {
+        generation_defaults: updated.generation_defaults,
+      });
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2500);
     } catch {
       // Silently fail — the button state remains dirty
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   const triggerLabel = (
     <span className="flex items-center gap-2">
@@ -123,18 +139,20 @@ export function GenerationSettings() {
         </span>
       )}
     </span>
-  )
+  );
 
   return (
     <Accordion type="single" collapsible className="w-full">
       <AccordionItem value="settings">
         <AccordionTrigger className="text-sm">{triggerLabel}</AccordionTrigger>
-        <AccordionContent>
+        <AccordionContent className="px-2">
           <div className="space-y-4 pt-2">
             {selectedProfile && activeVoiceDefaults && !isDirty && (
               <p className="text-[11px] text-muted-foreground">
                 Using defaults from{" "}
-                <span className="font-medium text-foreground">{selectedProfile.name}</span>
+                <span className="font-medium text-foreground">
+                  {selectedProfile.name}
+                </span>
               </p>
             )}
 
@@ -184,5 +202,5 @@ export function GenerationSettings() {
         </AccordionContent>
       </AccordionItem>
     </Accordion>
-  )
+  );
 }
