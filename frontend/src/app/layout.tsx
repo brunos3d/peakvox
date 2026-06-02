@@ -1,12 +1,13 @@
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { Providers } from "@/components/Providers"
+import { AppShell } from "@/components/shell/AppShell"
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "OmniVoice Platform",
+  title: "OmniVoice",
   description: "Voice Cloning and Text-to-Speech Platform powered by OmniVoice",
 }
 
@@ -18,7 +19,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={inter.className}>
-        <Providers>{children}</Providers>
+        <Providers>
+          <AppShell>{children}</AppShell>
+        </Providers>
       </body>
     </html>
   )

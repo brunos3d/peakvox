@@ -3,10 +3,10 @@
 import { PageLayout } from "@/components/shell/PageLayout"
 import { PageHeader } from "@/components/shell/PageHeader"
 
-export default function TextToSpeechPage() {
+export default function VoiceLibraryPage() {
   return (
     <PageLayout>
-      <PageHeader title="Text to Speech" description="Generate speech from text using your cloned voices." />
+      <PageHeader title="Voice Library" description="Browse, preview and manage your voices." />
       <p className="mt-8 text-sm text-muted-foreground">Coming up next.</p>
     </PageLayout>
   )
