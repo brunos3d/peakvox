@@ -11,6 +11,7 @@ export const SYSTEM_DEFAULTS: VoiceGenerationDefaults = {
   t_shift: 0.1,
   denoise: true,
   use_gpu: true,
+  voice_design: [],
 }
 
 function defaultsToSettings(d: VoiceGenerationDefaults): GenerationSettings {
@@ -46,6 +47,10 @@ interface AppState {
   activeJobId: string | null
   activeJobStatus: JobStatus | null
   generationSettings: GenerationSettings
+  // Structured Voice Design attributes for the next generation. Loaded from the
+  // selected profile's defaults and editable per-generation; the flat OmniVoice
+  // `instruct` string is derived from this at submit time.
+  voiceDesign: string[]
   useGpu: boolean
   // The defaults that were loaded when the current profile was selected.
   // null means no profile is selected (or the profile has no saved defaults).
@@ -70,6 +75,7 @@ interface AppState {
   setRecordedAudio: (audio: UploadedAudio | null) => void
   setActiveJob: (jobId: string | null, status?: JobStatus | null) => void
   setActiveJobStatus: (status: JobStatus | null) => void
+  setVoiceDesign: (values: string[]) => void
   updateGenerationSettings: (settings: Partial<GenerationSettings>) => void
   setUseGpu: (value: boolean) => void
   // Called after a successful "Save to Voice Profile" to sync the reference point.
@@ -90,6 +96,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeJobId: null,
   activeJobStatus: null,
   generationSettings: defaultsToSettings(SYSTEM_DEFAULTS),
+  voiceDesign: SYSTEM_DEFAULTS.voice_design,
   useGpu: SYSTEM_DEFAULTS.use_gpu,
   activeVoiceDefaults: null,
   voices: [],
@@ -115,6 +122,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         recordedAudio: null,
         activeVoiceDefaults: null,
         generationSettings: defaultsToSettings(SYSTEM_DEFAULTS),
+        voiceDesign: SYSTEM_DEFAULTS.voice_design,
         useGpu: SYSTEM_DEFAULTS.use_gpu,
       })
       return
@@ -128,6 +136,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         recordedAudio: null,
         activeVoiceDefaults: defaults,
         generationSettings: defaultsToSettings(defaults),
+        voiceDesign: defaults.voice_design ?? [],
         useGpu: defaults.use_gpu,
       })
     } else {
@@ -138,6 +147,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         recordedAudio: null,
         activeVoiceDefaults: null,
         generationSettings: defaultsToSettings(SYSTEM_DEFAULTS),
+        voiceDesign: SYSTEM_DEFAULTS.voice_design,
         useGpu: SYSTEM_DEFAULTS.use_gpu,
       })
     }
@@ -147,6 +157,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setRecordedAudio: (audio) => set({ recordedAudio: audio, selectedProfile: null }),
   setActiveJob: (jobId, status) => set({ activeJobId: jobId, activeJobStatus: status ?? null }),
   setActiveJobStatus: (status) => set({ activeJobStatus: status }),
+  setVoiceDesign: (values) => set({ voiceDesign: values }),
 
   updateGenerationSettings: (settings) =>
     set((state) => ({ generationSettings: { ...state.generationSettings, ...settings } })),
@@ -159,6 +170,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const ref = get().activeVoiceDefaults ?? SYSTEM_DEFAULTS
     set({
       generationSettings: defaultsToSettings(ref),
+      voiceDesign: ref.voice_design ?? [],
       useGpu: ref.use_gpu,
     })
   },

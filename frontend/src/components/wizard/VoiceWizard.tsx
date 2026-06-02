@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { VoiceProfileAudioInput, type AudioInputResult } from "@/components/VoiceProfileAudioInput"
 import { GenerationSettingsFields } from "@/components/GenerationSettingsFields"
+import { VoiceDesignBuilder } from "@/components/generation/VoiceDesignBuilder"
 import { createVoice } from "@/lib/api"
 import { useAppStore, SYSTEM_DEFAULTS } from "@/store/use-store"
 import { formatDuration, cn } from "@/lib/utils"
@@ -146,6 +147,13 @@ export function VoiceWizard() {
               <h2 className="text-section-title">Generation defaults</h2>
               <p className="text-caption mt-0.5">Optional — these become the preset loaded whenever this voice is selected.</p>
             </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Voice design <span className="font-normal text-muted-foreground">(optional)</span></Label>
+              <VoiceDesignBuilder
+                value={settings.voice_design}
+                onChange={(voice_design) => setSettings((s) => ({ ...s, voice_design }))}
+              />
+            </div>
             <GenerationSettingsFields value={settings} onChange={setSettings} />
           </div>
         )}
@@ -162,6 +170,7 @@ export function VoiceWizard() {
                 ["Language", language],
                 ["Sample", audio ? `${audio.file.name} · ${formatDuration(audio.cropEnd - audio.cropStart)}` : "—"],
                 ["Transcript", transcript ? `${transcript.slice(0, 40)}${transcript.length > 40 ? "…" : ""}` : "—"],
+                ["Voice design", settings.voice_design.length ? settings.voice_design.join(", ") : "—"],
                 ["Steps / Guidance", `${settings.num_step} / ${settings.guidance_scale.toFixed(1)}`],
                 ["GPU", settings.use_gpu ? "On" : "Off"],
               ].map(([k, v]) => (
