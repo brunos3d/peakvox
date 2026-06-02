@@ -153,7 +153,7 @@ export function AudioPlayer({
           )}
         </Button>
 
-        <div className="min-w-0 w-44 shrink-0">
+        <div className="hidden min-w-0 w-44 shrink-0 sm:block">
           <p className="text-card-title truncate">{title || "Output"}</p>
           <p className="text-caption truncate">
             {loading ? "Generating…" : subtitle || "Ready"}
@@ -171,7 +171,7 @@ export function AudioPlayer({
           />
         </div>
 
-        <span className="text-caption tabular-nums shrink-0 w-24 text-right">
+        <span className="hidden w-24 shrink-0 text-right text-caption tabular-nums md:inline">
           {formatDuration(currentTime)} / {formatDuration(effectiveDuration || duration)}
         </span>
 
