@@ -77,6 +77,23 @@ export async function fetchJob(jobId: string): Promise<JobResponse> {
   return request<JobResponse>(`/jobs/${jobId}`)
 }
 
+export async function fetchJobs(params?: {
+  limit?: number
+  offset?: number
+  status?: string
+}): Promise<JobResponse[]> {
+  const qs = new URLSearchParams()
+  if (params?.limit != null) qs.set("limit", String(params.limit))
+  if (params?.offset != null) qs.set("offset", String(params.offset))
+  if (params?.status) qs.set("status", params.status)
+  const suffix = qs.toString() ? `?${qs.toString()}` : ""
+  return request<JobResponse[]>(`/jobs${suffix}`)
+}
+
+export async function deleteJob(jobId: string): Promise<void> {
+  await request<void>(`/jobs/${jobId}`, { method: "DELETE" })
+}
+
 export function getJobAudioUrl(jobId: string): string {
   return `${API_URL}/jobs/${jobId}/audio`
 }
