@@ -58,11 +58,14 @@ interface AppState {
   // The most recent generation request — enables one-click "Regenerate" from
   // the persistent bottom player regardless of the current route.
   lastRequest: GenerationRequest | null
+  // Preferred download format (client-side preference).
+  outputFormat: "wav" | "mp3"
 
   setSelectedProfile: (profile: VoiceProfile | null) => void
   setCurrentAudio: (audio: CurrentAudio | null) => void
   setTtsText: (text: string) => void
   setLastRequest: (req: GenerationRequest | null) => void
+  setOutputFormat: (format: "wav" | "mp3") => void
   setUploadedAudio: (audio: UploadedAudio | null) => void
   setRecordedAudio: (audio: UploadedAudio | null) => void
   setActiveJob: (jobId: string | null, status?: JobStatus | null) => void
@@ -93,10 +96,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   currentAudio: null,
   ttsText: "",
   lastRequest: null,
+  outputFormat: "wav",
 
   setCurrentAudio: (audio) => set({ currentAudio: audio }),
   setTtsText: (text) => set({ ttsText: text }),
   setLastRequest: (req) => set({ lastRequest: req }),
+  setOutputFormat: (format) => set({ outputFormat: format }),
 
   setSelectedProfile: (profile) => {
     if (!profile) {
