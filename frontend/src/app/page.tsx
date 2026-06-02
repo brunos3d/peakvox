@@ -19,7 +19,8 @@ import {
 } from "@/components/ui/select";
 import { useAppStore } from "@/store/use-store";
 import { useSubmitGeneration, useModelStatus } from "@/hooks/use-generation";
-import { Input } from "@/components/ui/input";
+import { VoiceDesignBuilder } from "@/components/generation/VoiceDesignBuilder";
+import { buildInstruct } from "@/config/voice-design";
 
 const LANGUAGES = [
   "Auto",
@@ -31,24 +32,16 @@ const LANGUAGES = [
   "Chinese",
   "Japanese",
 ];
-const STYLE_EXAMPLES = [
-  "male",
-  "female",
-  "british accent",
-  "young adult",
-  "high pitch, whisper",
-  "low pitch, elderly",
-];
-
 export default function TextToSpeechPage() {
   const text = useAppStore((s) => s.ttsText);
   const setText = useAppStore((s) => s.setTtsText);
   const selectedProfile = useAppStore((s) => s.selectedProfile);
   const generationSettings = useAppStore((s) => s.generationSettings);
+  const voiceDesign = useAppStore((s) => s.voiceDesign);
+  const setVoiceDesign = useAppStore((s) => s.setVoiceDesign);
   const activeJobId = useAppStore((s) => s.activeJobId);
 
   const [language, setLanguage] = useState("Auto");
-  const [instruct, setInstruct] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const showPrompts = text.length === 0;
@@ -68,7 +61,7 @@ export default function TextToSpeechPage() {
       voice_profile_id: selectedProfile?.id ?? null,
       language: language === "Auto" ? null : language,
       ref_text: selectedProfile?.transcript || null,
-      instruct: instruct || null,
+      instruct: voiceDesign.length ? buildInstruct(voiceDesign) : null,
       ...generationSettings,
     });
   };
@@ -141,8 +134,8 @@ export default function TextToSpeechPage() {
             </div>
           </div>
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
+          <div className="mt-6 space-y-4">
+            <div className="space-y-2 sm:max-w-xs">
               <Label className="text-xs">Language</Label>
               <Select value={language} onValueChange={setLanguage}>
                 <SelectTrigger>
@@ -158,26 +151,12 @@ export default function TextToSpeechPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label className="text-xs">Style prompt (optional)</Label>
-              <Input
-                value={instruct}
-                onChange={(e) => setInstruct(e.target.value)}
-                placeholder={STYLE_EXAMPLES[0]}
-                className="resize-none text-sm"
-              />
+              <Label className="text-xs">
+                Voice design{" "}
+                <span className="font-normal text-muted-foreground">(optional)</span>
+              </Label>
+              <VoiceDesignBuilder value={voiceDesign} onChange={setVoiceDesign} />
             </div>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-1">
-            {STYLE_EXAMPLES.map((ex) => (
-              <button
-                key={ex}
-                type="button"
-                onClick={() => setInstruct(ex)}
-                className="rounded-md bg-surface-2 px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-              >
-                {ex}
-              </button>
-            ))}
           </div>
 
           {generate.isError && (

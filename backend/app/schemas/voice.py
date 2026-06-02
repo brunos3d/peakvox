@@ -11,6 +11,9 @@ class VoiceGenerationDefaults(BaseModel):
     t_shift: float = 0.1
     denoise: bool = True
     use_gpu: bool = True
+    # Structured Voice Design attributes (one per category). Old profiles whose
+    # stored JSON lacks this field stay valid via the empty-list default.
+    voice_design: list[str] = []
 
 
 class VoiceProfileCreate(BaseModel):

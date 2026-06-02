@@ -6,6 +6,9 @@ export interface VoiceGenerationDefaults {
   t_shift: number
   denoise: boolean
   use_gpu: boolean
+  // Structured Voice Design attributes (one per category). The flat OmniVoice
+  // `instruct` string is derived from this at generation time.
+  voice_design: string[]
 }
 
 export interface VoiceProfile {

@@ -29,12 +29,15 @@ function settingsEqual(
     a.duration === b.duration &&
     Math.abs(a.t_shift - b.t_shift) < 0.001 &&
     a.denoise === b.denoise &&
-    a.use_gpu === b.use_gpu
+    a.use_gpu === b.use_gpu &&
+    a.voice_design.length === b.voice_design.length &&
+    a.voice_design.every((v, i) => v === b.voice_design[i])
   );
 }
 
 export function GenerationSettings() {
   const generationSettings = useAppStore((s) => s.generationSettings);
+  const voiceDesign = useAppStore((s) => s.voiceDesign);
   const useGpu = useAppStore((s) => s.useGpu);
   const updateGenerationSettings = useAppStore(
     (s) => s.updateGenerationSettings,
@@ -79,9 +82,12 @@ export function GenerationSettings() {
     }
   }, [selectedProfile?.id, activeVoiceDefaults]);
 
-  // Build the combined current state for comparison
+  // Build the combined current state for comparison. voice_design is edited via
+  // the builder on the TTS canvas; folding it in here keeps the dirty indicator
+  // and "Save to Voice Profile" in sync with the canvas selection.
   const current: VoiceGenerationDefaults = {
     ...generationSettings,
+    voice_design: voiceDesign,
     use_gpu: useGpu,
   };
 

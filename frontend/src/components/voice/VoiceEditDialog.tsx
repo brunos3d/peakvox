@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { VoiceProfileAudioInput, type AudioInputResult } from "@/components/VoiceProfileAudioInput"
 import { GenerationSettingsFields } from "@/components/GenerationSettingsFields"
+import { VoiceDesignBuilder } from "@/components/generation/VoiceDesignBuilder"
 import { updateVoice as updateVoiceApi } from "@/lib/api"
 import { useAppStore, SYSTEM_DEFAULTS } from "@/store/use-store"
 import type { VoiceProfile, VoiceGenerationDefaults } from "@/types"
@@ -100,7 +101,14 @@ export function VoiceEditDialog({ voice, open, onOpenChange }: VoiceEditDialogPr
             <AccordionItem value="gen" className="border-none">
               <AccordionTrigger className="py-3 text-sm">Generation defaults</AccordionTrigger>
               <AccordionContent>
-                <div className="pb-2">
+                <div className="space-y-4 pb-2">
+                  <div className="space-y-2">
+                    <Label className="text-xs">Voice design <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                    <VoiceDesignBuilder
+                      value={settings.voice_design ?? []}
+                      onChange={(voice_design) => setSettings((s) => ({ ...s, voice_design }))}
+                    />
+                  </div>
                   <GenerationSettingsFields value={settings} onChange={setSettings} />
                 </div>
               </AccordionContent>
