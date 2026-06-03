@@ -5,7 +5,6 @@ import { KeyRound, Code2, BarChart3, ArrowRight } from "lucide-react"
 import { PageLayout } from "@/components/shell/PageLayout"
 import { PageHeader } from "@/components/shell/PageHeader"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { getApiBaseUrl } from "@/lib/api"
 
 const STEPS = [

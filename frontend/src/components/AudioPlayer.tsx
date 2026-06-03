@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef } from "react"
 import { Play, Pause, Download, Loader2, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -65,15 +65,19 @@ export function AudioPlayer({
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [naturalDuration, setNaturalDuration] = useState(0)
+  const [prevAudioUrl, setPrevAudioUrl] = useState(audioUrl)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
   const effectiveDuration = naturalDuration || duration || 0
 
-  useEffect(() => {
+  // Reset transient playback state when the source changes — adjusting state
+  // during render (React-recommended) rather than from an effect.
+  if (audioUrl !== prevAudioUrl) {
+    setPrevAudioUrl(audioUrl)
     setIsPlaying(false)
     setCurrentTime(0)
     setNaturalDuration(0)
-  }, [audioUrl])
+  }
 
   const togglePlay = () => {
     const el = audioRef.current

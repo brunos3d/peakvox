@@ -9,7 +9,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
 import { CodeTabs } from "@/components/api/CodeTabs"
 import { ttsExamples } from "@/lib/api-examples"
 
