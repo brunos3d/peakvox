@@ -28,7 +28,6 @@ export function PerformanceEditor({
 }: PerformanceEditorProps) {
   const isUpdatingFromOutside = useRef(false);
   const { getFiltered } = useTagMenuItems();
-  const hasContent = value.trim().length > 0;
 
   const editor = useEditor({
     extensions: [
