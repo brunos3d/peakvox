@@ -1,19 +1,29 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { PageLayout } from "@/components/shell/PageLayout";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { GenerationPanel } from "@/components/generation/GenerationPanel";
+import { QuickPrompts } from "@/components/generation/QuickPrompts";
 import { PerformanceEditor } from "@/editor/PerformanceEditor";
+import { getLanguageLabel } from "@/lib/languages";
 import { useAppStore } from "@/store/use-store";
 import { useModelStatus } from "@/hooks/use-generation";
 
 export default function TextToSpeechPage() {
   const text = useAppStore((s) => s.ttsText);
   const setText = useAppStore((s) => s.setTtsText);
+  const language = useAppStore((s) => s.ttsLanguage);
+
+  const showPrompts = text.length === 0;
 
   const { data: model } = useModelStatus();
   const modelReady = !!model?.loaded;
+
+  const insertPrompt = (prompt: string) => {
+    setText(prompt);
+  };
 
   return (
     <PageLayout contextPanel={<GenerationPanel />} contextTitle="Settings">
@@ -37,6 +47,24 @@ export default function TextToSpeechPage() {
             value={text}
             onChange={setText}
           />
+
+          <div
+            aria-hidden={!showPrompts}
+            className={cn(
+              "grid transition-all duration-200 ease-out",
+              showPrompts
+                ? "mt-4 grid-rows-[1fr] opacity-100"
+                : "pointer-events-none mt-0 grid-rows-[0fr] opacity-0",
+            )}
+          >
+            <div className="overflow-hidden">
+              <p className="text-caption mb-2">Quick prompts</p>
+              <QuickPrompts
+                language={getLanguageLabel(language)}
+                onSelect={insertPrompt}
+              />
+            </div>
+          </div>
         </div>
       </div>
     </PageLayout>

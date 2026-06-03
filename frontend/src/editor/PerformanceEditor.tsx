@@ -7,7 +7,10 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { EmotionTag } from "@/editor/extensions/EmotionTag";
 import { EmotionToolbar } from "@/editor/EmotionToolbar";
 import { serializeToOmniVoice } from "@/editor/serialize";
-import { TagSuggestionExtension, tagItemsRef } from "@/editor/extensions/tagSuggestionPlugin";
+import {
+  TagSuggestionExtension,
+  tagItemsRef,
+} from "@/editor/extensions/tagSuggestionPlugin";
 import { useTagMenuItems } from "@/editor/useTagMenuItems";
 
 interface PerformanceEditorProps {
@@ -25,14 +28,21 @@ export function PerformanceEditor({
 }: PerformanceEditorProps) {
   const isUpdatingFromOutside = useRef(false);
   const { getFiltered } = useTagMenuItems();
-  const hasContent = value.trim().length > 0;
 
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        bold: false, italic: false, strike: false, code: false,
-        heading: false, blockquote: false, codeBlock: false,
-        horizontalRule: false, listItem: false, bulletList: false, orderedList: false,
+        bold: false,
+        italic: false,
+        strike: false,
+        code: false,
+        heading: false,
+        blockquote: false,
+        codeBlock: false,
+        horizontalRule: false,
+        listItem: false,
+        bulletList: false,
+        orderedList: false,
       }),
       Placeholder.configure({ placeholder }),
       EmotionTag,
@@ -46,7 +56,9 @@ export function PerformanceEditor({
     },
     onUpdate: ({ editor: ed }) => {
       if (isUpdatingFromOutside.current) return;
-      const doc = ed.state.doc.toJSON() as Parameters<typeof serializeToOmniVoice>[0];
+      const doc = ed.state.doc.toJSON() as Parameters<
+        typeof serializeToOmniVoice
+      >[0];
       onChange(serializeToOmniVoice(doc));
     },
     immediatelyRender: false,
@@ -76,9 +88,7 @@ export function PerformanceEditor({
   return (
     <div className={className}>
       {/* Editor is the primary surface */}
-      <div className="rounded-xl border border-border bg-surface shadow-sm transition-shadow focus-within:shadow-md">
-        <EditorContent editor={editor} />
-      </div>
+      <EditorContent editor={editor} />
 
       {/* Character count + emotion toolbar live below the editor */}
       <div className="mt-3 flex items-center justify-between">
@@ -90,13 +100,6 @@ export function PerformanceEditor({
       {editor && (
         <div className="mt-3">
           <EmotionToolbar editor={editor} />
-        </div>
-      )}
-
-      {!hasContent && (
-        <div className="mt-4 text-xs leading-relaxed text-muted-foreground/60">
-          Type naturally. Use <kbd className="rounded border border-border bg-surface px-1 font-mono text-[11px]">/</kbd> or{" "}
-          <kbd className="rounded border border-border bg-surface px-1 font-mono text-[11px]">[</kbd> to insert reactions and emotions.
         </div>
       )}
     </div>
