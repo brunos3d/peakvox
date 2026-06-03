@@ -8,6 +8,12 @@ class Settings(BaseSettings):
     APP_NAME: str = "OmniVoice Platform"
     DEBUG: bool = False
 
+    # Deployment edition. "community" (default) is fully self-hosted and
+    # authentication-free. "cloud" / "enterprise" are reserved for future editions and
+    # only change which identity/billing/tenancy extensions are wired in — never the
+    # core schema. See docs/SAAS_ARCHITECTURE.md.
+    EDITION: str = "community"
+
     # Single implicit local owner for the self-hosted Community Edition. The schema is
     # SaaS-ready (every resource carries owner_id), but no authentication exists yet —
     # all resources belong to this seeded system user. Real auth can later add user
