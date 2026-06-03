@@ -1,11 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { Pencil, Trash2, Wand2, Copy, Check } from "lucide-react"
+import { Pencil, Trash2, Wand2, Copy, Check, Code2 } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { AudioPlayer } from "@/components/AudioPlayer"
+import { UseInApiDialog } from "@/components/api/UseInApiDialog"
 import { getVoiceAudioUrl } from "@/lib/api"
 import { formatDuration } from "@/lib/utils"
 import type { VoiceProfile } from "@/types"
@@ -39,6 +40,7 @@ const CHARACTERISTIC_LABELS: Record<string, string> = {
 
 export function VoiceDetailsDrawer({ voice, open, onOpenChange, onUse, onEdit, onDelete }: VoiceDetailsDrawerProps) {
   const [copied, setCopied] = useState(false)
+  const [apiOpen, setApiOpen] = useState(false)
 
   const copyId = () => {
     if (!voice) return
@@ -49,6 +51,7 @@ export function VoiceDetailsDrawer({ voice, open, onOpenChange, onUse, onEdit, o
   }
 
   return (
+    <>
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-md p-0">
         {voice && (
@@ -158,6 +161,9 @@ export function VoiceDetailsDrawer({ voice, open, onOpenChange, onUse, onEdit, o
                   <Wand2 className="h-4 w-4" /> Use voice
                 </Button>
               )}
+              <Button variant="outline" size="icon" onClick={() => setApiOpen(true)} title="Use in API">
+                <Code2 className="h-4 w-4" />
+              </Button>
               {onEdit && (
                 <Button variant="outline" size="icon" onClick={() => onEdit(voice)} title="Edit">
                   <Pencil className="h-4 w-4" />
@@ -173,5 +179,9 @@ export function VoiceDetailsDrawer({ voice, open, onOpenChange, onUse, onEdit, o
         )}
       </SheetContent>
     </Sheet>
+    {voice && (
+      <UseInApiDialog voiceId={voice.public_voice_id} open={apiOpen} onOpenChange={setApiOpen} />
+    )}
+    </>
   )
 }

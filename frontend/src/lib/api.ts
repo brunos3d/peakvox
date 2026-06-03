@@ -4,12 +4,19 @@ import type {
   VoiceListPage,
   VoiceScope,
   VoiceQueryFilters,
+  ApiKey,
+  ApiKeyCreateResponse,
   GenerationRequest,
   JobResponse,
   ModelStatus,
 } from "@/types"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+
+/** Base URL of the OmniVoice backend — used to render API examples. */
+export function getApiBaseUrl(): string {
+  return API_URL
+}
 
 class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -102,6 +109,23 @@ export async function saveVoiceGenerationDefaults(
 
 export function getVoiceAudioUrl(id: string): string {
   return `${API_URL}/voices/${id}/audio`
+}
+
+// ── API keys (internal dashboard) ────────────────────────────────────────────
+export async function fetchApiKeys(): Promise<ApiKey[]> {
+  return request<ApiKey[]>("/api-keys")
+}
+
+export async function createApiKey(name: string): Promise<ApiKeyCreateResponse> {
+  return request<ApiKeyCreateResponse>("/api-keys", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  })
+}
+
+export async function deleteApiKey(id: string): Promise<ApiKey> {
+  return request<ApiKey>(`/api-keys/${id}`, { method: "DELETE" })
 }
 
 export async function submitGeneration(data: GenerationRequest): Promise<{ job_id: string }> {

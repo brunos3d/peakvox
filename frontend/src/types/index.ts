@@ -55,6 +55,20 @@ export interface VoiceProfile {
   last_used_at: string | null
 }
 
+export interface ApiKey {
+  id: string
+  name: string
+  prefix: string
+  status: string
+  created_at: string
+  last_used_at: string | null
+}
+
+/** Returned only at creation — carries the raw key exactly once. */
+export interface ApiKeyCreateResponse extends ApiKey {
+  key: string
+}
+
 export type VoiceScope = "mine" | "community" | "preset" | "recent"
 
 export interface VoiceQueryFilters {

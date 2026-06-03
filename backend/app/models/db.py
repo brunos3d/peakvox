@@ -32,6 +32,28 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
+class ApiKey(Base):
+    """A hashed API key for the public REST API (`/api/v1`).
+
+    The raw key (``ov_live_…``) is shown to the caller exactly once at creation and
+    never stored — only its sha256 hash and a short display prefix. Keys belong to the
+    local owner today, but ``owner_id`` keeps the schema multi-tenant ready."""
+
+    __tablename__ = "api_keys"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Display-only prefix, e.g. "ov_live_1a2b3c4d" — safe to show in the dashboard.
+    prefix: Mapped[str] = mapped_column(String(32), index=True, nullable=False)
+    secret_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
+    owner_id: Mapped[str] = mapped_column(
+        String(36), index=True, default=lambda: settings.LOCAL_OWNER_ID
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class VoiceProfile(Base):
     __tablename__ = "voice_profiles"
 
