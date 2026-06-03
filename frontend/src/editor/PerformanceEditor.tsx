@@ -6,6 +6,8 @@ import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { EmotionTag } from "@/editor/extensions/EmotionTag";
 import { serializeToOmniVoice } from "@/editor/serialize";
+import { TagSuggestionExtension, tagItemsRef } from "@/editor/extensions/tagSuggestionPlugin";
+import { useTagMenuItems } from "@/editor/useTagMenuItems";
 
 interface PerformanceEditorProps {
   value: string;
@@ -21,6 +23,7 @@ export function PerformanceEditor({
   className = "",
 }: PerformanceEditorProps) {
   const isUpdatingFromOutside = useRef(false);
+  const { getFiltered } = useTagMenuItems();
 
   const editor = useEditor({
     extensions: [
@@ -39,6 +42,12 @@ export function PerformanceEditor({
       }),
       Placeholder.configure({ placeholder }),
       EmotionTag,
+      TagSuggestionExtension.configure({
+        char: "/",
+      }),
+      TagSuggestionExtension.configure({
+        char: "[",
+      }),
     ],
     editorProps: {
       attributes: {
@@ -53,6 +62,12 @@ export function PerformanceEditor({
     },
     immediatelyRender: false,
   });
+
+  // Keep the shared tagItemsRef in sync so the suggestion plugin always has
+  // the latest items from the active model's tag catalog.
+  useEffect(() => {
+    tagItemsRef.current = getFiltered;
+  }, [getFiltered]);
 
   // Sync external value to editor when it changes (e.g., Regenerate prefill)
   useEffect(() => {
