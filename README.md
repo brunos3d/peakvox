@@ -47,6 +47,10 @@ It is designed as **open core**: a free, source-available **Community Edition** 
 
 ---
 
+## Screenshot
+
+<img width="1918" height="922" alt="image" src="https://github.com/user-attachments/assets/27bfdc8d-5abf-4666-9933-8231aa6e5438" />
+
 ## Architecture Overview
 
 OmniVoice App is two services — a **Next.js 15 frontend** and a **FastAPI backend** — plus **MinIO** object storage, all orchestrated by Docker Compose. Generation is fire-and-forget: the API returns a job ID immediately and the frontend polls until completion.
