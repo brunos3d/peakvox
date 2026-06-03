@@ -11,6 +11,50 @@ interface WaveformDisplayProps {
   className?: string
 }
 
+// Pure renderer — kept at module scope so it's a stable reference for effects.
+function drawWaveform(
+  canvas: HTMLCanvasElement,
+  ctx: CanvasRenderingContext2D,
+  channelData: Float32Array,
+  time: number,
+  dur: number
+) {
+  const w = canvas.width
+  const h = canvas.height
+  const samples = w
+  const blockSize = Math.max(1, Math.floor(channelData.length / samples))
+  const progress = dur > 0 ? Math.min(1, time / dur) : 0
+  const playedX = Math.floor(progress * w)
+
+  // Canvas can't resolve `var(--x)`; read the computed CSS values first.
+  const styles = getComputedStyle(canvas)
+  const bg = `hsl(${styles.getPropertyValue("--background").trim() || "0 0% 100%"})`
+  const primary = styles.getPropertyValue("--primary").trim() || "0 0% 0%"
+  const playedColor = `hsl(${primary})`
+  const unplayedColor = `hsl(${primary} / 0.35)`
+
+  ctx.clearRect(0, 0, w, h)
+  ctx.fillStyle = bg
+  ctx.fillRect(0, 0, w, h)
+
+  for (let i = 0; i < samples; i++) {
+    let sum = 0
+    for (let j = 0; j < blockSize; j++) {
+      sum += Math.abs(channelData[i * blockSize + j] ?? 0)
+    }
+    const avg = sum / blockSize
+    const barH = Math.max(2, avg * h * 2.5)
+    ctx.fillStyle = i < playedX ? playedColor : unplayedColor
+    ctx.fillRect(i, (h - barH) / 2, 1, barH)
+  }
+
+  // Playhead line
+  if (playedX > 0 && playedX < w) {
+    ctx.fillStyle = playedColor
+    ctx.fillRect(playedX - 1, 0, 2, h)
+  }
+}
+
 export function WaveformDisplay({
   audioUrl,
   isActive,
@@ -60,49 +104,6 @@ export function WaveformDisplay({
     if (!ctx) return
     drawWaveform(canvas, ctx, waveDataRef.current, currentTime, duration)
   }, [currentTime, duration])
-
-  function drawWaveform(
-    canvas: HTMLCanvasElement,
-    ctx: CanvasRenderingContext2D,
-    channelData: Float32Array,
-    time: number,
-    dur: number
-  ) {
-    const w = canvas.width
-    const h = canvas.height
-    const samples = w
-    const blockSize = Math.max(1, Math.floor(channelData.length / samples))
-    const progress = dur > 0 ? Math.min(1, time / dur) : 0
-    const playedX = Math.floor(progress * w)
-
-    // Canvas can't resolve `var(--x)`; read the computed CSS values first.
-    const styles = getComputedStyle(canvas)
-    const bg = `hsl(${styles.getPropertyValue("--background").trim() || "0 0% 100%"})`
-    const primary = styles.getPropertyValue("--primary").trim() || "0 0% 0%"
-    const playedColor = `hsl(${primary})`
-    const unplayedColor = `hsl(${primary} / 0.35)`
-
-    ctx.clearRect(0, 0, w, h)
-    ctx.fillStyle = bg
-    ctx.fillRect(0, 0, w, h)
-
-    for (let i = 0; i < samples; i++) {
-      let sum = 0
-      for (let j = 0; j < blockSize; j++) {
-        sum += Math.abs(channelData[i * blockSize + j] ?? 0)
-      }
-      const avg = sum / blockSize
-      const barH = Math.max(2, avg * h * 2.5)
-      ctx.fillStyle = i < playedX ? playedColor : unplayedColor
-      ctx.fillRect(i, (h - barH) / 2, 1, barH)
-    }
-
-    // Playhead line
-    if (playedX > 0 && playedX < w) {
-      ctx.fillStyle = playedColor
-      ctx.fillRect(playedX - 1, 0, 2, h)
-    }
-  }
 
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!onSeek || !duration) return

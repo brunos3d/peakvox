@@ -4,7 +4,6 @@ import { VoiceSelector } from "@/components/voice/VoiceSelector";
 import { ModelSelector } from "@/components/generation/ModelSelector";
 import { OutputFormatSelector } from "@/components/generation/OutputFormatSelector";
 import { GenerationSettings } from "@/components/GenerationSettings";
-import { Separator } from "@/components/ui/separator";
 
 /**
  * The Text-to-Speech context panel: voice + model selection, the (collapsible)

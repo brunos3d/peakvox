@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -35,7 +35,11 @@ export function VoiceEditDialog({ voice, open, onOpenChange }: VoiceEditDialogPr
   const [settings, setSettings] = useState<VoiceGenerationDefaults>(SYSTEM_DEFAULTS)
   const [audio, setAudio] = useState<AudioInputResult | null>(null)
 
-  useEffect(() => {
+  // Re-seed the form whenever a different voice is opened — adjusting state
+  // during render (React-recommended) rather than from an effect.
+  const [prevVoice, setPrevVoice] = useState<VoiceProfile | null>(voice)
+  if (voice !== prevVoice) {
+    setPrevVoice(voice)
     if (voice) {
       setName(voice.name)
       setTranscript(voice.transcript || "")
@@ -46,7 +50,7 @@ export function VoiceEditDialog({ voice, open, onOpenChange }: VoiceEditDialogPr
       setSettings(voice.generation_defaults ?? SYSTEM_DEFAULTS)
       setAudio(null)
     }
-  }, [voice])
+  }
 
   const mutation = useMutation({
     mutationFn: ({ id, formData }: { id: string; formData: FormData }) => updateVoiceApi(id, formData),

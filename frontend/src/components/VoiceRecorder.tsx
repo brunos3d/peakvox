@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Mic, Square, Play, Pause, Trash2 } from "lucide-react"
+import { Mic, Square, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useMediaRecorder } from "@/hooks/use-media-recorder"
 import { WaveformDisplay } from "@/components/WaveformDisplay"
@@ -14,10 +14,18 @@ export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
   const recorder = useMediaRecorder()
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false)
+  const [prevRecordedUrl, setPrevRecordedUrl] = useState<string | null>(null)
 
+  // Mirror a freshly recorded clip into preview state during render rather than
+  // in an effect (avoids the set-state-in-effect cascade).
+  if (recorder.audioUrl && recorder.audioUrl !== prevRecordedUrl) {
+    setPrevRecordedUrl(recorder.audioUrl)
+    setPreviewUrl(recorder.audioUrl)
+  }
+
+  // Notify the parent once a recording is available (external side effect).
   useEffect(() => {
     if (recorder.audioBlob && recorder.audioUrl) {
-      setPreviewUrl(recorder.audioUrl)
       onRecordingComplete(recorder.audioBlob, recorder.audioUrl, recorder.duration)
     }
   }, [recorder.audioBlob, recorder.audioUrl, recorder.duration, onRecordingComplete])

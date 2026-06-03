@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { Play, Pause, ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
+import type WaveSurfer from "wavesurfer.js";
+import type { Region } from "wavesurfer.js/plugins/regions";
 
 const MAX_CLIP = 15;
 const INITIAL_CLIP = 10;
@@ -28,12 +30,14 @@ export function AudioCropEditor({
   onCropChange,
 }: AudioCropEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const wsRef = useRef<any>(null);
-  const regionRef = useRef<any>(null);
+  const wsRef = useRef<WaveSurfer | null>(null);
+  const regionRef = useRef<Region | null>(null);
 
-  // Stable refs so handlers never go stale
+  // Stable ref so handlers never go stale — written in an effect, not render.
   const onCropChangeRef = useRef(onCropChange);
-  onCropChangeRef.current = onCropChange;
+  useEffect(() => {
+    onCropChangeRef.current = onCropChange;
+  });
   const [zoom, setZoom] = useState(INITIAL_ZOOM);
 
   const [isReady, setIsReady] = useState(false);
@@ -147,8 +151,10 @@ export function AudioCropEditor({
     if (!wsRef.current || !isReady) return;
     if (isPlaying) {
       wsRef.current.pause();
+    } else if (regionRef.current) {
+      regionRef.current.play();
     } else {
-      regionRef.current ? regionRef.current.play() : wsRef.current.play();
+      wsRef.current.play();
     }
   };
 
