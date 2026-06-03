@@ -89,27 +89,25 @@
   .text-caption {
     @apply text-xs text-muted-foreground;
   }
+}
 
-  /* ═══════════════════════════════════════════════
+/* ═══════════════════════════════════════════════
      Performance Editor (TipTap / ProseMirror)
      ═══════════════════════════════════════════════ */
 
-  /* Editor content area */
-  .ProseMirror {
-    @apply rounded-xl border border-border bg-surface p-5 text-base leading-relaxed outline-none shadow-sm transition-shadow;
-    min-height: 320px;
-  }
+/* Editor content area */
+.ProseMirror {
+  /* For debug reasons */
+  /* @apply flex-1 rounded-xl border border-border bg-surface p-5 text-base leading-relaxed outline-none shadow-sm transition-shadow; */
+  @apply flex-1 text-base leading-relaxed outline-none;
+  min-height: 320px;
+}
 
-  .ProseMirror:focus-within {
-    @apply shadow-md;
-  }
+.ProseMirror p {
+  @apply my-0;
+}
 
-  .ProseMirror p {
-    @apply my-0;
-  }
-
-  .ProseMirror p.is-editor-empty:first-child::before {
-    @apply pointer-events-none float-left h-0 text-muted-foreground/40 content-[attr(data-placeholder)];
-    font-style: normal;
-  }
+.ProseMirror p.is-editor-empty:first-child::before {
+  @apply pointer-events-none float-left h-0 text-muted-foreground/40 content-[attr(data-placeholder)];
+  font-style: normal;
 }
