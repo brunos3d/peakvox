@@ -44,7 +44,9 @@ export function PerformanceEditor({
         bulletList: false,
         orderedList: false,
       }),
-      Placeholder.configure({ placeholder }),
+      Placeholder.configure({
+        placeholder,
+      }),
       EmotionTag,
       TagSuggestionExtension.configure({ char: "/" }),
       TagSuggestionExtension.configure({ char: "[" }),
@@ -88,7 +90,7 @@ export function PerformanceEditor({
   return (
     <div className={className}>
       {/* Editor is the primary surface */}
-      <EditorContent editor={editor} />
+      <EditorContent editor={editor} className="flex flex-col flex-1 h-max" />
 
       {/* Character count + emotion toolbar live below the editor */}
       <div className="mt-3 flex items-center justify-between">

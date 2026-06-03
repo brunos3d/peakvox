@@ -46,6 +46,7 @@ export default function TextToSpeechPage() {
           <PerformanceEditor
             value={text}
             onChange={setText}
+            className="flex flex-col flex-1"
           />
 
           <div
