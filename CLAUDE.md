@@ -81,3 +81,9 @@ The frontend is a single page. Voice reference audio comes from one of three mut
 - `t_shift`: 0.1
 - `denoise`: true
 - `speed` / `duration`: null (auto)
+
+## Removed files
+
+| File | Reason |
+|------|--------|
+| `frontend/src/hooks/use-tts-generation.ts` | Extracted `useTtsGeneration` — unused, never imported. Generation logic lives inline in `GenerationPanel` + `useSubmitGeneration` in `use-generation.ts`. Removed 2026-06-03. |
