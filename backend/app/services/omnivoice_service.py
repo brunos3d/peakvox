@@ -48,6 +48,8 @@ class OmniVoiceService:
         self._loading: bool = False
         self._loaded: bool = False
         self._load_error: Optional[str] = None
+        # The HF repo / model id currently loaded (defaults to settings.OMNIVOICE_MODEL).
+        self._loaded_repo_id: Optional[str] = None
         self._voice_prompt_cache: dict = {}
         # Initialised lazily inside generate_async (must run inside a live event loop).
         self._generation_lock: Optional[asyncio.Lock] = None
@@ -76,24 +78,26 @@ class OmniVoiceService:
     # Model loading
     # ------------------------------------------------------------------
 
-    def _do_load(self) -> None:
+    def _do_load(self, repo_id: Optional[str] = None) -> None:
         os.environ["HF_HOME"] = str(settings.HF_HOME)
         os.makedirs(settings.HF_HOME, exist_ok=True)
 
         from omnivoice import OmniVoice
         from omnivoice.utils.common import get_best_device
 
+        repo = repo_id or settings.OMNIVOICE_MODEL
         self._device = get_best_device()
         dtype = torch.float16 if self._device in ("cuda", "xpu") else torch.float32
 
-        logger.info("Loading OmniVoice model '%s' on %s (%s)", settings.OMNIVOICE_MODEL, self._device, dtype)
+        logger.info("Loading OmniVoice model '%s' on %s (%s)", repo, self._device, dtype)
         self._model = OmniVoice.from_pretrained(
-            settings.OMNIVOICE_MODEL,
+            repo,
             device_map=self._device,
             dtype=dtype,
             load_asr=settings.LOAD_ASR,
             asr_model_name=settings.ASR_MODEL,
         )
+        self._loaded_repo_id = repo
 
         if torch.cuda.is_available():
             self._model.to("cpu")
@@ -102,18 +106,31 @@ class OmniVoiceService:
 
         logger.info("OmniVoice model loaded successfully")
 
-    async def load_model(self) -> None:
-        if self._loaded or self._loading:
+    async def load_model(self, repo_id: Optional[str] = None) -> None:
+        target = repo_id or settings.OMNIVOICE_MODEL
+        # Already serving the requested repo — nothing to do.
+        if self._loaded and self._loaded_repo_id == target:
+            return
+        if self._loading:
             return
         self._loading = True
         try:
-            await asyncio.to_thread(self._do_load)
+            await asyncio.to_thread(self._do_load, target)
             self._loaded = True
+            self._load_error = None
         except Exception as exc:
             self._load_error = str(exc)
             logger.error("OmniVoice model load failed: %s", exc)
         finally:
             self._loading = False
+
+    @property
+    def loaded_repo_id(self) -> Optional[str]:
+        return self._loaded_repo_id
+
+    def offload(self) -> None:
+        """Public hook for the registry: release GPU memory without unloading weights."""
+        self._offload_to_cpu()
 
     # ------------------------------------------------------------------
     # GPU management

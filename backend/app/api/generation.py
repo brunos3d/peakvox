@@ -14,8 +14,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import AsyncSessionLocal, get_db
 from app.models.db import GenerationJob, VoiceProfile
 from app.schemas.job import GenerationRequest, JobResponse
+from app.services.model_registry import model_registry
 from app.services.omnivoice_service import omnivoice_service
 from app.services.storage import storage
+from app.services.tag_validation import find_unsupported_tags
 from app.api.voices import resolve_voice_audio_key
 from app.utils.streaming import stream_object
 
@@ -35,6 +37,7 @@ def _job_to_response(job: GenerationJob) -> JobResponse:
         id=job.id,
         status=job.status,
         text=job.text,
+        model_id=job.model_id,
         voice_profile_id=job.voice_profile_id,
         language=job.language,
         instruct=job.instruct,
@@ -101,10 +104,30 @@ async def create_generation_job(
 
     # Reject immediately if the GPU is already busy — prevents queue build-up
     # and gives the frontend an actionable signal rather than a silent wait.
-    if omnivoice_service.is_generating:
+    if model_registry.is_generating or omnivoice_service.is_generating:
         raise HTTPException(
             status_code=409,
             detail="A generation is already in progress. Please wait for it to complete.",
+        )
+
+    # Resolve and validate the requested model (None = platform default).
+    try:
+        model = model_registry.get_or_default(request.model_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Model '{request.model_id}' not found")
+    if model.status == "disabled":
+        raise HTTPException(status_code=409, detail=f"Model '{model.id}' is not available")
+
+    # Authoritative tag validation: reject inline tags the model does not support.
+    bad_tags = find_unsupported_tags(request.text, model.supported_tags)
+    if bad_tags:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": f"Unsupported tags for model '{model.id}'",
+                "unsupported_tags": bad_tags,
+                "model_id": model.id,
+            },
         )
 
     ref_audio_key: str | None = None
@@ -120,12 +143,15 @@ async def create_generation_job(
         profile.last_used_at = datetime.now(timezone.utc)
         profile.usage_count = (profile.usage_count or 0) + 1
 
-    gen_params = request.model_dump(exclude={"text", "voice_profile_id", "ref_text", "language", "instruct"})
+    gen_params = request.model_dump(
+        exclude={"text", "model_id", "voice_profile_id", "ref_text", "language", "instruct"}
+    )
 
     output_key = f"generated/{os.urandom(8).hex()}.wav"
 
     job = GenerationJob(
         text=request.text,
+        model_id=model.id,
         voice_profile_id=request.voice_profile_id,
         ref_audio_path=ref_audio_key,
         ref_text=request.ref_text,
@@ -279,6 +305,7 @@ async def _process_job(job_id: str) -> None:
 
         # Snapshot fields needed outside the session
         job_text = job.text
+        job_model_id = job.model_id
         job_voice_id = job.voice_profile_id
         job_ref_key = job.ref_audio_path
         job_ref_text = job.ref_text
@@ -294,8 +321,9 @@ async def _process_job(job_id: str) -> None:
         if job_ref_key:
             local_ref = await storage.download_to_temp(job_ref_key, suffix=".wav")
 
-        # ── 3. Run inference — all inputs come from the job record ───────────
-        duration, logs = await omnivoice_service.generate_async(
+        # ── 3. Run inference via the registry (resolves/loads the model) ─────
+        duration, logs = await model_registry.generate(
+            job_model_id,
             text=job_text,
             output_path=local_output,
             voice_profile_id=job_voice_id,
@@ -303,12 +331,7 @@ async def _process_job(job_id: str) -> None:
             ref_text=job_ref_text,
             language=job_language,
             instruct=job_instruct,
-            num_step=job_params.get("num_step", 32),
-            guidance_scale=job_params.get("guidance_scale", 2.0),
-            speed=job_params.get("speed"),
-            duration=job_params.get("duration"),
-            t_shift=job_params.get("t_shift", 0.1),
-            denoise=job_params.get("denoise", True),
+            params=job_params,
             job_id=job_id,
         )
 
