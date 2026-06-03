@@ -28,6 +28,7 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+.tasks/
 
 # Data (host bind-mount only, but keep local paths clean)
 /data/

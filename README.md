@@ -47,16 +47,6 @@ It is designed as **open core**: a free, source-available **Community Edition** 
 
 ---
 
-## Screenshots
-
-> Place images in `docs/assets/` and they will render below.
-
-| Text to Speech                                    | Voice Library                                        | Voice Clone                                      |
-| ------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------ |
-| ![Text to Speech](docs/assets/screenshot-tts.png) | ![Voice Library](docs/assets/screenshot-library.png) | ![Voice Clone](docs/assets/screenshot-clone.png) |
-
----
-
 ## Architecture Overview
 
 OmniVoice App is two services — a **Next.js 15 frontend** and a **FastAPI backend** — plus **MinIO** object storage, all orchestrated by Docker Compose. Generation is fire-and-forget: the API returns a job ID immediately and the frontend polls until completion.
