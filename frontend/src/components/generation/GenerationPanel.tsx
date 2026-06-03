@@ -8,8 +8,6 @@ import { OutputFormatSelector } from "@/components/generation/OutputFormatSelect
 import { GenerationSettings } from "@/components/GenerationSettings";
 import { LanguageCombobox } from "@/components/common/LanguageCombobox";
 import { VoiceDesignBuilder } from "@/components/generation/VoiceDesignBuilder";
-import { ModelInfoCard } from "@/components/generation/ModelInfoCard";
-import { EmotionSettings } from "@/components/generation/EmotionSettings";
 import { Button } from "@/components/ui/button";
 import {
   Accordion,
@@ -23,11 +21,6 @@ import { useActiveModel } from "@/hooks/use-models";
 import { buildInstruct } from "@/config/voice-design";
 import { validateTags } from "@/editor/validate";
 
-/**
- * The Text-to-Speech context panel: accordion sections for voice, model,
- * generation settings, output format, language, voice design, emotion,
- * model info, and a pinned Generate button at the bottom.
- */
 export function GenerationPanel() {
   const text = useAppStore((s) => s.ttsText);
   const selectedProfile = useAppStore((s) => s.selectedProfile);
@@ -147,36 +140,10 @@ export function GenerationPanel() {
               <VoiceDesignBuilder value={voiceDesign} onChange={setVoiceDesign} />
             </AccordionContent>
           </AccordionItem>
-
-          {/* 7. Emotion Settings */}
-          <AccordionItem value="emotion">
-            <AccordionTrigger className="px-5 text-sm font-medium">
-              <span className="flex items-center gap-2">
-                <svg className="h-4 w-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
-                Emotion Settings
-              </span>
-            </AccordionTrigger>
-            <AccordionContent className="px-5">
-              <EmotionSettings />
-            </AccordionContent>
-          </AccordionItem>
-
-          {/* 8. Model Information */}
-          <AccordionItem value="model-info">
-            <AccordionTrigger className="px-5 text-sm font-medium">
-              <span className="flex items-center gap-2">
-                <svg className="h-4 w-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                Model Information
-              </span>
-            </AccordionTrigger>
-            <AccordionContent className="px-5">
-              <ModelInfoCard />
-            </AccordionContent>
-          </AccordionItem>
         </Accordion>
       </div>
 
-      {/* 9. Generate Speech — pinned at bottom */}
+      {/* Generate Speech — pinned at bottom */}
       <div className={cn("shrink-0 border-t border-border p-5", "flex flex-col gap-3")}>
         {generate.isError && (
           <p className="flex items-center gap-2 rounded-lg bg-error/10 px-3 py-2 text-xs text-error">

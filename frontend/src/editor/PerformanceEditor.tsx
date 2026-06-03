@@ -20,35 +20,24 @@ interface PerformanceEditorProps {
 export function PerformanceEditor({
   value,
   onChange,
-  placeholder = "Direct a voice performance...",
+  placeholder = "Type or paste text to generate speech…",
   className = "",
 }: PerformanceEditorProps) {
   const isUpdatingFromOutside = useRef(false);
   const { getFiltered } = useTagMenuItems();
+  const hasContent = value.trim().length > 0;
 
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        bold: false,
-        italic: false,
-        strike: false,
-        code: false,
-        heading: false,
-        blockquote: false,
-        codeBlock: false,
-        horizontalRule: false,
-        listItem: false,
-        bulletList: false,
-        orderedList: false,
+        bold: false, italic: false, strike: false, code: false,
+        heading: false, blockquote: false, codeBlock: false,
+        horizontalRule: false, listItem: false, bulletList: false, orderedList: false,
       }),
       Placeholder.configure({ placeholder }),
       EmotionTag,
-      TagSuggestionExtension.configure({
-        char: "/",
-      }),
-      TagSuggestionExtension.configure({
-        char: "[",
-      }),
+      TagSuggestionExtension.configure({ char: "/" }),
+      TagSuggestionExtension.configure({ char: "[" }),
     ],
     editorProps: {
       attributes: {
@@ -58,31 +47,24 @@ export function PerformanceEditor({
     onUpdate: ({ editor: ed }) => {
       if (isUpdatingFromOutside.current) return;
       const doc = ed.state.doc.toJSON() as Parameters<typeof serializeToOmniVoice>[0];
-      const text = serializeToOmniVoice(doc);
-      onChange(text);
+      onChange(serializeToOmniVoice(doc));
     },
     immediatelyRender: false,
   });
 
-  // Keep the shared tagItemsRef in sync so the suggestion plugin always has
-  // the latest items from the active model's tag catalog.
   useEffect(() => {
     tagItemsRef.current = getFiltered;
   }, [getFiltered]);
 
-  // Sync external value to editor when it changes (e.g., Regenerate prefill)
   useEffect(() => {
     if (!editor) return;
-    const currentText = serializeToOmniVoice(editor.state.doc.toJSON() as Parameters<typeof serializeToOmniVoice>[0]);
+    const currentText = serializeToOmniVoice(
+      editor.state.doc.toJSON() as Parameters<typeof serializeToOmniVoice>[0],
+    );
     if (value !== currentText) {
       isUpdatingFromOutside.current = true;
       editor.commands.setContent(
-        [
-          {
-            type: "paragraph",
-            content: [{ type: "text", text: value }],
-          },
-        ],
+        [{ type: "paragraph", content: [{ type: "text", text: value }] }],
         { emitUpdate: true },
       );
       isUpdatingFromOutside.current = false;
@@ -93,11 +75,30 @@ export function PerformanceEditor({
 
   return (
     <div className={className}>
-      {editor && <EmotionToolbar editor={editor} />}
-      <EditorContent editor={editor} />
-      <div className="flex items-center justify-between px-5 py-2 text-xs text-muted-foreground">
-        <span>{charCount} character{charCount !== 1 ? "s" : ""}</span>
+      {/* Editor is the primary surface */}
+      <div className="rounded-xl border border-border bg-surface shadow-sm transition-shadow focus-within:shadow-md">
+        <EditorContent editor={editor} />
       </div>
+
+      {/* Character count + emotion toolbar live below the editor */}
+      <div className="mt-3 flex items-center justify-between">
+        <span className="text-xs text-muted-foreground">
+          {charCount} character{charCount !== 1 ? "s" : ""}
+        </span>
+      </div>
+
+      {editor && (
+        <div className="mt-3">
+          <EmotionToolbar editor={editor} />
+        </div>
+      )}
+
+      {!hasContent && (
+        <div className="mt-4 text-xs leading-relaxed text-muted-foreground/60">
+          Type naturally. Use <kbd className="rounded border border-border bg-surface px-1 font-mono text-[11px]">/</kbd> or{" "}
+          <kbd className="rounded border border-border bg-surface px-1 font-mono text-[11px]">[</kbd> to insert reactions and emotions.
+        </div>
+      )}
     </div>
   );
 }

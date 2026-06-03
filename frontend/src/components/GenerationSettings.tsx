@@ -1,12 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { RotateCcw, Save, CheckCircle } from "lucide-react";
 import { GenerationSettingsFields } from "@/components/GenerationSettingsFields";
@@ -131,82 +125,58 @@ export function GenerationSettings() {
     }
   };
 
-  const triggerLabel = (
-    <span className="flex items-center gap-2">
-      Generation Settings
-      {isDirty && selectedProfile && (
-        <span className="text-[10px] font-medium text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded">
-          Modified
-        </span>
-      )}
-      {!isDirty && selectedProfile && activeVoiceDefaults && (
-        <span className="text-[10px] font-medium text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded">
-          Voice preset
-        </span>
-      )}
-    </span>
-  );
-
   return (
-    <Accordion type="single" collapsible className="w-full">
-      <AccordionItem value="settings">
-        <AccordionTrigger className="text-sm">{triggerLabel}</AccordionTrigger>
-        <AccordionContent className="px-2">
-          <div className="space-y-4 pt-2">
-            {selectedProfile && activeVoiceDefaults && !isDirty && (
-              <p className="text-[11px] text-muted-foreground">
-                Using defaults from{" "}
-                <span className="font-medium text-foreground">
-                  {selectedProfile.name}
-                </span>
-              </p>
-            )}
+    <div className="space-y-4 pt-2">
+      {selectedProfile && activeVoiceDefaults && !isDirty && (
+        <p className="text-[11px] text-muted-foreground">
+          Using defaults from{" "}
+          <span className="font-medium text-foreground">
+            {selectedProfile.name}
+          </span>
+        </p>
+      )}
 
-            <GenerationSettingsFields
-              value={current}
-              onChange={handleFieldChange}
-              cudaAvailable={cudaAvailable}
-              gpuLoading={gpuLoading}
-            />
+      <GenerationSettingsFields
+        value={current}
+        onChange={handleFieldChange}
+        cudaAvailable={cudaAvailable}
+        gpuLoading={gpuLoading}
+      />
 
-            {/* Reset / Save actions — only shown when dirty */}
-            {isDirty && (
-              <div className="flex gap-2 pt-1">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 flex-1"
-                  onClick={resetSettings}
-                >
-                  <RotateCcw className="h-3 w-3" />
-                  Reset
-                </Button>
+      {isDirty && (
+        <div className="flex gap-2 pt-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5 flex-1"
+            onClick={resetSettings}
+          >
+            <RotateCcw className="h-3 w-3" />
+            Reset
+          </Button>
 
-                {selectedProfile && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="gap-1.5 flex-1"
-                    onClick={handleSave}
-                    disabled={saving}
-                  >
-                    <Save className="h-3 w-3" />
-                    {saving ? "Saving…" : "Save to Voice Profile"}
-                  </Button>
-                )}
-              </div>
-            )}
+          {selectedProfile && (
+            <Button
+              type="button"
+              size="sm"
+              className="gap-1.5 flex-1"
+              onClick={handleSave}
+              disabled={saving}
+            >
+              <Save className="h-3 w-3" />
+              {saving ? "Saving…" : "Save to Voice Profile"}
+            </Button>
+          )}
+        </div>
+      )}
 
-            {saveSuccess && (
-              <div className="flex items-center gap-1.5 text-xs text-green-600">
-                <CheckCircle className="h-3.5 w-3.5" />
-                Voice profile updated
-              </div>
-            )}
-          </div>
-        </AccordionContent>
-      </AccordionItem>
-    </Accordion>
+      {saveSuccess && (
+        <div className="flex items-center gap-1.5 text-xs text-green-600">
+          <CheckCircle className="h-3.5 w-3.5" />
+          Voice profile updated
+        </div>
+      )}
+    </div>
   );
 }

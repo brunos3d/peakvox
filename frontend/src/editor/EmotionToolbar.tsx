@@ -5,38 +5,13 @@ import { Plus } from "lucide-react";
 import type { Editor } from "@tiptap/core";
 import { EmotionTag } from "@/editor/extensions/EmotionTag";
 import { useTagMenuItems } from "@/editor/useTagMenuItems";
+import { EmotionPickerItems } from "@/editor/emotion-picker";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
+import { Command, CommandEmpty, CommandInput, CommandList } from "@/components/ui/command";
 
 const COMMON_TAG_IDS = [
-  "happy",
-  "sad",
-  "angry",
-  "whisper",
-  "calm",
-  "excited",
-  "singing",
-  "laughter",
+  "happy", "sad", "angry", "whisper", "calm", "excited", "singing", "laughter",
 ];
-
-function categoryLabel(category: string): string {
-  const labels: Record<string, string> = {
-    emotion: "Emotions",
-    delivery: "Delivery",
-    vocal: "Vocal",
-    reaction: "Reactions",
-    question: "Questions",
-    surprise: "Surprise",
-  };
-  return labels[category] ?? category.charAt(0).toUpperCase() + category.slice(1);
-}
 
 interface EmotionToolbarProps {
   editor: Editor | null;
@@ -45,7 +20,7 @@ interface EmotionToolbarProps {
 export function EmotionToolbar({ editor }: EmotionToolbarProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const { items, grouped } = useTagMenuItems();
+  const { items } = useTagMenuItems();
 
   const insertTag = useCallback(
     (tagId: string) => {
@@ -70,25 +45,10 @@ export function EmotionToolbar({ editor }: EmotionToolbarProps) {
           item.label.toLowerCase().includes(search.toLowerCase()) ||
           item.id.toLowerCase().includes(search.toLowerCase()),
       )
-    : [];
-
-  const filteredGrouped = search
-    ? (() => {
-        const map = new Map<string, typeof filtered>();
-        for (const item of filtered) {
-          const cat = item.category;
-          if (!map.has(cat)) map.set(cat, []);
-          map.get(cat)!.push(item);
-        }
-        return Array.from(map.entries()).map(([cat, catItems]) => ({
-          label: categoryLabel(cat),
-          items: catItems,
-        }));
-      })()
-    : grouped;
+    : items;
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 px-5 py-2">
+    <div className="flex flex-wrap items-center gap-1.5">
       {commonChips.map((item) => (
         <button
           key={item.id}
@@ -122,22 +82,7 @@ export function EmotionToolbar({ editor }: EmotionToolbarProps) {
             />
             <CommandList className="max-h-64">
               <CommandEmpty>No matching emotions.</CommandEmpty>
-              {filteredGrouped.map((group) => (
-                <CommandGroup key={group.label} heading={group.label}>
-                  {group.items.map((item) => (
-                    <CommandItem
-                      key={item.id}
-                      value={item.id}
-                      keywords={[item.label, item.id]}
-                      onSelect={() => insertTag(item.id)}
-                    >
-                      <span className="mr-2">{item.emoji}</span>
-                      <span className="flex-1">{item.label}</span>
-                      <span className="text-[10px] text-muted-foreground">[{item.id}]</span>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              ))}
+              <EmotionPickerItems items={filtered} onSelect={insertTag} />
             </CommandList>
           </Command>
         </PopoverContent>

@@ -4,7 +4,7 @@ import Suggestion from "@tiptap/suggestion";
 import { ReactRenderer } from "@tiptap/react";
 import tippy, { type Instance as TippyInstance } from "tippy.js";
 import "tippy.js/dist/tippy.css";
-import SuggestionMenu, { type SuggestionMenuItem } from "./SuggestionMenu";
+import { EmotionPicker, type EmotionPickerRef } from "@/editor/emotion-picker";
 import { type TagMenuItem } from "@/editor/useTagMenuItems";
 import { EmotionTag } from "./EmotionTag";
 
@@ -36,7 +36,7 @@ export const TagSuggestionExtension = Extension.create<TagSuggestionOptions>({
         char: this.options.char,
         pluginKey,
         command: ({ editor, range, props }) => {
-          const item = props as SuggestionMenuItem;
+          const item = props as TagMenuItem;
           editor
             .chain()
             .focus()
@@ -55,15 +55,20 @@ export const TagSuggestionExtension = Extension.create<TagSuggestionOptions>({
           return tagItemsRef.current(query);
         },
         render: () => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          let component: any;
+          let component: ReactRenderer<EmotionPickerRef>;
           let popup: TippyInstance[];
 
           return {
             onStart: (props) => {
-              component = new ReactRenderer(SuggestionMenu, {
+              component = new ReactRenderer(EmotionPicker, {
                 editor: props.editor as Editor,
-                props: props,
+                props: {
+                  items: props.items as TagMenuItem[],
+                  onSelect: (tagId: string) => {
+                    const item = (props.items as TagMenuItem[]).find((i) => i.id === tagId);
+                    if (item) props.command(item);
+                  },
+                },
               });
 
               if (!props.clientRect) return;
@@ -81,7 +86,13 @@ export const TagSuggestionExtension = Extension.create<TagSuggestionOptions>({
             },
 
             onUpdate: (props) => {
-              component.updateProps(props);
+              component.updateProps({
+                items: props.items as TagMenuItem[],
+                onSelect: (tagId: string) => {
+                  const item = (props.items as TagMenuItem[]).find((i) => i.id === tagId);
+                  if (item) props.command(item);
+                },
+              });
 
               popup[0]?.setProps({
                 getReferenceClientRect: props.clientRect as () => DOMRect,
@@ -93,13 +104,13 @@ export const TagSuggestionExtension = Extension.create<TagSuggestionOptions>({
                 popup[0]?.hide();
                 return true;
               }
-              if (props.event.key === "Enter" || props.event.key === "Tab") {
-                if (props.event.key === "Tab" && !props.event.shiftKey) {
+              if (props.event.key === "Tab") {
+                if (!props.event.shiftKey) {
                   popup[0]?.hide();
                   return false;
                 }
               }
-              return component.ref?.onKeyDown(props) ?? false;
+              return component.ref?.onKeyDown(props.event) ?? false;
             },
 
             onExit: () => {
