@@ -1,23 +1,18 @@
-import { Extension, type Editor, type Range } from "@tiptap/core";
+import { Extension, type Editor } from "@tiptap/core";
+import { PluginKey } from "@tiptap/pm/state";
 import Suggestion from "@tiptap/suggestion";
 import { ReactRenderer } from "@tiptap/react";
 import tippy, { type Instance as TippyInstance } from "tippy.js";
 import "tippy.js/dist/tippy.css";
 import SuggestionMenu, { type SuggestionMenuItem } from "./SuggestionMenu";
 import { type TagMenuItem } from "@/editor/useTagMenuItems";
-import { tagById } from "@/editor/tags";
 import { EmotionTag } from "./EmotionTag";
 
 export interface TagSuggestionOptions {
   char: string;
-  pluginKey?: string;
+  pluginKey?: PluginKey;
 }
 
-/**
- * Shared mutable reference updated by the React component whenever the
- * tag catalog changes. The Suggestion plugin reads this each time the
- * popup opens, so it always has the latest items.
- */
 export const tagItemsRef: { current: (query: string) => TagMenuItem[] } = {
   current: () => [],
 };
@@ -28,16 +23,18 @@ export const TagSuggestionExtension = Extension.create<TagSuggestionOptions>({
   addOptions() {
     return {
       char: "/",
-      pluginKey: "tag-suggestion",
+      pluginKey: undefined as PluginKey | undefined,
     };
   },
 
   addProseMirrorPlugins() {
+    const pluginKey = this.options.pluginKey ?? new PluginKey(`tag-suggestion-${this.options.char}`);
+
     return [
       Suggestion({
         editor: this.editor,
         char: this.options.char,
-        pluginKey: this.options.pluginKey ?? `tag-suggestion-${this.options.char}`,
+        pluginKey,
         command: ({ editor, range, props }) => {
           const item = props as SuggestionMenuItem;
           editor
@@ -58,7 +55,8 @@ export const TagSuggestionExtension = Extension.create<TagSuggestionOptions>({
           return tagItemsRef.current(query);
         },
         render: () => {
-          let component: ReactRenderer<SuggestionMenu>;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          let component: any;
           let popup: TippyInstance[];
 
           return {
