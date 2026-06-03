@@ -28,6 +28,7 @@ export function PerformanceEditor({
 }: PerformanceEditorProps) {
   const isUpdatingFromOutside = useRef(false);
   const { getFiltered } = useTagMenuItems();
+  const hasContent = value.trim().length > 0;
 
   const editor = useEditor({
     extensions: [
@@ -92,6 +93,17 @@ export function PerformanceEditor({
 
       {/* Character count + emotion toolbar live below the editor */}
       <div className="mt-3 flex items-center justify-between">
+        <div className="mt-4 text-xs leading-relaxed text-muted-foreground/50">
+          Type naturally. Use{" "}
+          <kbd className="rounded border border-border bg-surface px-1 font-mono text-[11px]">
+            /
+          </kbd>{" "}
+          or{" "}
+          <kbd className="rounded border border-border bg-surface px-1 font-mono text-[11px]">
+            [
+          </kbd>{" "}
+          to insert reactions and emotions.
+        </div>
         <span className="text-xs text-muted-foreground">
           {charCount} character{charCount !== 1 ? "s" : ""}
         </span>
