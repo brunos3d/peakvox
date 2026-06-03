@@ -2,7 +2,7 @@
 
 This roadmap describes the direction of **OmniVoice App**. It is a statement of intent, not a commitment — priorities and timelines may change. Features are grouped by horizon and, where relevant, by which [edition](COMMERCIAL_MODEL.md) they target.
 
-> See also: [Architecture](ARCHITECTURE.md) · [Commercial Model](COMMERCIAL_MODEL.md) · [Contributing](../CONTRIBUTING.md) · [Changelog](../CHANGELOG.md)
+> See also: [Architecture](ARCHITECTURE.md) · [SaaS Architecture](SAAS_ARCHITECTURE.md) · [API](API.md) · [Voice Model](VOICE_MODEL.md) · [Data Model](DATA_MODEL.md) · [Languages](LANGUAGES.md) · [Commercial Model](COMMERCIAL_MODEL.md) · [Contributing](../CONTRIBUTING.md) · [Changelog](../CHANGELOG.md)
 
 ---
 
@@ -27,6 +27,30 @@ Shipped and available in the Community Edition today:
 - GPU acceleration with CPU fallback; 600+ languages.
 - MinIO object storage; Docker Compose deployment.
 
+### Phase 2 — Voice Platform ✅
+
+Delivered as the SaaS-ready platform foundation (see linked docs):
+
+- **Stable Voice IDs** — every voice has a permanent `public_voice_id` (`voice_…`), the
+  external contract for the API/SDKs/sharing. See [Voice Model](VOICE_MODEL.md).
+- **Expanded Voice Library** — My/Community/Preset/Recently-Used tabs, server-side
+  pagination, instant search, advanced filters (language/gender/age/accent), and
+  favorites.
+- **646-language registry** — centralized, generated from OmniVoice's language list, with
+  a searchable combobox. See [Languages](LANGUAGES.md).
+- **Derived voice characteristics** powering search/filtering, plus richer voice metadata.
+- **API platform** — hashed API keys (`ov_live_…`), a versioned public REST API
+  (`/api/v1`) for voices + text-to-speech, an in-app API dashboard, and Use-in-API code
+  examples. See [API](API.md).
+- **TTS auto-configuration** — selecting a voice applies its language, preset, and voice
+  design, consistent with the API.
+- **SaaS-ready architecture** — local-owner model, `owner_id` throughout, identity/
+  rate-limit seams, and an edition flag — no authentication required. See
+  [SaaS Architecture](SAAS_ARCHITECTURE.md).
+
+> Community/Preset voice publishing and authentication remain **schema-ready but disabled**
+> in the Community Edition.
+
 ---
 
 ## Planned Features
@@ -47,8 +71,8 @@ Foundations for multi-user and programmatic use (start of the open-core split):
 
 - **Teams** — multiple users collaborating in a shared space.
 - **Workspaces** — isolated collections of voices, history, and settings.
-- **API Keys** — scoped, programmatic access to the generation API.
-- **Usage Analytics** — generation counts, language/voice usage, and capacity insights.
+- **API Keys** — ✅ delivered (local) in Phase 2; Cloud adds per-account scoping, quotas, and metering.
+- **Usage Analytics** — basic key activity shipped; full per-request metering is a Cloud feature.
 - **Authentication & roles** — built-in auth and role-based access control.
 - **Dedicated inference workers** — decouple the API from GPU inference via a job queue (see [Architecture §10](ARCHITECTURE.md#10-future-scalability-considerations)).
 
@@ -69,8 +93,9 @@ The commercial offerings, built on the same open core:
 | ---------- | :-------: | :------------: | :-----------------: |
 | Self-hosted | ✅ | — | ✅ (managed/on-prem) |
 | Core TTS / Clone / Design | ✅ | ✅ | ✅ |
+| Stable Voice IDs & public API | ✅ | ✅ | ✅ |
 | Teams & Workspaces | Roadmap | ✅ | ✅ |
-| API Keys & Analytics | Roadmap | ✅ | ✅ |
+| API Keys & Analytics | ✅ (local) | ✅ (scoped + metered) | ✅ |
 | Managed hosting & billing | — | ✅ | ✅ |
 | SSO, audit, multi-tenancy, SLA | — | Partial | ✅ |
 

@@ -7,6 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+- **Phase 2 — Voice Platform** (SaaS-ready foundation):
+  - **Stable Voice IDs** (`public_voice_id`, e.g. `voice_8JXQ29K4L3`) — permanent external identifier for every voice; minimal local-owner `users` model; `owner_id` across resources; derived voice `characteristics` and richer metadata; idempotent startup migrations.
+  - **646-language registry** generated from OmniVoice's language list, with a searchable combobox; language stored as OmniVoice id + display name.
+  - **Voice Library redesign** — My/Community/Preset/Recently-Used tabs, server-side pagination, instant search, advanced filters (language/gender/age/accent), favorites, Copy-Voice-ID, and an expanded details panel.
+  - **API platform** — hashed API keys (`ov_live_…`, sha256, shown once), versioned public REST API `/api/v1` (list/get/create/delete voices + text-to-speech with stream or download-URL), in-app API dashboard (Overview / API Keys / Voice API / Usage), and Use-in-API code examples (cURL/JS/Python).
+  - **TTS auto-configuration** — selecting a voice applies its language, preset, and voice design, consistent with the API.
+  - **SaaS architecture preparation** — identity and rate-limit seams, `EDITION` flag; no authentication/billing implemented.
+  - **Docs**: `API`, `VOICE_MODEL`, `DATA_MODEL`, `LANGUAGES`, `SAAS_ARCHITECTURE`, `DEVELOPER`, and design specs under `docs/superpowers/specs/`.
 - Project governance and documentation suite: `README`, `LICENSE` (OmniVoice App Community License, based on Elastic License 2.0), `NOTICE`, `CONTRIBUTING`, `CODE_OF_CONDUCT`, `SECURITY`, `VOICE_USAGE_POLICY`, and `docs/` (`ARCHITECTURE`, `ROADMAP`, `FAQ`, `COMMERCIAL_MODEL`).
 
 ## [0.1.0] - 2026-06-02
