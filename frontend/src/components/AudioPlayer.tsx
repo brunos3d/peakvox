@@ -90,11 +90,14 @@ export function AudioPlayer({
   }
 
   const wavUrl = audioUrl
-  const mp3Url = jobId
-    ? `${API_URL}/jobs/${jobId}/audio/mp3`
-    : audioUrl
-      ? `${API_URL}/convert/mp3/${audioUrl.split("/").pop()}`
-      : ""
+  const convertedUrl = (fmt: "mp3" | "ogg") =>
+    jobId
+      ? `${API_URL}/jobs/${jobId}/audio/${fmt}`
+      : audioUrl
+        ? `${API_URL}/convert/${fmt}/${audioUrl.split("/").pop()}`
+        : ""
+  const mp3Url = convertedUrl("mp3")
+  const oggUrl = convertedUrl("ogg")
 
   const downloadMenu = wavUrl ? (
     <DropdownMenu>
@@ -109,6 +112,9 @@ export function AudioPlayer({
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => downloadAudio(mp3Url, `omnivoice-${jobId || "output"}.mp3`)}>
           Download MP3
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => downloadAudio(oggUrl, `omnivoice-${jobId || "output"}.ogg`)}>
+          Download OGG
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

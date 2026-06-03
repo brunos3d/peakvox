@@ -36,7 +36,7 @@ interface HistoryItemProps {
   job: JobResponse
   voiceName?: string
   active?: boolean
-  outputFormat: "wav" | "mp3"
+  outputFormat: "wav" | "mp3" | "ogg"
   onPlay: (job: JobResponse) => void
   onRegenerate: (job: JobResponse) => void
   onDelete: (job: JobResponse) => void
@@ -47,7 +47,7 @@ export function HistoryItem({ job, voiceName, active, outputFormat, onPlay, onRe
   const isCompleted = job.status === "completed"
 
   const handleDownload = () => {
-    const url = outputFormat === "mp3" ? `${API_URL}/jobs/${job.id}/audio/mp3` : `${API_URL}/jobs/${job.id}/audio`
+    const url = outputFormat === "wav" ? `${API_URL}/jobs/${job.id}/audio` : `${API_URL}/jobs/${job.id}/audio/${outputFormat}`
     download(url, `omnivoice-${job.id}.${outputFormat}`)
   }
 

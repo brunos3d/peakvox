@@ -64,13 +64,13 @@ interface AppState {
   // the persistent bottom player regardless of the current route.
   lastRequest: GenerationRequest | null
   // Preferred download format (client-side preference).
-  outputFormat: "wav" | "mp3"
+  outputFormat: "wav" | "mp3" | "ogg"
 
   setSelectedProfile: (profile: VoiceProfile | null) => void
   setCurrentAudio: (audio: CurrentAudio | null) => void
   setTtsText: (text: string) => void
   setLastRequest: (req: GenerationRequest | null) => void
-  setOutputFormat: (format: "wav" | "mp3") => void
+  setOutputFormat: (format: "wav" | "mp3" | "ogg") => void
   setUploadedAudio: (audio: UploadedAudio | null) => void
   setRecordedAudio: (audio: UploadedAudio | null) => void
   setActiveJob: (jobId: string | null, status?: JobStatus | null) => void
@@ -104,7 +104,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   ttsText: "",
   lastRequest: null,
   outputFormat:
-    (typeof window !== "undefined" && (localStorage.getItem("omnivoice:outputFormat") as "wav" | "mp3")) || "wav",
+    (typeof window !== "undefined" && (localStorage.getItem("omnivoice:outputFormat") as "wav" | "mp3" | "ogg")) || "wav",
 
   setCurrentAudio: (audio) => set({ currentAudio: audio }),
   setTtsText: (text) => set({ ttsText: text }),

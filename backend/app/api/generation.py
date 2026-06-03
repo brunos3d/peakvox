@@ -49,30 +49,46 @@ def _job_to_response(job: GenerationJob) -> JobResponse:
     )
 
 
-async def _ensure_mp3(wav_key: str) -> str:
-    """Ensure an MP3 sibling of a generated WAV object exists; return its key."""
-    mp3_key = wav_key[: -len(".wav")] + ".mp3" if wav_key.endswith(".wav") else wav_key + ".mp3"
-    if await storage.exists(mp3_key):
-        return mp3_key
+# Supported on-demand transcode targets keyed by extension. Each entry carries
+# the ffmpeg codec/quality flags and the MIME type used when streaming.
+AUDIO_FORMATS = {
+    "mp3": {
+        "codec": ["-codec:a", "libmp3lame", "-qscale:a", "2"],
+        "content_type": "audio/mpeg",
+    },
+    "ogg": {
+        "codec": ["-codec:a", "libvorbis", "-qscale:a", "5"],
+        "content_type": "audio/ogg",
+    },
+}
+
+
+async def _ensure_format(wav_key: str, fmt: str) -> str:
+    """Ensure a transcoded sibling (e.g. MP3/OGG) of a generated WAV exists; return its key."""
+    spec = AUDIO_FORMATS[fmt]
+    ext = f".{fmt}"
+    out_key = wav_key[: -len(".wav")] + ext if wav_key.endswith(".wav") else wav_key + ext
+    if await storage.exists(out_key):
+        return out_key
     if not await storage.exists(wav_key):
         raise HTTPException(status_code=404, detail="Audio file not found")
 
     wav_tmp = await storage.download_to_temp(wav_key, suffix=".wav")
-    mp3_tmp = wav_tmp.with_suffix(".mp3")
+    out_tmp = wav_tmp.with_suffix(ext)
     try:
         result = subprocess.run(
-            ["ffmpeg", "-y", "-i", str(wav_tmp), "-codec:a", "libmp3lame", "-qscale:a", "2", str(mp3_tmp)],
+            ["ffmpeg", "-y", "-i", str(wav_tmp), *spec["codec"], str(out_tmp)],
             capture_output=True,
             timeout=120,
         )
         if result.returncode != 0:
-            logger.error("ffmpeg MP3 conversion failed for %s: %s", wav_key, result.stderr.decode())
-            raise HTTPException(status_code=500, detail="Failed to convert audio to MP3")
-        await storage.put_file(mp3_key, mp3_tmp, "audio/mpeg")
+            logger.error("ffmpeg %s conversion failed for %s: %s", fmt, wav_key, result.stderr.decode())
+            raise HTTPException(status_code=500, detail=f"Failed to convert audio to {fmt.upper()}")
+        await storage.put_file(out_key, out_tmp, spec["content_type"])
     finally:
         wav_tmp.unlink(missing_ok=True)
-        mp3_tmp.unlink(missing_ok=True)
-    return mp3_key
+        out_tmp.unlink(missing_ok=True)
+    return out_key
 
 
 @router.post("/generate")
@@ -170,7 +186,9 @@ async def delete_job(job_id: str, db: AsyncSession = Depends(get_db)):
         wav_key = job.output_path
         await storage.delete(wav_key)
         if wav_key.endswith(".wav"):
-            await storage.delete(wav_key[: -len(".wav")] + ".mp3")
+            base = wav_key[: -len(".wav")]
+            for fmt in AUDIO_FORMATS:
+                await storage.delete(f"{base}.{fmt}")
     await db.delete(job)
     await db.commit()
     logger.info("Deleted job %s", job_id)
@@ -190,30 +208,34 @@ async def get_job_audio(job_id: str, request: Request, db: AsyncSession = Depend
     )
 
 
-@router.get("/jobs/{job_id}/audio/mp3")
-async def get_job_audio_mp3(job_id: str, request: Request, db: AsyncSession = Depends(get_db)):
+@router.get("/jobs/{job_id}/audio/{fmt}")
+async def get_job_audio_converted(job_id: str, fmt: str, request: Request, db: AsyncSession = Depends(get_db)):
+    if fmt not in AUDIO_FORMATS:
+        raise HTTPException(status_code=404, detail="Unsupported audio format")
     job = await db.get(GenerationJob, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     if job.status != "completed" or not job.output_path:
         raise HTTPException(status_code=400, detail="Job is not completed yet")
-    mp3_key = await _ensure_mp3(job.output_path)
+    out_key = await _ensure_format(job.output_path, fmt)
     return await stream_object(
-        mp3_key, request=request, content_type="audio/mpeg",
-        download_name=f"omnivoice-{job.id}.mp3",
+        out_key, request=request, content_type=AUDIO_FORMATS[fmt]["content_type"],
+        download_name=f"omnivoice-{job.id}.{fmt}",
     )
 
 
-@router.get("/convert/mp3/{filename:path}")
-async def convert_to_mp3(filename: str, request: Request):
+@router.get("/convert/{fmt}/{filename:path}")
+async def convert_audio(fmt: str, filename: str, request: Request):
+    if fmt not in AUDIO_FORMATS:
+        raise HTTPException(status_code=404, detail="Unsupported audio format")
     if not filename.endswith(".wav"):
         raise HTTPException(status_code=404, detail="Audio file not found")
     wav_key = f"generated/{filename}"
-    mp3_key = await _ensure_mp3(wav_key)
+    out_key = await _ensure_format(wav_key, fmt)
     base = Path(filename).stem
     return await stream_object(
-        mp3_key, request=request, content_type="audio/mpeg",
-        download_name=f"{base}.mp3",
+        out_key, request=request, content_type=AUDIO_FORMATS[fmt]["content_type"],
+        download_name=f"{base}.{fmt}",
     )
 
 

@@ -23,6 +23,8 @@ def _content_type(path: Path) -> str:
         return "audio/wav"
     if path.suffix == ".mp3":
         return "audio/mpeg"
+    if path.suffix == ".ogg":
+        return "audio/ogg"
     if path.suffix == ".json":
         return "application/json"
     return "application/octet-stream"

@@ -19,7 +19,7 @@ export function OutputFormatSelector() {
       <p className="text-caption uppercase tracking-wide">Output format</p>
       <Select
         value={outputFormat}
-        onValueChange={(v) => setOutputFormat(v as "wav" | "mp3")}
+        onValueChange={(v) => setOutputFormat(v as "wav" | "mp3" | "ogg")}
       >
         <SelectTrigger>
           <div className="flex items-center gap-2">
@@ -30,6 +30,7 @@ export function OutputFormatSelector() {
         <SelectContent>
           <SelectItem value="wav">WAV (lossless)</SelectItem>
           <SelectItem value="mp3">MP3 (compressed)</SelectItem>
+          <SelectItem value="ogg">OGG (compressed)</SelectItem>
         </SelectContent>
       </Select>
     </div>

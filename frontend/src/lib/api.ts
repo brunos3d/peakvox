@@ -102,6 +102,10 @@ export function getJobAudioMp3Url(jobId: string): string {
   return `${API_URL}/jobs/${jobId}/audio/mp3`
 }
 
+export function getJobAudioConvertedUrl(jobId: string, format: "mp3" | "ogg"): string {
+  return `${API_URL}/jobs/${jobId}/audio/${format}`
+}
+
 export async function fetchModelStatus(): Promise<ModelStatus> {
   return request<ModelStatus>("/models/status")
 }
