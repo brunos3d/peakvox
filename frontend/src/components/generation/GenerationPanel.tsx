@@ -9,6 +9,7 @@ import { GenerationSettings } from "@/components/GenerationSettings";
 import { LanguageCombobox } from "@/components/common/LanguageCombobox";
 import { VoiceDesignBuilder } from "@/components/generation/VoiceDesignBuilder";
 import { ModelInfoCard } from "@/components/generation/ModelInfoCard";
+import { EmotionSettings } from "@/components/generation/EmotionSettings";
 import { Button } from "@/components/ui/button";
 import {
   Accordion,
@@ -147,7 +148,7 @@ export function GenerationPanel() {
             </AccordionContent>
           </AccordionItem>
 
-          {/* 7. Emotion Settings (placeholder — Phase 6) */}
+          {/* 7. Emotion Settings */}
           <AccordionItem value="emotion">
             <AccordionTrigger className="px-5 text-sm font-medium">
               <span className="flex items-center gap-2">
@@ -156,9 +157,7 @@ export function GenerationPanel() {
               </span>
             </AccordionTrigger>
             <AccordionContent className="px-5">
-              <p className="text-xs text-muted-foreground">
-                Emotion controls will be available in a future update. Use <code className="rounded bg-surface-hover px-1">[tag]</code> syntax in your script for inline emotions.
-              </p>
+              <EmotionSettings />
             </AccordionContent>
           </AccordionItem>
 

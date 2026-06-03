@@ -56,6 +56,7 @@ class V1VoiceList(BaseModel):
 class TextToSpeechRequest(BaseModel):
     voiceId: str
     text: str = Field(..., min_length=1)
+    modelId: Optional[str] = None
     language: Optional[str] = None
     format: Literal["wav", "mp3"] = "wav"
 
