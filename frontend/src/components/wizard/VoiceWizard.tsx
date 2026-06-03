@@ -8,16 +8,15 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { VoiceProfileAudioInput, type AudioInputResult } from "@/components/VoiceProfileAudioInput"
 import { GenerationSettingsFields } from "@/components/GenerationSettingsFields"
 import { VoiceDesignBuilder } from "@/components/generation/VoiceDesignBuilder"
+import { LanguageCombobox } from "@/components/common/LanguageCombobox"
+import { getLanguageById } from "@/lib/languages"
 import { createVoice } from "@/lib/api"
 import { useAppStore, SYSTEM_DEFAULTS } from "@/store/use-store"
 import { formatDuration, cn } from "@/lib/utils"
 import type { VoiceGenerationDefaults } from "@/types"
-
-const LANGUAGES = ["Auto", "English", "Portuguese", "Spanish", "French", "German", "Chinese", "Japanese"]
 
 const STEPS = [
   { label: "Audio", icon: Mic },
@@ -66,7 +65,8 @@ export function VoiceWizard() {
   const [step, setStep] = useState(0)
   const [audio, setAudio] = useState<AudioInputResult | null>(null)
   const [name, setName] = useState("")
-  const [language, setLanguage] = useState("Auto")
+  // OmniVoice language id, or null for "Auto".
+  const [languageId, setLanguageId] = useState<string | null>(null)
   const [transcript, setTranscript] = useState("")
   const [description, setDescription] = useState("")
   const [settings, setSettings] = useState<VoiceGenerationDefaults>(SYSTEM_DEFAULTS)
@@ -84,10 +84,12 @@ export function VoiceWizard() {
 
   const handleCreate = () => {
     if (!audio?.isValid || !name.trim()) return
+    const lang = getLanguageById(languageId)
     const fd = new FormData()
     fd.append("name", name.trim())
     fd.append("description", description)
-    fd.append("language", language === "Auto" ? "" : language)
+    fd.append("language", lang?.name ?? "")
+    fd.append("language_code", lang?.id ?? "")
     fd.append("transcript", transcript)
     fd.append("generation_defaults", JSON.stringify(settings))
     fd.append("file", audio.file)
@@ -123,12 +125,7 @@ export function VoiceWizard() {
             </div>
             <div className="space-y-2">
               <Label>Language</Label>
-              <Select value={language} onValueChange={setLanguage}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {LANGUAGES.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <LanguageCombobox value={languageId} onChange={(l) => setLanguageId(l?.id ?? null)} />
             </div>
             <div className="space-y-2">
               <Label>Reference transcript <span className="font-normal text-muted-foreground">(optional)</span></Label>
@@ -167,7 +164,7 @@ export function VoiceWizard() {
             <div className="rounded-xl border border-border bg-surface divide-y divide-border px-4">
               {[
                 ["Name", name || "—"],
-                ["Language", language],
+                ["Language", getLanguageById(languageId)?.name ?? "Auto"],
                 ["Sample", audio ? `${audio.file.name} · ${formatDuration(audio.cropEnd - audio.cropStart)}` : "—"],
                 ["Transcript", transcript ? `${transcript.slice(0, 40)}${transcript.length > 40 ? "…" : ""}` : "—"],
                 ["Voice design", settings.voice_design.length ? settings.voice_design.join(", ") : "—"],

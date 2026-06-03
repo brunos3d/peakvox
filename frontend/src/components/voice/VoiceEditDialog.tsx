@@ -7,16 +7,15 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { VoiceProfileAudioInput, type AudioInputResult } from "@/components/VoiceProfileAudioInput"
 import { GenerationSettingsFields } from "@/components/GenerationSettingsFields"
 import { VoiceDesignBuilder } from "@/components/generation/VoiceDesignBuilder"
+import { LanguageCombobox } from "@/components/common/LanguageCombobox"
+import { getLanguageById, getLanguageByName } from "@/lib/languages"
 import { updateVoice as updateVoiceApi } from "@/lib/api"
 import { useAppStore, SYSTEM_DEFAULTS } from "@/store/use-store"
 import type { VoiceProfile, VoiceGenerationDefaults } from "@/types"
-
-const LANGUAGES = ["Auto", "English", "Portuguese", "Spanish", "French", "German", "Chinese", "Japanese"]
 
 interface VoiceEditDialogProps {
   voice: VoiceProfile | null
@@ -31,7 +30,8 @@ export function VoiceEditDialog({ voice, open, onOpenChange }: VoiceEditDialogPr
 
   const [name, setName] = useState("")
   const [transcript, setTranscript] = useState("")
-  const [language, setLanguage] = useState("Auto")
+  // OmniVoice language id, or null for "Auto".
+  const [languageId, setLanguageId] = useState<string | null>(null)
   const [settings, setSettings] = useState<VoiceGenerationDefaults>(SYSTEM_DEFAULTS)
   const [audio, setAudio] = useState<AudioInputResult | null>(null)
 
@@ -39,7 +39,10 @@ export function VoiceEditDialog({ voice, open, onOpenChange }: VoiceEditDialogPr
     if (voice) {
       setName(voice.name)
       setTranscript(voice.transcript || "")
-      setLanguage(voice.language || "Auto")
+      // Prefer the stored OmniVoice id; fall back to resolving a legacy display name.
+      const resolved =
+        getLanguageById(voice.language_code) ?? getLanguageByName(voice.language)
+      setLanguageId(resolved?.id ?? null)
       setSettings(voice.generation_defaults ?? SYSTEM_DEFAULTS)
       setAudio(null)
     }
@@ -58,10 +61,12 @@ export function VoiceEditDialog({ voice, open, onOpenChange }: VoiceEditDialogPr
 
   const handleSave = () => {
     if (!voice || !isValid) return
+    const lang = getLanguageById(languageId)
     const fd = new FormData()
     fd.append("name", name)
     fd.append("transcript", transcript)
-    fd.append("language", language === "Auto" ? "" : language)
+    fd.append("language", lang?.name ?? "")
+    fd.append("language_code", lang?.id ?? "")
     fd.append("generation_defaults", JSON.stringify(settings))
     if (audio) {
       fd.append("file", audio.file)
@@ -89,12 +94,7 @@ export function VoiceEditDialog({ voice, open, onOpenChange }: VoiceEditDialogPr
           </div>
           <div className="space-y-2">
             <Label>Language</Label>
-            <Select value={language} onValueChange={setLanguage}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {LANGUAGES.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <LanguageCombobox value={languageId} onChange={(l) => setLanguageId(l?.id ?? null)} />
           </div>
 
           <Accordion type="single" collapsible className="w-full rounded-lg border px-3">

@@ -10,28 +10,13 @@ import { QuickPrompts } from "@/components/generation/QuickPrompts";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { LanguageCombobox } from "@/components/common/LanguageCombobox";
+import { getLanguageLabel } from "@/lib/languages";
 import { useAppStore } from "@/store/use-store";
 import { useSubmitGeneration, useModelStatus } from "@/hooks/use-generation";
 import { VoiceDesignBuilder } from "@/components/generation/VoiceDesignBuilder";
 import { buildInstruct } from "@/config/voice-design";
 
-const LANGUAGES = [
-  "Auto",
-  "English",
-  "Portuguese",
-  "Spanish",
-  "French",
-  "German",
-  "Chinese",
-  "Japanese",
-];
 export default function TextToSpeechPage() {
   const text = useAppStore((s) => s.ttsText);
   const setText = useAppStore((s) => s.setTtsText);
@@ -41,7 +26,8 @@ export default function TextToSpeechPage() {
   const setVoiceDesign = useAppStore((s) => s.setVoiceDesign);
   const activeJobId = useAppStore((s) => s.activeJobId);
 
-  const [language, setLanguage] = useState("Auto");
+  // null = "Auto" / auto-detect; otherwise the OmniVoice language id sent to the model.
+  const [language, setLanguage] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const showPrompts = text.length === 0;
@@ -59,7 +45,7 @@ export default function TextToSpeechPage() {
     generate.mutate({
       text: text.trim(),
       voice_profile_id: selectedProfile?.id ?? null,
-      language: language === "Auto" ? null : language,
+      language: language,
       ref_text: selectedProfile?.transcript || null,
       instruct: voiceDesign.length ? buildInstruct(voiceDesign) : null,
       ...generationSettings,
@@ -130,25 +116,17 @@ export default function TextToSpeechPage() {
           >
             <div className="overflow-hidden">
               <p className="text-caption mb-2">Quick prompts</p>
-              <QuickPrompts language={language} onSelect={insertPrompt} />
+              <QuickPrompts language={getLanguageLabel(language)} onSelect={insertPrompt} />
             </div>
           </div>
 
           <div className="mt-6 space-y-4">
             <div className="space-y-2 sm:max-w-xs">
               <Label className="text-xs">Language</Label>
-              <Select value={language} onValueChange={setLanguage}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {LANGUAGES.map((lang) => (
-                    <SelectItem key={lang} value={lang}>
-                      {lang}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <LanguageCombobox
+                value={language}
+                onChange={(lang) => setLanguage(lang?.id ?? null)}
+              />
             </div>
             <div className="space-y-2">
               <Label className="text-xs">
