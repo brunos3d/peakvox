@@ -69,8 +69,11 @@ interface AppState {
   lastRequest: GenerationRequest | null
   // Preferred download format (client-side preference).
   outputFormat: "wav" | "mp3" | "ogg"
+  // The model selected by the user for generation; null = platform default.
+  selectedModelId: string | null
 
   setSelectedProfile: (profile: VoiceProfile | null) => void
+  setSelectedModelId: (id: string | null) => void
   setTtsLanguage: (language: string | null) => void
   setCurrentAudio: (audio: CurrentAudio | null) => void
   setTtsText: (text: string) => void
@@ -109,9 +112,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   currentAudio: null,
   ttsText: "",
   lastRequest: null,
+  selectedModelId: null,
   outputFormat:
     (typeof window !== "undefined" && (localStorage.getItem("omnivoice:outputFormat") as "wav" | "mp3" | "ogg")) || "wav",
 
+  setSelectedModelId: (id) => set({ selectedModelId: id }),
   setCurrentAudio: (audio) => set({ currentAudio: audio }),
   setTtsText: (text) => set({ ttsText: text }),
   setLastRequest: (req) => set({ lastRequest: req }),
