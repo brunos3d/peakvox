@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { KeyRound, Plus, Trash2, Copy, Check, AlertTriangle } from "lucide-react"
-import { PageLayout } from "@/components/shell/PageLayout"
 import { PageHeader } from "@/components/shell/PageHeader"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -53,7 +52,7 @@ export default function ApiKeysPage() {
   }
 
   return (
-    <PageLayout>
+    <>
       <div className="mx-auto max-w-3xl">
         <PageHeader
           title="API Keys"
@@ -151,6 +150,6 @@ export default function ApiKeysPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </PageLayout>
+    </>
   )
 }
