@@ -1,16 +1,26 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   submitGeneration,
   fetchJob,
   fetchVoices,
+  fetchVoicesPage,
+  setVoiceFavorite,
   fetchModelStatus,
 } from "@/lib/api";
 import type {
   GenerationRequest,
   JobResponse,
   VoiceProfile,
+  VoiceListPage,
+  VoiceScope,
+  VoiceQueryFilters,
   ModelStatus,
 } from "@/types";
 import { useAppStore } from "@/store/use-store";
@@ -26,6 +36,40 @@ export function useVoices() {
       return data;
     },
     refetchInterval: 10000,
+  });
+}
+
+/** Paginated/filtered/searchable listing that drives the Voice Library. */
+export function useVoicesPage(
+  scope: VoiceScope,
+  search: string,
+  filters: VoiceQueryFilters,
+) {
+  return useInfiniteQuery<VoiceListPage>({
+    queryKey: ["voices-page", scope, search, filters],
+    queryFn: ({ pageParam }) =>
+      fetchVoicesPage({
+        scope,
+        search,
+        filters,
+        cursor: pageParam as string | null,
+      }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.next_cursor,
+    // Community/Preset are disabled for now — skip the round-trip.
+    enabled: scope === "mine" || scope === "recent",
+  });
+}
+
+export function useToggleFavorite() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, value }: { id: string; value: boolean }) =>
+      setVoiceFavorite(id, value),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["voices-page"] });
+      queryClient.invalidateQueries({ queryKey: ["voices"] });
+    },
   });
 }
 

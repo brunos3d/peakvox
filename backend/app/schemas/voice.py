@@ -80,3 +80,14 @@ class VoiceProfileResponse(BaseModel):
     last_used_at: Optional[datetime]
 
     model_config = {"from_attributes": True}
+
+
+class VoiceListPage(BaseModel):
+    """One page of the paginated voice listing."""
+
+    items: list[VoiceProfileResponse]
+    next_cursor: Optional[str] = None
+
+
+class FavoriteUpdate(BaseModel):
+    is_favorite: bool

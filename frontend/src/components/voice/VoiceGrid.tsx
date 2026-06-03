@@ -12,9 +12,10 @@ interface VoiceGridProps {
   onOpenDetails?: (voice: VoiceProfile) => void
   onEdit?: (voice: VoiceProfile) => void
   onDelete?: (voice: VoiceProfile) => void
+  onToggleFavorite?: (voice: VoiceProfile) => void
 }
 
-export function VoiceGrid({ voices, loading, selectedId, onSelect, onOpenDetails, onEdit, onDelete }: VoiceGridProps) {
+export function VoiceGrid({ voices, loading, selectedId, onSelect, onOpenDetails, onEdit, onDelete, onToggleFavorite }: VoiceGridProps) {
   if (loading) {
     return (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -36,6 +37,7 @@ export function VoiceGrid({ voices, loading, selectedId, onSelect, onOpenDetails
           onOpenDetails={onOpenDetails}
           onEdit={onEdit}
           onDelete={onDelete}
+          onToggleFavorite={onToggleFavorite}
         />
       ))}
     </div>

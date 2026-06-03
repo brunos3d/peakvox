@@ -1,10 +1,10 @@
 "use client"
 
-import { Pencil, Trash2, Wand2 } from "lucide-react"
+import { useState } from "react"
+import { Pencil, Trash2, Wand2, Copy, Check } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import { AudioPlayer } from "@/components/AudioPlayer"
 import { getVoiceAudioUrl } from "@/lib/api"
 import { formatDuration } from "@/lib/utils"
@@ -28,7 +28,26 @@ function MetaRow({ label, value }: { label: string; value: string }) {
   )
 }
 
+const CHARACTERISTIC_LABELS: Record<string, string> = {
+  gender: "Gender",
+  age_group: "Age",
+  accent: "Accent",
+  pitch: "Pitch",
+  speaking_speed: "Speed",
+  emotional_range: "Emotion",
+}
+
 export function VoiceDetailsDrawer({ voice, open, onOpenChange, onUse, onEdit, onDelete }: VoiceDetailsDrawerProps) {
+  const [copied, setCopied] = useState(false)
+
+  const copyId = () => {
+    if (!voice) return
+    navigator.clipboard?.writeText(voice.public_voice_id).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-md p-0">
@@ -42,6 +61,19 @@ export function VoiceDetailsDrawer({ voice, open, onOpenChange, onUse, onEdit, o
             </SheetHeader>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              <div className="space-y-1">
+                <p className="text-caption uppercase tracking-wide">Voice ID</p>
+                <button
+                  type="button"
+                  onClick={copyId}
+                  title="Copy Voice ID"
+                  className="flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-mono hover:bg-surface-2"
+                >
+                  <span className="truncate">{voice.public_voice_id}</span>
+                  {copied ? <Check className="h-4 w-4 shrink-0 text-success" /> : <Copy className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                </button>
+              </div>
+
               <AudioPlayer audioUrl={getVoiceAudioUrl(voice.id)} title="Reference audio" duration={voice.audio_duration} />
 
               {voice.description && (
@@ -61,11 +93,47 @@ export function VoiceDetailsDrawer({ voice, open, onOpenChange, onUse, onEdit, o
               <div className="space-y-1">
                 <p className="text-caption uppercase tracking-wide">Metadata</p>
                 <div className="rounded-lg border border-border bg-surface px-3 divide-y divide-border">
+                  <MetaRow
+                    label="Language"
+                    value={[voice.language, voice.language_code ? `(${voice.language_code})` : null].filter(Boolean).join(" ") || "Auto"}
+                  />
+                  <MetaRow label="Usage count" value={String(voice.usage_count)} />
                   <MetaRow label="Created" value={new Date(voice.created_at).toLocaleString()} />
                   <MetaRow label="Last used" value={voice.last_used_at ? new Date(voice.last_used_at).toLocaleString() : "Never"} />
                   <MetaRow label="Duration" value={formatDuration(voice.audio_duration)} />
                 </div>
               </div>
+
+              {voice.characteristics && Object.values(voice.characteristics).some((v) => (Array.isArray(v) ? v.length : v)) && (
+                <div className="space-y-1">
+                  <p className="text-caption uppercase tracking-wide">Voice characteristics</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Object.entries(CHARACTERISTIC_LABELS).map(([key, label]) => {
+                      const value = voice.characteristics?.[key as keyof typeof voice.characteristics]
+                      if (!value || Array.isArray(value)) return null
+                      return (
+                        <Badge key={key} variant="secondary" className="gap-1 capitalize">
+                          <span className="text-muted-foreground normal-case">{label}:</span> {value}
+                        </Badge>
+                      )
+                    })}
+                    {voice.characteristics.style_tags?.map((tag) => (
+                      <Badge key={tag} variant="outline" className="capitalize">{tag}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {voice.preset_tags && voice.preset_tags.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-caption uppercase tracking-wide">Preset tags</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {voice.preset_tags.map((tag) => (
+                      <Badge key={tag} variant="outline">{tag}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {voice.generation_defaults && (
                 <div className="space-y-1">

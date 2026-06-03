@@ -13,8 +13,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db
 from app.models.db import VoiceProfile
-from app.schemas.voice import VoiceGenerationDefaults, VoiceProfileResponse
+from app.schemas.voice import (
+    FavoriteUpdate,
+    VoiceGenerationDefaults,
+    VoiceListPage,
+    VoiceProfileResponse,
+)
 from app.services.voice_metadata import characteristics_from_defaults
+from app.services.voice_repository import (
+    VALID_SCOPES,
+    list_voices_page,
+    set_favorite,
+)
 from app.services.audio_preprocessing_service import (
     AudioPreprocessingError,
     process_audio,
@@ -132,6 +142,40 @@ async def list_voices(db: AsyncSession = Depends(get_db)):
         )
     )
     return result.scalars().all()
+
+
+@router.get("/page", response_model=VoiceListPage)
+async def list_voices_page_endpoint(
+    scope: str = "mine",
+    search: Optional[str] = None,
+    language_code: Optional[str] = None,
+    gender: Optional[str] = None,
+    age_group: Optional[str] = None,
+    accent: Optional[str] = None,
+    favorite: Optional[bool] = None,
+    limit: int = 24,
+    cursor: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Paginated, filtered, searchable listing that powers the Voice Library."""
+    if scope not in VALID_SCOPES:
+        raise HTTPException(status_code=422, detail=f"Invalid scope: {scope}")
+    items, next_cursor = await list_voices_page(
+        db,
+        scope=scope,
+        search=search,
+        language_code=language_code,
+        gender=gender,
+        age_group=age_group,
+        accent=accent,
+        favorite=favorite,
+        limit=limit,
+        cursor=cursor,
+    )
+    return VoiceListPage(
+        items=[VoiceProfileResponse.model_validate(v) for v in items],
+        next_cursor=next_cursor,
+    )
 
 
 @router.get("/{profile_id}", response_model=VoiceProfileResponse)
@@ -287,6 +331,19 @@ async def update_voice(
     await db.refresh(profile)
     logger.info("Updated voice profile %s", profile_id)
     return profile
+
+
+@router.patch("/{profile_id}/favorite", response_model=VoiceProfileResponse)
+async def update_favorite(
+    profile_id: str,
+    payload: FavoriteUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    """Toggle the favorite flag for a voice."""
+    voice = await set_favorite(db, profile_id, payload.is_favorite)
+    if voice is None:
+        raise HTTPException(status_code=404, detail="Voice profile not found")
+    return voice
 
 
 @router.patch("/{profile_id}/defaults", response_model=VoiceProfileResponse)

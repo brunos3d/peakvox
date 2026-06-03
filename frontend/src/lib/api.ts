@@ -1,4 +1,13 @@
-import type { VoiceProfile, VoiceGenerationDefaults, GenerationRequest, JobResponse, ModelStatus } from "@/types"
+import type {
+  VoiceProfile,
+  VoiceGenerationDefaults,
+  VoiceListPage,
+  VoiceScope,
+  VoiceQueryFilters,
+  GenerationRequest,
+  JobResponse,
+  ModelStatus,
+} from "@/types"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
@@ -30,6 +39,36 @@ export async function fetchVoices(): Promise<VoiceProfile[]> {
 
 export async function fetchVoice(id: string): Promise<VoiceProfile> {
   return request<VoiceProfile>(`/voices/${id}`)
+}
+
+export async function fetchVoicesPage(params: {
+  scope?: VoiceScope
+  search?: string
+  filters?: VoiceQueryFilters
+  limit?: number
+  cursor?: string | null
+}): Promise<VoiceListPage> {
+  const qs = new URLSearchParams()
+  if (params.scope) qs.set("scope", params.scope)
+  if (params.search) qs.set("search", params.search)
+  if (params.limit != null) qs.set("limit", String(params.limit))
+  if (params.cursor) qs.set("cursor", params.cursor)
+  const f = params.filters ?? {}
+  if (f.language_code) qs.set("language_code", f.language_code)
+  if (f.gender) qs.set("gender", f.gender)
+  if (f.age_group) qs.set("age_group", f.age_group)
+  if (f.accent) qs.set("accent", f.accent)
+  if (f.favorite) qs.set("favorite", "true")
+  const suffix = qs.toString() ? `?${qs.toString()}` : ""
+  return request<VoiceListPage>(`/voices/page${suffix}`)
+}
+
+export async function setVoiceFavorite(id: string, isFavorite: boolean): Promise<VoiceProfile> {
+  return request<VoiceProfile>(`/voices/${id}/favorite`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ is_favorite: isFavorite }),
+  })
 }
 
 export async function createVoice(formData: FormData): Promise<VoiceProfile> {

@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useState } from "react"
-import { Play, Pause, Pencil, Trash2, Sparkles } from "lucide-react"
+import { Play, Pause, Pencil, Trash2, Sparkles, Star, Copy, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { getVoiceAudioUrl } from "@/lib/api"
@@ -15,10 +15,20 @@ interface VoiceCardProps {
   onOpenDetails?: (voice: VoiceProfile) => void
   onEdit?: (voice: VoiceProfile) => void
   onDelete?: (voice: VoiceProfile) => void
+  onToggleFavorite?: (voice: VoiceProfile) => void
 }
 
-export function VoiceCard({ voice, selected, onSelect, onOpenDetails, onEdit, onDelete }: VoiceCardProps) {
+export function VoiceCard({
+  voice,
+  selected,
+  onSelect,
+  onOpenDetails,
+  onEdit,
+  onDelete,
+  onToggleFavorite,
+}: VoiceCardProps) {
   const [playing, setPlaying] = useState(false)
+  const [copied, setCopied] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
   const togglePreview = (e: React.MouseEvent) => {
@@ -29,7 +39,17 @@ export function VoiceCard({ voice, selected, onSelect, onOpenDetails, onEdit, on
     else el.play()
   }
 
+  const copyId = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    navigator.clipboard?.writeText(voice.public_voice_id).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
+
   const initials = voice.name.slice(0, 2).toUpperCase()
+  const chars = voice.characteristics
+  const chips = [chars?.gender, chars?.accent].filter(Boolean) as string[]
 
   return (
     <div
@@ -56,8 +76,32 @@ export function VoiceCard({ voice, selected, onSelect, onOpenDetails, onEdit, on
                 <Sparkles className="h-2.5 w-2.5" /> preset
               </Badge>
             )}
+            {chips.map((c) => (
+              <Badge key={c} variant="secondary" className="px-1.5 py-0 text-[10px] capitalize">
+                {c}
+              </Badge>
+            ))}
           </div>
         </div>
+        {onToggleFavorite && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0"
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleFavorite(voice)
+            }}
+            title={voice.is_favorite ? "Unfavorite" : "Favorite"}
+          >
+            <Star
+              className={cn(
+                "h-4 w-4",
+                voice.is_favorite ? "fill-warning text-warning" : "text-muted-foreground",
+              )}
+            />
+          </Button>
+        )}
         <Button
           variant="secondary"
           size="icon"
@@ -70,9 +114,18 @@ export function VoiceCard({ voice, selected, onSelect, onOpenDetails, onEdit, on
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-caption">
-          {voice.last_used_at ? `Used ${new Date(voice.last_used_at).toLocaleDateString()}` : "Never used"}
-        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={copyId}
+            title="Copy Voice ID"
+            className="inline-flex items-center gap-1 rounded text-caption font-mono hover:text-foreground"
+          >
+            {copied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
+            {voice.public_voice_id}
+          </button>
+          <span className="text-caption">· {voice.usage_count} uses</span>
+        </div>
         <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
           {onEdit && (
             <Button

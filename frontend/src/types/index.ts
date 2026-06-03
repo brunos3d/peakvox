@@ -55,6 +55,21 @@ export interface VoiceProfile {
   last_used_at: string | null
 }
 
+export type VoiceScope = "mine" | "community" | "preset" | "recent"
+
+export interface VoiceQueryFilters {
+  language_code?: string | null
+  gender?: string | null
+  age_group?: string | null
+  accent?: string | null
+  favorite?: boolean
+}
+
+export interface VoiceListPage {
+  items: VoiceProfile[]
+  next_cursor: string | null
+}
+
 export interface GenerationRequest {
   text: string
   voice_profile_id?: string | null
