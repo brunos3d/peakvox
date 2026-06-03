@@ -1,0 +1,194 @@
+OmniVoice App Community License
+===============================
+
+Copyright (c) 2026 Bruno Silva and the OmniVoice App contributors.
+
+This software is licensed under the **Elastic License 2.0** (the "License"),
+reproduced in full in Part A below, together with the Supplemental Terms in
+Part B (which clarify the scope of permitted use) and the binding Acceptable
+Use requirements in Part C. By using the software you agree to all three parts.
+
+The software incorporates and depends on the upstream OmniVoice project
+(https://github.com/k2-fsa/OmniVoice), which is licensed under the Apache
+License 2.0. Nothing in this License modifies, supersedes, or restricts your
+rights in the upstream OmniVoice software, its model weights, or any other
+Apache-2.0 licensed component. See the NOTICE file for required attributions.
+
+
+================================================================================
+PART A — ELASTIC LICENSE 2.0 (ELv2)
+================================================================================
+
+Source: https://www.elastic.co/licensing/elastic-license
+
+## Acceptance
+
+By using the software, you agree to all of the terms and conditions below.
+
+## Copyright License
+
+The licensor grants you a non-exclusive, royalty-free, worldwide,
+non-sublicensable, non-transferable license to use, copy, distribute, make
+available, and prepare derivative works of the software, in each case subject to
+the limitations and conditions below.
+
+## Limitations
+
+You may not provide the software to third parties as a hosted or managed
+service, where the service provides users with access to any substantial set of
+the features or functionality of the software.
+
+You may not move, change, disable, or circumvent the license key functionality
+in the software, and you may not remove or obscure any functionality in the
+software that is protected by the license key.
+
+You may not alter, remove, or obscure any licensing, copyright, or other notices
+of the licensor in the software. Any use of the licensor's trademarks is subject
+to applicable law.
+
+## Patents
+
+The licensor grants you a license, under any patent claims the licensor can
+license, or becomes able to license, to make, have made, use, sell, offer for
+sale, import and have imported the software, in each case subject to the
+limitations and conditions in this license. This license does not cover any
+patent claims that you cause to be infringed by modifications or additions to
+the software. If you or your company make any written claim that the software
+infringes or contributes to infringement of any patent, your patent license for
+the software granted under these terms ends immediately. If your company makes
+such a claim, your patent license ends immediately for work on behalf of your
+company.
+
+## Notices
+
+You must ensure that anyone who gets a copy of any part of the software from you
+also gets a copy of these terms.
+
+If you modify the software, you must include in any modified copies of the
+software prominent notices stating that you have modified the software.
+
+## No Other Rights
+
+These terms do not imply any licenses other than those expressly granted in
+these terms.
+
+## Termination
+
+If you use the software in violation of these terms, such use is not licensed,
+and your licenses will automatically terminate. If the licensor provides you
+with a notice of your violation, and you cease all violation of this license no
+later than 30 days after you receive that notice, your licenses will be
+reinstated retroactively. However, if you violate these terms after such
+reinstatement, any additional violation of these terms will cause your licenses
+to terminate automatically and permanently.
+
+## No Liability
+
+*As far as the law allows, the software comes "as is", without any warranty or
+condition, and the licensor will not be liable to you for any damages arising
+out of these terms or the use or nature of the software, under any kind of legal
+claim.*
+
+## Definitions
+
+The **licensor** is the entity offering these terms, and the **software** is the
+software the licensor makes available under these terms, including any portion
+of it.
+
+**you** refers to the individual or entity agreeing to these terms.
+
+**your company** is any legal entity, sole proprietorship, or other kind of
+organization that you work for, plus all organizations that have control over,
+are under the control of, or are under common control with that organization.
+**control** means ownership of substantially all the assets of an entity, or the
+power to direct its management and policies by vote, contract, or otherwise.
+Control can be direct or indirect.
+
+**your licenses** are all the licenses granted to you for the software under
+these terms.
+
+**use** means anything you do with the software requiring one of your licenses.
+
+**trademark** means trademarks, service marks, and similar rights.
+
+
+================================================================================
+PART B — SUPPLEMENTAL TERMS (OmniVoice App Community Edition)
+================================================================================
+
+These Supplemental Terms clarify how the Limitations in Part A apply to this
+project. Where the plain text of Part A and these clarifications differ, Part A
+controls.
+
+### B.1 Permitted use (no separate commercial license required)
+
+Subject to Parts A and C, you MAY, free of charge:
+
+  * Run the software on infrastructure you control (self-hosting).
+  * Use the software for personal projects and experimentation.
+  * Use the software for educational, academic, and research purposes.
+  * Use the software internally within your company or organization,
+    including for internal business operations, by your employees and
+    contractors.
+  * Modify the software and create derivative works for the above purposes.
+  * Distribute the software and your modifications, provided each recipient
+    receives a copy of this License (Part A "Notices").
+
+### B.2 Restricted use (requires a separate commercial agreement)
+
+For the avoidance of doubt, the "hosted or managed service" Limitation in
+Part A prohibits, without a separate written commercial license from the
+licensor, the following uses:
+
+  * Reselling the software or access to it.
+  * Operating a competing Software-as-a-Service (SaaS), Platform-as-a-Service,
+    or cloud offering whose value is derived from this software.
+  * Providing the software, or any substantial part of its features, to third
+    parties as a managed, hosted, or multi-tenant service.
+  * White-labeling or rebranding the software for redistribution as a product
+    or service.
+  * Selling derivative works whose primary value is the functionality of this
+    software.
+
+To obtain a commercial license for any of the above, contact the maintainers
+(see SECURITY.md / README.md for contact details).
+
+### B.3 Upstream compatibility
+
+This License applies only to the original code authored by the OmniVoice App
+contributors. It does not, and cannot, restrict your rights under the Apache
+License 2.0 with respect to the upstream OmniVoice project or any other
+third-party component distributed under its own license. You must comply with
+all such upstream licenses; see the NOTICE file.
+
+
+================================================================================
+PART C — ACCEPTABLE USE (Voice Safety)
+================================================================================
+
+The synthetic-voice capabilities of this software carry a heightened risk of
+abuse. As a binding condition of the licenses granted in Part A, you agree NOT
+to use the software, in whole or in part, to:
+
+  * Impersonate any person or organization without their explicit consent.
+  * Commit fraud, identity theft, or any deceptive practice.
+  * Clone, synthesize, or reproduce any individual's voice without that
+    individual's informed and verifiable consent (or other lawful basis).
+  * Produce deceptive synthetic media intended to mislead as to authenticity.
+  * Harass, threaten, defame, or harm any person.
+  * Generate content that is unlawful in the jurisdiction where it is created,
+    distributed, or consumed.
+
+Violation of Part C is a violation of this License and triggers the Termination
+clause in Part A. The full, governing statement of these obligations is set out
+in VOICE_USAGE_POLICY.md, which is incorporated into this License by reference.
+
+
+================================================================================
+DISCLAIMER
+================================================================================
+
+THIS LICENSE IS PROVIDED FOR THE PROJECT'S DISTRIBUTION AND IS NOT LEGAL ADVICE.
+The Elastic License 2.0 is a source-available, non-open-source license. The
+licensor and contributors are not your attorneys; consult qualified legal
+counsel before relying on this License for commercial decisions.

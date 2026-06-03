@@ -1,0 +1,39 @@
+OmniVoice App
+Copyright (c) 2026 Bruno Silva and the OmniVoice App contributors.
+
+This product is licensed under the OmniVoice App Community License (based on the
+Elastic License 2.0). See the LICENSE file for terms.
+
+--------------------------------------------------------------------------------
+Third-Party Components and Attributions
+--------------------------------------------------------------------------------
+
+This product includes and depends on software developed by third parties. Their
+licenses govern your use of those components and are not modified by the
+OmniVoice App Community License.
+
+1. OmniVoice (k2-fsa/OmniVoice)
+   - Source:  https://github.com/k2-fsa/OmniVoice
+   - Model:   https://huggingface.co/k2-fsa/OmniVoice
+   - License: Apache License 2.0
+   - OmniVoice is the underlying massively-multilingual zero-shot text-to-speech
+     and voice-cloning engine that powers this application. All voice
+     synthesis, voice cloning, and voice design inference is performed by
+     OmniVoice. This project is an independent application built on top of it
+     and is not affiliated with or endorsed by the k2-fsa / Next-gen Kaldi team.
+
+2. Frontend dependencies
+   - Next.js, React (MIT) — https://nextjs.org / https://react.dev
+   - Radix UI / shadcn/ui (MIT)
+   - TanStack Query (MIT), Zustand (MIT), wavesurfer.js (BSD-3-Clause),
+     cmdk (MIT), Tailwind CSS (MIT), lucide-react (ISC)
+
+3. Backend dependencies
+   - FastAPI (MIT), Uvicorn (BSD-3-Clause), Pydantic (MIT),
+     SQLAlchemy (MIT), librosa (ISC), soundfile (BSD-3-Clause),
+     MinIO Python SDK (Apache-2.0), loguru (MIT)
+
+Each component is distributed under its own license. Copies of those licenses
+are available from the respective project repositories. Where required by the
+Apache License 2.0 (including for OmniVoice), this NOTICE file preserves the
+relevant attribution and must be retained in redistributions.
