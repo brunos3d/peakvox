@@ -9,6 +9,8 @@ from app.core.config import settings
 from app.core.database import init_db
 from app.api import voices, generation, health, media
 from app.api.settings import router as settings_router
+from app.api.api_keys import router as api_keys_router
+from app.api.v1 import router as v1_router
 from app.services.omnivoice_service import omnivoice_service
 from app.services.storage import storage
 from app.services.migration import run_migration
@@ -43,3 +45,5 @@ app.include_router(media.router, tags=["Media"])
 app.include_router(voices.router, prefix="/voices", tags=["Voices"])
 app.include_router(generation.router, prefix="", tags=["Generation"])
 app.include_router(settings_router, prefix="", tags=["Settings"])
+app.include_router(api_keys_router, prefix="/api-keys", tags=["API Keys"])
+app.include_router(v1_router, prefix="/api/v1", tags=["Public API v1"])
