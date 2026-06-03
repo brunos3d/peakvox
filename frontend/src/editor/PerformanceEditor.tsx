@@ -5,6 +5,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { EmotionTag } from "@/editor/extensions/EmotionTag";
+import { EmotionToolbar } from "@/editor/EmotionToolbar";
 import { serializeToOmniVoice } from "@/editor/serialize";
 import { TagSuggestionExtension, tagItemsRef } from "@/editor/extensions/tagSuggestionPlugin";
 import { useTagMenuItems } from "@/editor/useTagMenuItems";
@@ -92,6 +93,7 @@ export function PerformanceEditor({
 
   return (
     <div className={className}>
+      {editor && <EmotionToolbar editor={editor} />}
       <EditorContent editor={editor} />
       <div className="flex items-center justify-between px-5 py-2 text-xs text-muted-foreground">
         <span>{charCount} character{charCount !== 1 ? "s" : ""}</span>

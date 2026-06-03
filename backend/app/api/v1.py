@@ -26,6 +26,7 @@ from app.schemas.api import (
 )
 from app.services.api_keys import extract_api_token, verify_api_key
 from app.services.storage import storage
+from app.services.model_registry import model_registry
 from app.services.omnivoice_service import omnivoice_service
 from app.services.voice_metadata import characteristics_from_defaults
 from app.services.voice_repository import get_voice_by_public_id, list_voices_page
@@ -187,6 +188,14 @@ async def v1_text_to_speech(
     if not ref_key:
         raise HTTPException(status_code=404, detail="Voice audio not found")
 
+    # Resolve the model (None = platform default).
+    try:
+        model = model_registry.get_or_default(payload.modelId)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Model '{payload.modelId}' not found")
+    if model.status == "disabled":
+        raise HTTPException(status_code=409, detail=f"Model '{model.id}' is not available")
+
     # Apply the voice's saved defaults so the API matches in-app behavior (Sub-project E).
     defaults = voice.generation_defaults or {}
     voice_design = defaults.get("voice_design") or []
@@ -202,6 +211,7 @@ async def v1_text_to_speech(
     output_key = f"generated/{os.urandom(8).hex()}.wav"
     job = GenerationJob(
         text=payload.text,
+        model_id=model.id,
         voice_profile_id=voice.id,
         ref_audio_path=ref_key,
         ref_text=voice.transcript,
