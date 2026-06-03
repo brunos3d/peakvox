@@ -5,6 +5,8 @@ from pydantic import BaseModel, Field
 
 class GenerationRequest(BaseModel):
     text: str = Field(..., min_length=1)
+    # Optional model selector. None falls back to the platform default (back-compat).
+    model_id: Optional[str] = None
     voice_profile_id: Optional[str] = None
     ref_text: Optional[str] = None
     language: Optional[str] = None
@@ -21,6 +23,7 @@ class JobResponse(BaseModel):
     id: str
     status: str
     text: str
+    model_id: Optional[str] = None
     voice_profile_id: Optional[str]
     language: Optional[str]
     instruct: Optional[str]

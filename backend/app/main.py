@@ -7,11 +7,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.database import init_db
-from app.api import voices, generation, health, media
+from app.api import voices, generation, health, media, models
 from app.api.settings import router as settings_router
 from app.api.api_keys import router as api_keys_router
 from app.api.v1 import router as v1_router
-from app.services.omnivoice_service import omnivoice_service
+from app.services.model_registry import model_registry
+from app.services.model_wiring import wire_registry
 from app.services.storage import storage
 from app.services.migration import run_migration
 
@@ -25,7 +26,10 @@ async def lifespan(app: FastAPI):
     await init_db()
     storage.ensure_bucket()
     await run_migration()
-    asyncio.create_task(omnivoice_service.load_model())
+    # Wire the model registry (descriptors + provider factories) and warm the default model.
+    wire_registry()
+    default_id = model_registry.resolve_default().id
+    asyncio.create_task(model_registry.ensure_loaded(default_id))
     yield
     logger.info("Shutting down")
 
@@ -41,6 +45,7 @@ app.add_middleware(
 )
 
 app.include_router(health.router, tags=["System"])
+app.include_router(models.router, tags=["Models"])
 app.include_router(media.router, tags=["Media"])
 app.include_router(voices.router, prefix="/voices", tags=["Voices"])
 app.include_router(generation.router, prefix="", tags=["Generation"])

@@ -6,6 +6,7 @@ already-migrated records and no data loss. It evolves the legacy single-user sch
 the SaaS-ready voice entity model without recreating any voice.
 """
 
+import json
 from datetime import datetime, timezone
 
 from loguru import logger
@@ -14,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.core.config import settings
 from app.core.database import Base
+from app.services.model_catalog import BUILTIN_MODELS
 from app.utils.ids import generate_unique_public_voice_id
 
 # Importing the models registers every table on Base.metadata for create_all.
@@ -48,11 +50,14 @@ _PUBLIC_ID_INDEX = (
 
 async def run_migrations(conn: AsyncConnection) -> None:
     """Bring the database up to the current schema. Idempotent and safe to re-run."""
-    # 1. Create any missing tables (users, generation_jobs, and voice_profiles on fresh installs).
+    # 1. Create any missing tables (users, generation_jobs, voice_profiles, models).
     await conn.run_sync(Base.metadata.create_all)
 
     # 2. Additively add new voice_profiles columns to pre-existing databases.
     await _add_missing_columns(conn)
+
+    # 2b. Additively add new generation_jobs columns (multi-model support).
+    await _add_missing_job_columns(conn)
 
     # 3. Seed the single implicit local owner.
     await _seed_local_owner(conn)
@@ -62,6 +67,9 @@ async def run_migrations(conn: AsyncConnection) -> None:
 
     # 5. Enforce public_voice_id uniqueness (after backfill — order matters).
     await conn.execute(text(_PUBLIC_ID_INDEX))
+
+    # 6. Upsert the built-in model catalog (never clobbers user/community models).
+    await _seed_builtin_models(conn)
 
 
 async def _existing_voice_columns(conn: AsyncConnection) -> set[str]:
@@ -78,6 +86,82 @@ async def _add_missing_columns(conn: AsyncConnection) -> None:
             await conn.execute(text(ddl))
         except Exception:  # pragma: no cover - duplicate column on a racing run
             logger.debug("Column {} already present, skipping", column)
+
+
+# New generation_jobs columns (multi-model). Additive, NULL-default = back-compat.
+_NEW_JOB_COLUMNS: list[tuple[str, str]] = [
+    ("model_id", "ALTER TABLE generation_jobs ADD COLUMN model_id VARCHAR(64)"),
+]
+
+
+async def _add_missing_job_columns(conn: AsyncConnection) -> None:
+    res = await conn.execute(text("PRAGMA table_info(generation_jobs)"))
+    existing = {row[1] for row in res.fetchall()}
+    for column, ddl in _NEW_JOB_COLUMNS:
+        if column in existing:
+            continue
+        try:
+            await conn.execute(text(ddl))
+        except Exception:  # pragma: no cover - duplicate column on a racing run
+            logger.debug("Job column {} already present, skipping", column)
+
+
+async def _seed_builtin_models(conn: AsyncConnection) -> None:
+    """Idempotently upsert built-in model rows. Built-in fields are refreshed on every run so
+    catalog edits (new tags, status changes) propagate; user/community rows (is_builtin=0) are
+    never touched."""
+    now = datetime.now(timezone.utc).isoformat()
+    for m in BUILTIN_MODELS:
+        await conn.execute(
+            text(
+                """
+                INSERT INTO models (
+                    id, name, description, version, provider, repo_id, model_path,
+                    supported_languages, supported_tags, supported_voice_design,
+                    capabilities, status, is_default, is_builtin, editions,
+                    owner_id, created_at, updated_at
+                ) VALUES (
+                    :id, :name, :description, :version, :provider, :repo_id, :model_path,
+                    :supported_languages, :supported_tags, :supported_voice_design,
+                    :capabilities, :status, :is_default, 1, :editions,
+                    NULL, :now, :now
+                )
+                ON CONFLICT(id) DO UPDATE SET
+                    name=excluded.name,
+                    description=excluded.description,
+                    version=excluded.version,
+                    provider=excluded.provider,
+                    repo_id=excluded.repo_id,
+                    model_path=excluded.model_path,
+                    supported_languages=excluded.supported_languages,
+                    supported_tags=excluded.supported_tags,
+                    supported_voice_design=excluded.supported_voice_design,
+                    capabilities=excluded.capabilities,
+                    status=excluded.status,
+                    is_default=excluded.is_default,
+                    editions=excluded.editions,
+                    updated_at=excluded.updated_at
+                WHERE models.is_builtin = 1
+                """
+            ),
+            {
+                "id": m.id,
+                "name": m.name,
+                "description": m.description,
+                "version": m.version,
+                "provider": m.provider,
+                "repo_id": m.repo_id,
+                "model_path": m.model_path,
+                "supported_languages": json.dumps(m.supported_languages),
+                "supported_tags": json.dumps(m.supported_tags),
+                "supported_voice_design": json.dumps(m.supported_voice_design),
+                "capabilities": json.dumps(m.capabilities.model_dump()),
+                "status": m.status,
+                "is_default": 1 if m.is_default else 0,
+                "editions": json.dumps(m.editions),
+                "now": now,
+            },
+        )
 
 
 async def _seed_local_owner(conn: AsyncConnection) -> None:

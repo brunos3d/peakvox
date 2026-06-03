@@ -92,12 +92,43 @@ class VoiceProfile(Base):
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class Model(Base):
+    """A registered voice model. Built-ins are seeded from ``model_catalog`` on startup;
+    custom/community models can be inserted at runtime. ``owner_id`` is NULL for built-ins
+    and set for user/community models (SaaS-ready, mirrors the VoiceProfile pattern)."""
+
+    __tablename__ = "models"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    version: Mapped[str] = mapped_column(String(32), nullable=False, default="1.0.0")
+    provider: Mapped[str] = mapped_column(String(64), nullable=False)
+    repo_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    model_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    supported_languages: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    supported_tags: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    supported_voice_design: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    capabilities: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="available")
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_builtin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    editions: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    owner_id: Mapped[str | None] = mapped_column(String(36), index=True, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, onupdate=_now
+    )
+
+
 class GenerationJob(Base):
     __tablename__ = "generation_jobs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
     text: Mapped[str] = mapped_column(Text, nullable=False)
+    # NULL = the platform default model (back-compat for rows created before multi-model).
+    model_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     voice_profile_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     ref_audio_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
     ref_text: Mapped[str | None] = mapped_column(Text, nullable=True)

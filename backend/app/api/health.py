@@ -20,11 +20,5 @@ async def health_check():
     }
 
 
-@router.get("/models/status")
-async def model_status():
-    return {
-        "loaded": omnivoice_service.is_loaded,
-        "loading": omnivoice_service.is_loading,
-        "error": omnivoice_service.load_error,
-        "sampling_rate": omnivoice_service.sampling_rate,
-    }
+# NOTE: GET /models/status now lives in app/api/models.py (richer payload incl. resident
+# model id) to keep all model endpoints together. The response shape is preserved.
