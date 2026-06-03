@@ -1,104 +1,115 @@
 "use client";
 
-import { Cpu, Check } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { Cpu, ChevronRight, Search, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { ModelCard } from "@/components/generation/ModelCard";
 import { useAppStore } from "@/store/use-store";
 import { useModels } from "@/hooks/use-models";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
-function CapabilityBadge({ label, supported }: { label: string; supported: boolean }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium",
-        supported
-          ? "bg-primary/10 text-primary"
-          : "bg-muted text-muted-foreground line-through",
-      )}
-    >
-      {supported ? "✓" : "✗"} {label}
-    </span>
-  );
-}
+import { cn } from "@/lib/utils";
 
 export function ModelSelector() {
   const selectedModelId = useAppStore((s) => s.selectedModelId);
   const setSelectedModelId = useAppStore((s) => s.setSelectedModelId);
   const { data: models, isLoading, error } = useModels();
-
-  if (isLoading) {
-    return (
-      <div className="flex h-10 items-center rounded-md border border-border bg-surface px-3 text-sm text-muted-foreground">
-        Loading models…
-      </div>
-    );
-  }
-
-  if (error || !models?.length) {
-    return (
-      <div className="flex h-10 items-center rounded-md border border-border bg-surface px-3 text-sm text-muted-foreground">
-        OmniVoice Base
-      </div>
-    );
-  }
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
 
   const active = selectedModelId
-    ? models.find((m) => m.id === selectedModelId)
-    : models.find((m) => m.is_default);
+    ? models?.find((m) => m.id === selectedModelId)
+    : models?.find((m) => m.is_default);
+
+  const filtered = (models ?? [])
+    .filter((m) => m.status !== "disabled")
+    .filter(
+      (m) =>
+        m.name.toLowerCase().includes(query.toLowerCase()) ||
+        m.description.toLowerCase().includes(query.toLowerCase()),
+    );
+
+  const statusLabel = active?.status === "loaded" || active?.status === "available"
+    ? undefined
+    : active?.status === "loading"
+      ? "Loading"
+      : active?.status === "error"
+        ? "Error"
+        : undefined;
 
   return (
-    <Select
-      value={active?.id ?? models[0].id}
-      onValueChange={(val) => setSelectedModelId(val === models.find((m) => m.is_default)?.id ? null : val)}
-    >
-      <SelectTrigger className="gap-2">
-        <Cpu className="h-4 w-4 shrink-0 text-primary" />
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {models
-          .filter((m) => m.status !== "disabled")
-          .map((model) => {
-            const isActive = model.id === active?.id;
-            return (
-              <SelectItem key={model.id} value={model.id}>
-                <div className="flex flex-col gap-1.5 py-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{model.name}</span>
-                    {model.is_default && (
-                      <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                        Default
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground line-clamp-1">
-                    {model.description}
-                  </p>
-                  <div className="flex flex-wrap gap-1">
-                    <CapabilityBadge
-                      label="Voice cloning"
-                      supported={model.capabilities.supports_voice_cloning}
-                    />
-                    <CapabilityBadge
-                      label="Emotions"
-                      supported={model.capabilities.supports_emotions}
-                    />
-                    <CapabilityBadge
-                      label="Singing"
-                      supported={model.capabilities.supports_singing}
-                    />
-                  </div>
-                </div>
-              </SelectItem>
-            );
-          })}
-      </SelectContent>
-    </Select>
+    <div className="space-y-2">
+      <p className="text-caption uppercase tracking-wide">Model</p>
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetTrigger asChild>
+          <button className="flex w-full items-center gap-3 rounded-xl border border-border bg-surface p-3 text-left transition-colors hover:bg-surface-2">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+              <Cpu className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-card-title truncate">
+                {active ? active.name : "Select a model"}
+              </p>
+              <p className="text-caption truncate">
+                {active?.is_default
+                  ? "Default"
+                  : statusLabel
+                    ? statusLabel
+                    : active?.description
+                      ? active.description
+                      : "Choose a model"}
+              </p>
+            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </button>
+        </SheetTrigger>
+        <SheetContent side="right" className="w-full sm:max-w-md p-0">
+          <SheetHeader className="border-b border-border">
+            <SheetTitle>Select a model</SheetTitle>
+          </SheetHeader>
+          <div className="border-b border-border p-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search models…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {isLoading ? (
+              <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground justify-center">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading models…
+              </div>
+            ) : filtered.length > 0 ? (
+              filtered.map((model) => (
+                <ModelCard
+                  key={model.id}
+                  model={model}
+                  selected={model.id === active?.id}
+                  onSelect={(m) => {
+                    setSelectedModelId(m.is_default ? null : m.id);
+                    setOpen(false);
+                    setQuery("");
+                  }}
+                />
+              ))
+            ) : (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                No models match your search.
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </div>
   );
 }
