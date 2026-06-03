@@ -96,8 +96,12 @@
 
   /* Editor content area */
   .ProseMirror {
-    @apply p-5 text-base leading-relaxed outline-none;
+    @apply rounded-xl border border-border bg-surface p-5 text-base leading-relaxed outline-none shadow-sm transition-shadow;
     min-height: 320px;
+  }
+
+  .ProseMirror:focus-within {
+    @apply shadow-md;
   }
 
   .ProseMirror p {
