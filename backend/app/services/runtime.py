@@ -53,6 +53,15 @@ class ModelNotAvailableInEdition(Exception):
         super().__init__(f"Model '{model_id}' is not available in the '{edition}' edition")
 
 
+class ModelNotActive(Exception):
+    """A model exists but is not installed/active for generation."""
+
+    def __init__(self, model_id: str, status: str) -> None:
+        self.model_id = model_id
+        self.status = status
+        super().__init__(f"Model '{model_id}' is not active (status: {status})")
+
+
 class UnsupportedTags(Exception):
     def __init__(self, tags: list[str]) -> None:
         self.tags = tags
@@ -136,6 +145,11 @@ class PeakVoxRuntime:
         if not self.is_available(model_id, edition):
             raise ModelNotAvailableInEdition(model_id, edition)
 
+    def ensure_active(self, model_id: str) -> None:
+        descriptor = self.get_adapter(model_id).descriptor
+        if descriptor.activation_status != "active":
+            raise ModelNotActive(model_id, descriptor.status)
+
     # --- Capability / tag validation (capability-driven, never name-driven) -------
 
     def validate_tags(self, model_id: str, text: str) -> list[str]:
@@ -186,6 +200,7 @@ class PeakVoxRuntime:
     ) -> tuple[float, list[str]]:
         descriptor = self.resolve_model(model_id)
         self.ensure_available(descriptor.id)
+        self.ensure_active(descriptor.id)
         adapter = self.get_adapter(descriptor.id)
 
         # Capability-driven validation — no model-name branching.
