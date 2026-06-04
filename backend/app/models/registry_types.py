@@ -9,7 +9,9 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, computed_field
 
-ModelStatus = Literal["available", "loading", "loaded", "error", "disabled"]
+ModelStatus = Literal[
+    "available", "loading", "loaded", "error", "disabled", "inactive", "deprecated"
+]
 
 
 class ModelCapabilities(BaseModel):
@@ -38,6 +40,8 @@ class ModelCapabilities(BaseModel):
     supports_multilingual: bool = False
     supports_reference_audio: bool = False
     supports_batch_generation: bool = False
+    supports_speaker_embeddings: bool = False
+    supports_custom_training: bool = False
 
 
 class ModelRequirements(BaseModel):
@@ -51,6 +55,7 @@ class ModelRequirements(BaseModel):
 class ModelLicense(BaseModel):
     """Licensing metadata — relevant to marketplace + commercial-use gating."""
 
+    name: Optional[str] = None
     code: Optional[str] = None        # e.g. "apache-2.0"
     weights_license: Optional[str] = None
     commercial_use: Optional[bool] = None
@@ -94,3 +99,79 @@ class ModelDescriptor(BaseModel):
     @property
     def available_in_cloud(self) -> bool:
         return "cloud" in self.editions
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def homepage_url(self) -> Optional[str]:
+        return self.provider_metadata.get("homepage_url") or self.provider_metadata.get("homepage")
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def repository_url(self) -> Optional[str]:
+        return self.provider_metadata.get("repository_url")
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def provider_url(self) -> Optional[str]:
+        return self.provider_metadata.get("provider_url")
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def license_name(self) -> Optional[str]:
+        return self.license.name if self.license else None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def license_url(self) -> Optional[str]:
+        return self.license.url if self.license else None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def gpu_requirements(self) -> dict:
+        return {
+            "required": self.requirements.gpu_required,
+            "source": self.provider_metadata.get("requirements_source", "unknown"),
+        }
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def memory_requirements(self) -> dict:
+        return {
+            "min_vram_gb": self.requirements.min_vram_gb,
+            "source": self.provider_metadata.get("requirements_source", "unknown"),
+        }
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def runtime_requirements(self) -> dict:
+        return {
+            "runtime": self.requirements.runtime,
+            "source": self.provider_metadata.get("requirements_source", "unknown"),
+        }
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def edition_availability(self) -> dict:
+        return {
+            "community": self.available_in_ce,
+            "cloud": self.available_in_cloud,
+            "basis": self.provider_metadata.get("edition_availability_basis", "declared metadata"),
+        }
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def install_status(self) -> str:
+        if self.status == "disabled":
+            return "not_installed"
+        if self.status == "loading":
+            return "downloading"
+        if self.status == "error":
+            return "failed"
+        return "installed"
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def activation_status(self) -> str:
+        if self.status in {"available", "loaded", "loading"}:
+            return "active"
+        return "inactive"
