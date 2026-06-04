@@ -168,29 +168,32 @@ export function GenerationPanel() {
             </AccordionContent>
           </AccordionItem>
 
-          {/* 6. Voice Design */}
-          <AccordionItem value="voice-design">
-            <AccordionTrigger className="px-5 text-sm font-medium">
-              <span className="flex items-center gap-2">
-                <svg
-                  className="h-4 w-4 text-primary"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-                </svg>
-                Voice Design
-              </span>
-            </AccordionTrigger>
-            <AccordionContent className="px-5 py-1 mb-4">
-              <VoiceDesignBuilder
-                value={voiceDesign}
-                onChange={setVoiceDesign}
-              />
-            </AccordionContent>
-          </AccordionItem>
+          {/* 6. Voice Design — shown only when the selected model declares the capability.
+                Capability-driven (ADR-0003): no model-name branching. */}
+          {(activeModel?.capabilities?.supports_voice_design ?? true) && (
+            <AccordionItem value="voice-design">
+              <AccordionTrigger className="px-5 text-sm font-medium">
+                <span className="flex items-center gap-2">
+                  <svg
+                    className="h-4 w-4 text-primary"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                  </svg>
+                  Voice Design
+                </span>
+              </AccordionTrigger>
+              <AccordionContent className="px-5 py-1 mb-4">
+                <VoiceDesignBuilder
+                  value={voiceDesign}
+                  onChange={setVoiceDesign}
+                />
+              </AccordionContent>
+            </AccordionItem>
+          )}
         </Accordion>
       </div>
 
