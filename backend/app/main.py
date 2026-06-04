@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.database import init_db
+from app.core.editions import mount_cloud_routers
 from app.api import voices, generation, health, media, models
 from app.api.settings import router as settings_router
 from app.api.api_keys import router as api_keys_router
@@ -52,3 +53,6 @@ app.include_router(generation.router, prefix="", tags=["Generation"])
 app.include_router(settings_router, prefix="", tags=["Settings"])
 app.include_router(api_keys_router, prefix="/api-keys", tags=["API Keys"])
 app.include_router(v1_router, prefix="/api/v1", tags=["Public API v1"])
+
+# Cloud-only routers mount only under cloud features; a no-op in Community Edition.
+mount_cloud_routers(app, features=settings.features)
