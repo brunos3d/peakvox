@@ -17,6 +17,7 @@ captures one decision: its context, the options weighed, what was chosen, and th
 | [0005](0005-edition-scoped-model-availability.md) | Edition-scoped model availability (licensing-governed) | Accepted |
 | [0006](0006-voice-variant-realization-types.md) | Voice Variant Realization Types | Accepted |
 | [0007](0007-canonical-model-metadata.md) | Canonical Model Metadata Registry | Accepted |
+| [0008](0008-voice-variant-build-lifecycle.md) | Voice Variant Build Lifecycle (supersedes ADR-0006 status values) | Accepted |
 
 ## Conventions
 

@@ -143,15 +143,15 @@ needs to render that identity.
 | `artifact_type` | `reference_sample` / `embedding` / `checkpoint` / `adapter` / `finetune` / `metadata` |
 | `artifacts` | Storage keys for the actual files (S3/MinIO/local) |
 | `params` | Model-specific config (e.g. OmniVoice `transcript`, `voice_design`, defaults) |
-| `status` | `ready` / `processing` / `failed` / `stale` |
+| `status` | `pending` / `building` / `ready` / `failed` / `deprecated` — see [ADR-0008](adrs/0008-voice-variant-build-lifecycle.md) |
 | `source` | `cloned` / `designed` / `uploaded` / `regenerated` |
 | timestamps | Build + freshness tracking |
 
 **Invariants:**
 - Exactly one `VoiceVariant` per `(voice_id, model_id)` (unique constraint).
-- A Variant is **derivable**: if its model updates, the Variant can be marked `stale` and
-  **regenerated** from the Voice's canonical sources by the onboarding pipeline — without a
-  new `public_voice_id`.
+- A Variant is **derivable**: if its model updates, the Variant can be marked `deprecated` and
+  **regenerated** from the Voice's canonical sources by the variant build pipeline
+  ([ADR-0008](adrs/0008-voice-variant-build-lifecycle.md)) — without a new `public_voice_id`.
 - A Voice with zero Variants is still a valid identity (e.g. freshly published, variants built
   lazily on first use for a given model).
 
@@ -187,7 +187,7 @@ on model updates reuses this same pipeline.
 1. resolve model_id   (default if omitted; validate capabilities vs request, e.g. singing)
 2. resolve voice_id    (public_voice_id → Voice)
 3. resolve VoiceVariant(voice_id, model_id)
-      └─ if missing/stale → onboarding pipeline builds it (or 409/async if not buildable)
+      └─ if missing/deprecated → variant build pipeline builds it ([ADR-0008](adrs/0008-voice-variant-build-lifecycle.md)) (or 409/async if not buildable)
 4. run inference via the Model's provider
 5. emit generation.completed event  → usage metering (Cloud) + royalty accrual (Cloud)
 ```
@@ -216,8 +216,8 @@ All four are **schema-ready in CE** and **active only in Cloud**.
 | Event | Emitted by | Consumed by |
 |---|---|---|
 | `voice.created` / `voice.published` | Voice / Marketplace | Marketplace, search index |
-| `variant.requested` / `variant.ready` / `variant.stale` | Generation / Onboarding | Onboarding, cache |
-| `model.updated` | Model Registry | Onboarding (mark variants stale) |
+| `variant.requested` / `variant.ready` / `variant.deprecated` | Generation / Onboarding | Variant build lifecycle ([ADR-0008](adrs/0008-voice-variant-build-lifecycle.md)) |
+| `model.updated` | Model Registry | Variant lifecycle (mark variants `deprecated`) |
 | `generation.completed` | Generation | Metering, Royalties, usage_count |
 | `credits.consumed` / `royalty.accrued` | Monetization | Ledger, creator analytics |
 | `payout.settled` | Monetization | Creator console, ledger |

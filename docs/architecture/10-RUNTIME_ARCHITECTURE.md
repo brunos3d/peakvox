@@ -103,14 +103,15 @@ The runtime is the place where the [Vision's](00-VISION.md) core principle becom
 ```
 resolve(public_voice_id) ───────────────► Voice        (universal identity; ADR-0001)
 route(model | "auto", Voice, request) ──► Model         (first-class entity; ADR-0002)
-realize(Voice, Model) ──────────────────► VoiceVariant  (build if missing/stale)
+realize(Voice, Model) ──────────────────► VoiceVariant  (build if missing/deprecated — see [ADR-0008](adrs/0008-voice-variant-build-lifecycle.md))
 run(adapter(Model), VoiceVariant, text) ► audio
 ```
 
 - **Voice** is resolved once and is engine-independent.
 - **Model** is selected by the router (explicit id, or `auto` via capabilities).
 - **VoiceVariant** is the `(Voice, Model)` realization; if absent the runtime invokes the
-  onboarding pipeline to **build** it, if stale it **rebuilds** it — all keyed by the same
+  variant build pipeline ([ADR-0008](adrs/0008-voice-variant-build-lifecycle.md)) to **build** it
+  (or **rebuild** if the existing variant is deprecated) — all keyed by the same
   `public_voice_id`. This is why changing the engine never changes the voice.
 
 ## 5. Runtime lifecycle
@@ -147,7 +148,54 @@ memory at a time on a single device.
 - **CPU fallback:** when no GPU is available, adapters that support CPU run there (slower);
   `gpu_required` models are rejected with a clear error rather than silently failing.
 
-### 5.3 Caching
+### 5.3 Voice Variant Build Lifecycle
+
+**Introduced by [ADR-0008](adrs/0008-voice-variant-build-lifecycle.md).** VoiceVariants are
+first-class buildable runtime assets. A variant may require a provider-specific build process
+(e.g. encoding a speaker embedding, fine-tuning a checkpoint) before it can be used for
+inference. The Runtime owns variant orchestration; adapters implement provider-specific build
+logic.
+
+**Variant states (five-value lifecycle, supersedes the earlier set from ADR-0006):**
+
+```
+pending → building → ready
+               ↘ failed
+ready   → deprecated → building (rebuild)
+failed  → building (retry)
+```
+
+See ADR-0008 for the full state machine, transition rules, and failure recovery.
+
+**Runtime variant methods:**
+
+- `build_variant(voice, model)` — trigger a variant build, returns job_id.
+- `rebuild_variant(voice, model)` — rebuild an existing variant.
+- `get_variant_status(voice, model)` — return current state + metadata.
+- `ensure_variant(voice, model)` — return a ready variant or raise/take an actionable path
+  (trigger build on `pending`, return 202 on `building`, return error on `failed`/`deprecated`).
+
+**Build pipeline:**
+
+```
+Voice
+  │  (identity: reference_audio, params)
+  ▼
+Source Asset
+  ▼
+Variant Builder (adapter.build_variant())
+  ▼
+Provider-specific Artifact
+  ▼
+VoiceVariant (status=ready, artifacts=storage keys)
+  ▼
+Runtime (adapter.generate(variant, text, params) → audio)
+```
+
+Simple realizations (`reference_sample`) build synchronously; compute-heavy realizations
+(`speaker_embedding`, `checkpoint`) are async jobs. The Runtime handles both transparently.
+
+### 5.4 Caching
 
 - **Adapter/weight cache:** loaded adapters are kept resident until evicted (avoids reload
   cost). Weights live in the `HF_HOME` model cache on disk.
@@ -168,7 +216,8 @@ ModelAdapter
 ├── unload()                  # release device memory; safe when not loaded
 ├── generate()                # run inference → audio (+ duration, logs)
 ├── clone_voice()             # build clone artifacts from reference audio
-├── build_variant()           # produce this model's VoiceVariant for a Voice
+├── build_variant()           # produce this model's VoiceVariant for a Voice  [ADR-0008]
+├── supported_realization_types()  # realization types this adapter can build  [ADR-0008]
 ├── get_capabilities()        # the ModelCapabilities contract (ADR-0003)
 ├── get_supported_languages() # language coverage
 ├── get_supported_tags()      # emotion/reaction/style tag vocabulary
@@ -183,16 +232,19 @@ ModelAdapter
   read it, never guess.
 - An adapter that lacks a capability **omits** it (returns `False`); the runtime rejects
   requests for unsupported capabilities up front (e.g. singing on a TTS-only model → `422`).
+- **Realization types are declared** via `supported_realization_types()` ([ADR-0008](adrs/0008-voice-variant-build-lifecycle.md)).
+  The Runtime dispatches builds by matching the adapter's declared types against the desired
+  realization — it never interprets realization types itself.
 
 ### 6.1 Adapter responsibilities (per provider)
 
-| Adapter | Backs | Notable capabilities | Variant artifacts |
-|---|---|---|---|
-| **OmniVoiceAdapter** | OmniVoice Base | tts, voice_cloning, emotion_tags, voice_design, multilingual, reference_audio | reference sample + transcript + voice_design params |
-| **OmniVoiceSingingAdapter** | OmniVoice Singing | + singing, emotion_tags (rich) | reference sample + singing params |
-| **FishAudioAdapter** | Fish Audio / S2 | tts, voice_cloning, speaker_embeddings, (speech-to-speech) | speaker embedding / checkpoint |
-| **KokoroAdapter** | Kokoro | tts, multilingual, (preset voices) | preset/voice pack reference |
-| **OpenVoiceAdapter** | OpenVoice | tts, voice_cloning, voice_conversion, reference_audio | tone-color embedding |
+| Adapter | Backs | Notable capabilities | Variant artifacts | Realization types [ADR-0008] |
+|---|---|---|---|---|
+| **OmniVoiceAdapter** | OmniVoice Base | tts, voice_cloning, emotion_tags, voice_design, multilingual, reference_audio | reference sample + transcript + voice_design params | `reference_sample` |
+| **OmniVoiceSingingAdapter** | OmniVoice Singing | + singing, emotion_tags (rich) | reference sample + singing params | `reference_sample` |
+| **FishAudioAdapter** | Fish Audio / S2 | tts, voice_cloning, speaker_embeddings, (speech-to-speech) | speaker embedding / checkpoint | `speaker_embedding` |
+| **KokoroAdapter** | Kokoro | tts, multilingual, (preset voices) | preset/voice pack reference | `voice_pack` |
+| **OpenVoiceAdapter** | OpenVoice | tts, voice_cloning, voice_conversion, reference_audio | tone-color embedding | `conversion_profile` |
 
 These descriptions are the **integration contract**, not commitments to enablement order;
 each adapter ships behind its model's `status` (e.g. `disabled` until its repo/capabilities are
@@ -203,7 +255,8 @@ The "Variant artifacts" column is the adapter's **realization type** — how tha
 voice (`reference_sample`, `embedding`, `checkpoint`, `lora`, `voice_pack`, …). Realization is an
 implementation detail owned by the adapter + Runtime and **never exposed publicly**; the open
 taxonomy is defined in [ADR-0006](adrs/0006-voice-variant-realization-types.md)
-(`backend/app/services/realization.py`).
+(`backend/app/services/realization.py`). The build strategy for each type is defined by
+[ADR-0008](adrs/0008-voice-variant-build-lifecycle.md).
 
 ## 7. Model routing
 
@@ -223,7 +276,12 @@ taxonomy is defined in [ADR-0006](adrs/0006-voice-variant-realization-types.md)
 2. resolve voice           → Voice by public_voice_id
 3. route model             → Model (explicit | default | auto)
 4. validate capabilities   → request vs ModelCapabilities (ADR-0003) → 422 on mismatch
-5. resolve/build variant   → VoiceVariant(Voice, Model) (build if missing → onboarding)
+5. ensure variant          → VoiceVariant(Voice, Model)              [ADR-0008]
+     ├─ ready              → use
+     ├─ pending            → trigger build → 202
+     ├─ building           → return 202 (in progress)
+     ├─ failed             → 409 + retry guidance
+     └─ deprecated         → 409 + rebuild suggestion
 6. acquire adapter         → load weights (VRAM contract; evict if needed)
 7. generate                → adapter.generate(variant, text, params) → audio
 8. deliver                 → stream | store + URL

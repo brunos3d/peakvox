@@ -4,6 +4,12 @@
 - **Date:** 2026-06-04
 - **Deciders:** Bruno Silva (product owner), architecture planning
 
+> **Note on §VoiceVariant lifecycle status values:** The status vocabulary introduced in this ADR
+> (`processing`, `stale`, `ready`, `failed`) is **superseded** by [ADR-0008](0008-voice-variant-build-lifecycle.md).
+> ADR-0008 defines a five-value lifecycle (`pending`, `building`, `ready`, `failed`, `deprecated`)
+> that replaces it. This ADR remains authoritative for **realization types, artifact encapsulation,
+> and the open-taxonomy rules** — only the status vocabulary is superseded.
+
 ## Context
 
 We have proven a single Voice is realized differently per provider (ADR-0001, Phase 3.7–3.10):

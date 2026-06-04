@@ -37,6 +37,11 @@ at the wire level, key namespacing, auth/metering seams, and stability guarantee
 │   ├── GET  /voices
 │   ├── POST /voices              # create (upload/record/design → onboarding pipeline)
 │   ├── GET  /voices/{public_voice_id}
+│   ├── /voices/{id}/variants     # variant lifecycle (Phase 4+, see ADR-0008)
+│   │   ├── GET                   # list variants for a voice
+│   │   ├── POST /build           # build variant for specified model
+│   │   ├── POST /rebuild         # rebuild existing variant
+│   │   └── GET /{variant_id}     # variant detail + status
 │   └── ...
 ├── /models                       # discover / inspect models + capabilities
 │   ├── GET  /models
@@ -77,10 +82,12 @@ resolve model  → validate request vs ModelCapabilities (e.g. singing/emotions 
   ▼
 resolve voice  → Voice by public_voice_id  (+ authorize: owned | public | marketplace)
   ▼
-resolve VoiceVariant(voice, model)
-  ├─ ready    → use
-  ├─ missing  → build via onboarding pipeline (sync if fast, else 202 + job)
-  └─ stale    → rebuild
+ensure VoiceVariant(voice, model)               [ADR-0008]
+  ├─ ready    → generate
+  ├─ pending  → trigger build → 202 + job_id
+  ├─ building → 202 + job_id (build already in progress)
+  ├─ failed   → 409 with retry guidance
+  └─ deprecated → 409 with rebuild suggestion
   ▼
 [Cloud] check credits / quota  → reserve
   ▼
@@ -91,10 +98,11 @@ emit generation.completed → [Cloud] meter usage + accrue royalty to voice's cr
 
 **Responses:**
 - Sync: `200` with `{ jobId, audioUrl | audioBase64, durationSec, model, voice }`.
-- Async / building variant: `202` with `{ jobId, status: "processing" }`; poll
+- Async / building variant: `202` with `{ jobId, status: "building" }`; poll
   `GET /v1/jobs/{id}` (existing pattern).
 - Capability mismatch: `422` (`model does not support 'singing'`).
-- Variant not buildable for that model: `409`.
+- Variant not buildable for that model / variant failed: `409`.
+- Variant deprecated: `409` with rebuild suggestion.
 - Out of credits (Cloud): `402`.
 
 ## 4. Stability guarantees
