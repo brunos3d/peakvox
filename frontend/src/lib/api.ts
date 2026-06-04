@@ -11,6 +11,7 @@ import type {
   Model,
   ModelTagMetadata,
   ModelStatus,
+  PlatformInfo,
 } from "@/types"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
@@ -207,4 +208,12 @@ export async function uploadAudio(file: File): Promise<{ filename: string }> {
     method: "POST",
     body: formData,
   })
+}
+
+/**
+ * Edition info + feature flags. Commercial nav (marketplace, creators, billing) renders only
+ * when the matching flag is true — all false in Community Edition.
+ */
+export async function getFeatures(): Promise<PlatformInfo> {
+  return request<PlatformInfo>("/platform/features")
 }

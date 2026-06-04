@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import init_db
 from app.core.editions import mount_cloud_routers
-from app.api import voices, generation, health, media, models
+from app.api import voices, generation, health, media, models, platform
 from app.api.settings import router as settings_router
 from app.api.api_keys import router as api_keys_router
 from app.api.v1 import router as v1_router
@@ -46,6 +46,7 @@ app.add_middleware(
 )
 
 app.include_router(health.router, tags=["System"])
+app.include_router(platform.router, tags=["Platform"])
 app.include_router(models.router, tags=["Models"])
 app.include_router(media.router, tags=["Media"])
 app.include_router(voices.router, prefix="/voices", tags=["Voices"])

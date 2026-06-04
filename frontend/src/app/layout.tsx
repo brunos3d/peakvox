@@ -7,8 +7,8 @@ import "./globals.css"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "OmniVoice",
-  description: "Voice Cloning and Text-to-Speech Platform powered by OmniVoice",
+  title: "PeakVox",
+  description: "Universal Voice Runtime — model-agnostic voice cloning and text-to-speech",
 }
 
 export default function RootLayout({

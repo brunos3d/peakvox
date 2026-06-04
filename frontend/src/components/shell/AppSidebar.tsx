@@ -63,7 +63,7 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
           <AudioLines className="h-5 w-5" />
         </div>
-        <span className="font-semibold tracking-tight">OmniVoice</span>
+        <span className="font-semibold tracking-tight">PeakVox</span>
       </div>
 
       {/* Nav */}

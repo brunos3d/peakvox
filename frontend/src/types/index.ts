@@ -171,3 +171,23 @@ export interface ModelStatus {
   sampling_rate: number
   resident_model_id?: string | null
 }
+
+/**
+ * Edition feature flags from the backend. Commercial surfaces (marketplace, creators,
+ * billing) are gated on these — hidden in Community Edition where they are all false.
+ * See docs/architecture/01-PRODUCT_ARCHITECTURE.md §4.
+ */
+export interface PlatformFeatures {
+  auth: boolean
+  tenancy: boolean
+  billing: boolean
+  marketplace: boolean
+  creators: boolean
+  payouts: boolean
+}
+
+export interface PlatformInfo {
+  name: string
+  edition: string
+  features: PlatformFeatures
+}
