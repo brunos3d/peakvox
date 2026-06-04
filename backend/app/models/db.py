@@ -114,6 +114,11 @@ class Model(Base):
     is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_builtin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     editions: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # First-class model metadata (PeakVox Phase 2): versioning/licensing/provider/requirements.
+    requirements: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    license: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    provider_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    deprecated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     owner_id: Mapped[str | None] = mapped_column(String(36), index=True, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(
