@@ -18,6 +18,7 @@ from app.services.model_registry import model_registry
 from app.services.omnivoice_service import omnivoice_service
 from app.services.storage import storage
 from app.services.tag_validation import find_unsupported_tags
+from app.services.voice_variant_repository import resolve_variant_stamp
 from app.api.voices import resolve_voice_audio_key
 from app.utils.streaming import stream_object
 
@@ -131,6 +132,8 @@ async def create_generation_job(
         )
 
     ref_audio_key: str | None = None
+    job_voice_id: str | None = None
+    job_variant_id: str | None = None
 
     if request.voice_profile_id:
         profile = await db.get(VoiceProfile, request.voice_profile_id)
@@ -142,6 +145,12 @@ async def create_generation_job(
         # Usage analytics — powers Recently Used / Popular / Trending later.
         profile.last_used_at = datetime.now(timezone.utc)
         profile.usage_count = (profile.usage_count or 0) + 1
+        # PeakVox Phase 3: stamp the resolved Voice identity + its model-specific VoiceVariant
+        # on the job (additive). The Voice id reuses the profile UUID; variant may be None when
+        # the selected model has no built variant yet (generation still uses the reference audio).
+        job_voice_id, job_variant_id = await resolve_variant_stamp(
+            db, voice_internal_id=profile.id, model_id=model.id
+        )
 
     gen_params = request.model_dump(
         exclude={"text", "model_id", "voice_profile_id", "ref_text", "language", "instruct"}
@@ -153,6 +162,8 @@ async def create_generation_job(
         text=request.text,
         model_id=model.id,
         voice_profile_id=request.voice_profile_id,
+        voice_id=job_voice_id,
+        voice_variant_id=job_variant_id,
         ref_audio_path=ref_audio_key,
         ref_text=request.ref_text,
         language=request.language,

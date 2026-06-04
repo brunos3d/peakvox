@@ -26,3 +26,16 @@ async def resolve_variant(db: AsyncSession, *, voice_id: str, model_id: str) -> 
         )
     )
     return res.scalar_one_or_none()
+
+
+async def resolve_variant_stamp(
+    db: AsyncSession, *, voice_internal_id: str, model_id: str
+) -> tuple[str, Optional[str]]:
+    """Compute ``(voice_id, voice_variant_id)`` to stamp on a generation job.
+
+    The legacy ``VoiceProfile`` UUID is reused as the ``Voice.id`` (backfill + dual-write keep
+    this invariant), so the Voice identity is the same id. The variant id is ``None`` when the
+    selected model has no built variant yet — generation still proceeds via the reference audio.
+    """
+    variant = await resolve_variant(db, voice_id=voice_internal_id, model_id=model_id)
+    return voice_internal_id, (variant.id if variant else None)
