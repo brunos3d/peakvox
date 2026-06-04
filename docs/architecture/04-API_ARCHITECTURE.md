@@ -83,12 +83,12 @@ resolve model  → validate request vs ModelCapabilities (e.g. singing/emotions 
 resolve voice  → Voice by public_voice_id  (+ authorize: owned | public | marketplace)
   ▼
 ensure VoiceVariant(voice, model)               [ADR-0008]
-  ├─ ready    → generate
-  ├─ pending  → trigger build → 202 + job_id
-  ├─ building → 202 + job_id (build already in progress)
-  ├─ failed   → 409 with retry guidance
-  └─ deprecated → 409 with rebuild suggestion
-  ▼
+   ├─ ready    → resolve active artifact version ([ADR-0009](adrs/0009-artifact-versioning-and-retention.md)) → generate
+   ├─ pending  → trigger build → 202 + job_id
+   ├─ building → 202 + job_id (build already in progress)
+   ├─ failed   → 409 with retry guidance
+   └─ deprecated → 409 with rebuild suggestion
+   ▼
 [Cloud] check credits / quota  → reserve
   ▼
 run inference (provider) → audio

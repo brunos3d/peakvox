@@ -55,7 +55,9 @@ three at request time — resolving `Voice + Model → VoiceVariant → inferenc
 [Domain Architecture](02-DOMAIN_ARCHITECTURE.md). Built-in model metadata is governed by
 [ADR-0007](adrs/0007-canonical-model-metadata.md): provider-backed facts are normalized once
 into the registry and then consumed by the API/UI/Runtime. Variant lifecycle and build
-orchestration is governed by [ADR-0008](adrs/0008-voice-variant-build-lifecycle.md).
+orchestration is governed by [ADR-0008](adrs/0008-voice-variant-build-lifecycle.md);
+artifact versioning, retention, and rollback are governed by
+[ADR-0009](adrs/0009-artifact-versioning-and-retention.md).
 
 ## 3. Editions: infrastructure vs ecosystem
 
@@ -93,7 +95,7 @@ genuinely useful on its own; Cloud adds the ecosystem. See
 | [08 — Migration Architecture](08-MIGRATION_ARCHITECTURE.md) | Rename, VoiceProfile→Voice+Variant split, edition flags, vendor seams, DB migration |
 | [09 — Roadmap](09-ROADMAP.md) | The 10 implementation phases, each with goals / DB / backend / frontend / API / risks / migration / order |
 | [10 — Runtime Architecture](10-RUNTIME_ARCHITECTURE.md) | **The core differentiator.** The Universal Voice Runtime: resolution, routing, adapters, GPU/VRAM, lifecycle, local + distributed execution, model classification |
-| [adrs/](adrs/) | Architecture Decision Records: [0001](adrs/0001-voice-variant-split.md) Voice/Variant split · [0002](adrs/0002-model-as-first-class-entity.md) Model first-class · [0003](adrs/0003-model-capability-contract.md) Capability contract · [0004](adrs/0004-voice-variant-model-separation.md) Voice/Variant/Model separation · [0007](adrs/0007-canonical-model-metadata.md) canonical model metadata · [0008](adrs/0008-voice-variant-build-lifecycle.md) variant build lifecycle |
+| [adrs/](adrs/) | Architecture Decision Records: [0001](adrs/0001-voice-variant-split.md) Voice/Variant split · [0002](adrs/0002-model-as-first-class-entity.md) Model first-class · [0003](adrs/0003-model-capability-contract.md) Capability contract · [0004](adrs/0004-voice-variant-model-separation.md) Voice/Variant/Model separation · [0007](adrs/0007-canonical-model-metadata.md) canonical model metadata · [0008](adrs/0008-voice-variant-build-lifecycle.md) variant build lifecycle · [0009](adrs/0009-artifact-versioning-and-retention.md) artifact versioning |
 
 ## 5. Relationship to existing docs
 

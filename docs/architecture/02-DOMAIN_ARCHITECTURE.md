@@ -141,7 +141,7 @@ needs to render that identity.
 | `voice_id` → Voice | The identity it realizes |
 | `model_id` → Model | The engine it targets (may pin a `version`) |
 | `artifact_type` | `reference_sample` / `embedding` / `checkpoint` / `adapter` / `finetune` / `metadata` |
-| `artifacts` | Storage keys for the actual files (S3/MinIO/local) |
+| `artifacts` | Storage keys for the actual files (S3/MinIO/local) — **deprecated** in favor of [ADR-0009](adrs/0009-artifact-versioning-and-retention.md) `voice_variant_artifacts` table |
 | `params` | Model-specific config (e.g. OmniVoice `transcript`, `voice_design`, defaults) |
 | `status` | `pending` / `building` / `ready` / `failed` / `deprecated` — see [ADR-0008](adrs/0008-voice-variant-build-lifecycle.md) |
 | `source` | `cloned` / `designed` / `uploaded` / `regenerated` |

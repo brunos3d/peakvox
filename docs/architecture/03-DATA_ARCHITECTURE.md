@@ -87,6 +87,30 @@ versions per line become common) — never mutate artifacts under a pinned varia
 **Constraint:** `UNIQUE(voice_id, model_id)`. Storage paths move under
 `/data/voices/{voice_id}/variants/{model_id}/…`.
 
+#### 3.3.1 `voice_variant_artifacts` (artifact versioning — [ADR-0009](adrs/0009-artifact-versioning-and-retention.md))
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | str(36) PK | |
+| `voice_variant_id` | str(36) FK→voice_variants | |
+| `version` | int | monotonic per variant, starts at 1 |
+| `storage_keys` | JSON | file paths / keys for this version |
+| `storage_hash` | str? | content hash for dedup / integrity |
+| `size_bytes` | int? | total artifact size |
+| `model_version` | str? | model version at build time |
+| `checksum` | str? | integrity verification |
+| `metadata` | JSON? | build params, adapter info |
+| `retained_until` | datetime? | null = indefinite |
+| `created_at` | datetime | |
+
+**Constraints:** `UNIQUE(voice_variant_id, version)`. The `voice_variants` table gains
+`active_artifact_id` (str(36)? FK → `voice_variant_artifacts.id`) pointing to the currently
+active version. Storage paths
+include the version: `/data/voices/{voice_id}/variants/{model_id}/v{version}/{filename}`.
+
+The inline `voice_variants.artifacts` JSON column is **deprecated** by ADR-0009 — it is a
+dual-write target during migration and removed after all consumers switch to the new table.
+
 ### 3.4 `generation_jobs` (extend existing)
 
 Add `voice_id` (str(36)?, FK→voices) and `voice_variant_id` (str(36)?) alongside the existing

@@ -173,6 +173,7 @@ the center of gravity.
 | One API, stable across model change | [04 — API Architecture](04-API_ARCHITECTURE.md) |
 | Voices are economic assets | [05 — Marketplace](05-MARKETPLACE_ARCHITECTURE.md), [07 — Monetization](07-MONETIZATION_ARCHITECTURE.md) |
 | Variants are buildable runtime assets | [ADR-0008](adrs/0008-voice-variant-build-lifecycle.md): Voice Variant Build Lifecycle |
+| Artifacts are versioned, retained, and auditable | [ADR-0009](adrs/0009-artifact-versioning-and-retention.md): Artifact Versioning and Retention |
 | CE = local runtime, Cloud = ecosystem | [01 — Product](01-PRODUCT_ARCHITECTURE.md) |
 
 Start at [00 — Overview](00-OVERVIEW.md) for the document map.

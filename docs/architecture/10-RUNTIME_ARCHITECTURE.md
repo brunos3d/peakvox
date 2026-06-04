@@ -195,7 +195,37 @@ Runtime (adapter.generate(variant, text, params) → audio)
 Simple realizations (`reference_sample`) build synchronously; compute-heavy realizations
 (`speaker_embedding`, `checkpoint`) are async jobs. The Runtime handles both transparently.
 
-### 5.4 Caching
+### 5.4 Artifact versioning (artifact-level lifecycle)
+
+**Introduced by [ADR-0009](adrs/0009-artifact-versioning-and-retention.md).** Each variant
+build produces a new artifact version. The variant's active artifact is a pointer into the
+`voice_variant_artifacts` table; previous versions are retained per edition policy.
+
+**Runtime artifact methods:**
+
+- `get_active_artifact(voice, model)` — return the currently active artifact version metadata.
+- `list_artifact_versions(voice, model)` — ordered list of all versions with metadata.
+- `rollback_artifact(voice, model, version)` — set the active pointer to a prior version
+  (no rebuild required).
+- `prune_artifacts(voice, model)` — enforce edition retention policy.
+
+**Resolution flow (artifact-aware):**
+
+```
+ensure_variant(voice, model)
+  └── variant ready → resolve active artifact version
+                       └── return variant + active artifact metadata
+```
+
+The adapter interface is unchanged — versioning is a Runtime + Data concern above the adapter
+line. The adapter's `build_variant()` produces an artifact; the Runtime wraps it in a versioned
+row and manages the active pointer.
+
+See ADR-0009 for retention policies (CE: keep active + N-1 previous; Cloud: marketplace-grade
+indefinite retention), rollback semantics, generation reproducibility (pin-by-variant vs
+pin-by-artifact-version), and model-upgrade impact.
+
+### 5.5 Caching
 
 - **Adapter/weight cache:** loaded adapters are kept resident until evicted (avoids reload
   cost). Weights live in the `HF_HOME` model cache on disk.

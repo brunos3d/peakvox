@@ -18,6 +18,7 @@ captures one decision: its context, the options weighed, what was chosen, and th
 | [0006](0006-voice-variant-realization-types.md) | Voice Variant Realization Types | Accepted |
 | [0007](0007-canonical-model-metadata.md) | Canonical Model Metadata Registry | Accepted |
 | [0008](0008-voice-variant-build-lifecycle.md) | Voice Variant Build Lifecycle (supersedes ADR-0006 status values) | Accepted |
+| [0009](0009-artifact-versioning-and-retention.md) | Artifact Versioning and Retention | Accepted |
 
 ## Conventions
 
