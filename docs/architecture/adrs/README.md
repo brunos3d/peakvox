@@ -16,6 +16,7 @@ captures one decision: its context, the options weighed, what was chosen, and th
 | [0004](0004-voice-variant-model-separation.md) | Voice, VoiceVariant, and Model are three separate concepts | Accepted |
 | [0005](0005-edition-scoped-model-availability.md) | Edition-scoped model availability (licensing-governed) | Accepted |
 | [0006](0006-voice-variant-realization-types.md) | Voice Variant Realization Types | Accepted |
+| [0007](0007-canonical-model-metadata.md) | Canonical Model Metadata Registry | Accepted |
 
 ## Conventions
 
