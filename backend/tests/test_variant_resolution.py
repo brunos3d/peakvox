@@ -12,7 +12,7 @@ _SEED = (
     "transcript, generation_defaults, is_public, is_community_voice, is_preset_voice, "
     "is_favorite, status, usage_count, created_at, updated_at) "
     "VALUES ('uuid-1','voice_ABC123','owner-1','Bruno','voices/uuid-1/reference.wav',"
-    "'olá','{\"num_step\":32}',0,0,0,0,'ready',0,'2026-01-01','2026-01-01')"
+    "'olá','{\"num_step\": 32}',0,0,0,0,'ready',0,'2026-01-01','2026-01-01')"
 )
 
 
