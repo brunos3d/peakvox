@@ -23,6 +23,23 @@ class ModelCapabilities(BaseModel):
     supports_api: bool = True
 
 
+class ModelRequirements(BaseModel):
+    """Runtime needs — drives Cloud capacity planning / VRAM-aware scheduling."""
+
+    min_vram_gb: Optional[float] = None
+    gpu_required: bool = False
+    runtime: Optional[str] = None  # e.g. "torch", free-form
+
+
+class ModelLicense(BaseModel):
+    """Licensing metadata — relevant to marketplace + commercial-use gating."""
+
+    code: Optional[str] = None        # e.g. "apache-2.0"
+    weights_license: Optional[str] = None
+    commercial_use: Optional[bool] = None
+    url: Optional[str] = None
+
+
 class ModelDescriptor(BaseModel):
     """Everything the platform needs to know about a model, independent of how it loads.
 
@@ -41,6 +58,9 @@ class ModelDescriptor(BaseModel):
     supported_tags: list[str] = Field(default_factory=list)
     supported_voice_design: list[str] = Field(default_factory=list)
     capabilities: ModelCapabilities = Field(default_factory=ModelCapabilities)
+    requirements: ModelRequirements = Field(default_factory=ModelRequirements)
+    license: Optional[ModelLicense] = None
+    provider_metadata: dict = Field(default_factory=dict)
     status: ModelStatus = "available"
     is_default: bool = False
     is_builtin: bool = True
