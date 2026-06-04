@@ -129,12 +129,21 @@ export interface GenerationSettings {
 }
 
 export interface ModelCapabilities {
+  // Contract version (ADR-0003). New capabilities are additive; unknown ones are ignored.
+  capability_version?: number
   supports_tts: boolean
   supports_voice_cloning: boolean
   supports_emotions: boolean
   supports_singing: boolean
   supports_streaming: boolean
   supports_api: boolean
+  // ADR-0003 superset (optional for forward/back compatibility).
+  supports_voice_conversion?: boolean
+  supports_emotion_tags?: boolean
+  supports_voice_design?: boolean
+  supports_multilingual?: boolean
+  supports_reference_audio?: boolean
+  supports_batch_generation?: boolean
 }
 
 export interface ModelRequirements {

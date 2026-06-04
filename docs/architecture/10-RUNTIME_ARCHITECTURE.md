@@ -8,6 +8,14 @@ a **first-class architectural component**, not an implementation detail.
 > This document realizes the [Vision](00-VISION.md): *OpenRouter for Voice + Ollama for
 > Voice*. See also [Domain](02-DOMAIN_ARCHITECTURE.md), [ADR-0002](adrs/0002-model-as-first-class-entity.md),
 > [ADR-0003](adrs/0003-model-capability-contract.md), [Cloud](06-CLOUD_ARCHITECTURE.md).
+>
+> **Status — implemented (Phases 3.5–3.7).** The runtime core exists in code: the
+> `ModelAdapter` contract (`backend/app/services/model_adapter.py`), `PeakVoxRuntime`
+> (`backend/app/services/runtime.py`), the capability contract
+> (`backend/app/services/capabilities.py`), and the OmniVoice/OmniVoiceSinging adapters
+> (`backend/app/services/model_adapters/`). The single Voice ID → many variants → one runtime
+> property is validated by `backend/tests/test_multimodel_resolution.py`. Distributed/cloud
+> execution (§9.2) remains future.
 
 ---
 

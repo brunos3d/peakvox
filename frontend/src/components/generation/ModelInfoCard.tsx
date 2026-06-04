@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Cpu, Mic, Sparkles, Music, Globe } from "lucide-react";
+import { Loader2, Cpu, Mic, Sparkles, Music, Globe, Palette, Repeat } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useActiveModel } from "@/hooks/use-models";
 import { Badge } from "@/components/ui/badge";
@@ -61,8 +61,14 @@ export function ModelInfoCard() {
           Capabilities
         </p>
         <CapabilityRow icon={Mic} label="Voice cloning" supported={caps.supports_voice_cloning} />
-        <CapabilityRow icon={Sparkles} label="Emotions" supported={caps.supports_emotions} />
+        <CapabilityRow icon={Sparkles} label="Emotion tags" supported={caps.supports_emotion_tags ?? caps.supports_emotions} />
         <CapabilityRow icon={Music} label="Singing" supported={caps.supports_singing} />
+        {caps.supports_voice_design && (
+          <CapabilityRow icon={Palette} label="Voice design" supported={true} />
+        )}
+        {caps.supports_voice_conversion && (
+          <CapabilityRow icon={Repeat} label="Voice conversion" supported={true} />
+        )}
         <CapabilityRow icon={Globe} label="Public API" supported={caps.supports_api} />
       </div>
 

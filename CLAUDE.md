@@ -12,11 +12,18 @@ Ollama for Voice"). The full architecture lives in **`docs/architecture/`** — 
 [`00-VISION.md`](docs/architecture/00-VISION.md) first**, then the
 [`09-ROADMAP.md`](docs/architecture/09-ROADMAP.md) and the ADRs.
 
-> **The code on `main` is the pre-PeakVox baseline.** Below ("Architecture") describes what is
-> *currently implemented*. The PeakVox concepts (Voice/VoiceVariant split, Runtime Layer,
-> marketplace, etc.) are **planned** in the architecture suite and phase plans
-> (`docs/superpowers/plans/2026-06-03-peakvox-phase-{1,2,3}-*.md`), not yet built. Don't assume
-> a PeakVox concept exists in code unless you've verified it.
+> **Implementation status (branch `feat/peakvox-phase-1`):** Phases 1–3 and 3.5–3.7 are
+> **built and tested** — edition feature flags + schema-ready commercial tables + vendor seams
+> (P1); first-class Model registry/metadata/lifecycle + HF installer (P2); the
+> **Voice/VoiceVariant split** with backfill + dual-write (P3); the **Model Capability
+> Contract** (`ModelCapabilities` superset + `app/services/capabilities.py`, P3.6); the
+> **`ModelAdapter` contract + `PeakVoxRuntime`** single entry point (`app/services/model_adapter.py`,
+> `app/services/runtime.py`, P3.5); and **OmniVoice + OmniVoiceSinging adapters** proving
+> multi-model resolution (`app/services/model_adapters/`, P3.7).
+>
+> **Still planned (not built):** Auth, Billing, Creators, Marketplace, Cloud infra — their
+> schema/seams exist (P1) but no implementation. The commercial tables are empty in CE. Don't
+> assume a *commercial* PeakVox concept exists in code unless you've verified it.
 
 ### Binding architectural rules (do not violate)
 
@@ -87,7 +94,11 @@ Two services: a **FastAPI backend** (`backend/`) and a **Next.js 15 frontend** (
 | `core/database.py`              | Async SQLAlchemy + SQLite via `aiosqlite`; `init_db()` creates tables on startup                                                                              |
 | `models/db.py`                  | ORM models: `User`, `ApiKey`, `VoiceProfile`, `Model`, `GenerationJob` (PeakVox Phase 3 splits `VoiceProfile` → `Voice` + `VoiceVariant`)                      |
 | `models/registry_types.py`      | Torch-free `ModelDescriptor` / `ModelCapabilities` (the model registry contract)                                                                              |
-| `services/model_registry.py` + `model_catalog.py` + `model_providers/` | Persisted, multi-model registry: catalog seeding, runtime load/offload, provider (adapter) plugins. `Model` is already a first-class entity ([ADR-0002](docs/architecture/adrs/0002-model-as-first-class-entity.md)) |
+| `services/model_registry.py` + `model_catalog.py` + `model_providers/` | Persisted, multi-model registry: catalog seeding, runtime load/offload, provider plugins. `Model` is a first-class entity ([ADR-0002](docs/architecture/adrs/0002-model-as-first-class-entity.md)) |
+| `services/runtime.py` | **`PeakVoxRuntime`** — the single, model-agnostic generation entry point: `Voice + Model → VoiceVariant` resolution, capability/tag validation, generation orchestration ([10-RUNTIME](docs/architecture/10-RUNTIME_ARCHITECTURE.md)) |
+| `services/model_adapter.py` + `model_adapters/` | The **`ModelAdapter`** contract + OmniVoice/OmniVoiceSinging adapters. The Runtime talks only to adapters; never a model implementation ([ADR-0004](docs/architecture/adrs/0004-voice-variant-model-separation.md)) |
+| `services/capabilities.py` | Centralized **Model Capability Contract** registry + validation ([ADR-0003](docs/architecture/adrs/0003-model-capability-contract.md)); capability-driven, no model-name branching |
+| `services/voice_onboarding.py` + `voice_variant_repository.py` + `variant_resolution.py` | Voice/VoiceVariant split: `split_profile_row` mapping, dual-write/backfill, identity + variant lookups, generation-input resolution |
 | `core/migrations.py`            | Idempotent, SQLite-safe startup migration runner (additive only; **not** Alembic)                                                                            |
 | `schemas/`                      | Pydantic request/response schemas                                                                                                                             |
 | `api/generation.py`             | `POST /generate` creates a `GenerationJob` row and fires `_process_job()` as an `asyncio.create_task`; job status is polled via `GET /jobs/{id}`              |
