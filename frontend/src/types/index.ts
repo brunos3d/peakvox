@@ -137,6 +137,19 @@ export interface ModelCapabilities {
   supports_api: boolean
 }
 
+export interface ModelRequirements {
+  min_vram_gb: number | null
+  gpu_required: boolean
+  runtime: string | null
+}
+
+export interface ModelLicense {
+  code: string | null
+  weights_license: string | null
+  commercial_use: boolean | null
+  url: string | null
+}
+
 export interface Model {
   id: string
   name: string
@@ -149,6 +162,9 @@ export interface Model {
   supported_tags: string[]
   supported_voice_design: string[]
   capabilities: ModelCapabilities
+  requirements?: ModelRequirements
+  license?: ModelLicense | null
+  provider_metadata?: Record<string, string>
   status: "available" | "loading" | "loaded" | "error" | "disabled"
   is_default: boolean
   is_builtin: boolean

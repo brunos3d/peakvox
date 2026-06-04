@@ -86,6 +86,30 @@ export function ModelInfoCard() {
           </div>
         </div>
       )}
+
+      {(activeModel.provider || activeModel.license?.code) && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border pt-2 text-[10px] text-muted-foreground">
+          <span>Provider: {activeModel.provider}</span>
+          {activeModel.license?.code && (
+            <span>
+              License:{" "}
+              {activeModel.license.url ? (
+                <a
+                  href={activeModel.license.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline hover:text-foreground"
+                >
+                  {activeModel.license.code}
+                </a>
+              ) : (
+                activeModel.license.code
+              )}
+            </span>
+          )}
+          {activeModel.requirements?.gpu_required && <span>GPU required</span>}
+        </div>
+      )}
     </div>
   );
 }
