@@ -16,7 +16,6 @@ export function OutputFormatSelector() {
 
   return (
     <div className="space-y-2">
-      <p className="text-caption uppercase tracking-wide">Output format</p>
       <Select
         value={outputFormat}
         onValueChange={(v) => setOutputFormat(v as "wav" | "mp3" | "ogg")}

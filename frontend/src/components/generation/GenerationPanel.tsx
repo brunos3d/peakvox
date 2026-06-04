@@ -37,9 +37,16 @@ export function GenerationPanel() {
   const modelReady = !!model?.loaded;
   const isGenerating = generate.isPending || !!activeJobId;
 
-  const tagIssues = activeModel ? validateTags(text, activeModel.supported_tags) : [];
+  const tagIssues = activeModel
+    ? validateTags(text, activeModel.supported_tags)
+    : [];
   const hasTagIssues = tagIssues.length > 0;
-  const canGenerate = !!text.trim() && !!selectedProfile && modelReady && !isGenerating && !hasTagIssues;
+  const canGenerate =
+    !!text.trim() &&
+    !!selectedProfile &&
+    modelReady &&
+    !isGenerating &&
+    !hasTagIssues;
 
   const handleGenerate = () => {
     if (!canGenerate) return;
@@ -57,9 +64,14 @@ export function GenerationPanel() {
     <div className="flex h-full flex-col">
       <div className="flex-1 overflow-y-auto px-1">
         <h2 className="text-section-title mb-1 mt-4 px-5">Settings</h2>
-        <p className="text-caption mb-3 px-5">Tune the voice and how it speaks.</p>
+        <p className="text-caption mb-3 px-5">
+          Tune the voice and how it speaks.
+        </p>
 
-        <Accordion type="multiple" defaultValue={["voice", "model", "language", "voice-design"]}>
+        <Accordion
+          type="multiple"
+          defaultValue={["voice", "model", "language", "voice-design"]}
+        >
           {/* 1. Voice */}
           <AccordionItem value="voice">
             <AccordionTrigger className="px-5 text-sm font-medium">
@@ -68,7 +80,7 @@ export function GenerationPanel() {
                 Voice
               </span>
             </AccordionTrigger>
-            <AccordionContent className="px-5">
+            <AccordionContent className="px-5 py-1 mb-4">
               <VoiceSelector />
             </AccordionContent>
           </AccordionItem>
@@ -81,7 +93,7 @@ export function GenerationPanel() {
                 Model
               </span>
             </AccordionTrigger>
-            <AccordionContent className="px-5">
+            <AccordionContent className="px-5 py-1 mb-4">
               <ModelSelector />
             </AccordionContent>
           </AccordionItem>
@@ -90,11 +102,20 @@ export function GenerationPanel() {
           <AccordionItem value="settings">
             <AccordionTrigger className="px-5 text-sm font-medium">
               <span className="flex items-center gap-2">
-                <svg className="h-4 w-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                <svg
+                  className="h-4 w-4 text-primary"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+                </svg>
                 Generation Settings
               </span>
             </AccordionTrigger>
-            <AccordionContent className="px-5">
+            <AccordionContent className="px-5 py-1 mb-4">
               <GenerationSettings />
             </AccordionContent>
           </AccordionItem>
@@ -103,11 +124,21 @@ export function GenerationPanel() {
           <AccordionItem value="output-format">
             <AccordionTrigger className="px-5 text-sm font-medium">
               <span className="flex items-center gap-2">
-                <svg className="h-4 w-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                <svg
+                  className="h-4 w-4 text-primary"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M9 18V5l12-2v13" />
+                  <circle cx="6" cy="18" r="3" />
+                  <circle cx="18" cy="16" r="3" />
+                </svg>
                 Output Format
               </span>
             </AccordionTrigger>
-            <AccordionContent className="px-5">
+            <AccordionContent className="px-5 py-1 mb-4">
               <OutputFormatSelector />
             </AccordionContent>
           </AccordionItem>
@@ -116,11 +147,20 @@ export function GenerationPanel() {
           <AccordionItem value="language">
             <AccordionTrigger className="px-5 text-sm font-medium">
               <span className="flex items-center gap-2">
-                <svg className="h-4 w-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                <svg
+                  className="h-4 w-4 text-primary"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                </svg>
                 Language
               </span>
             </AccordionTrigger>
-            <AccordionContent className="px-5">
+            <AccordionContent className="px-5 py-1 mb-4">
               <LanguageCombobox
                 value={language}
                 onChange={(lang) => setLanguage(lang?.id ?? null)}
@@ -132,23 +172,40 @@ export function GenerationPanel() {
           <AccordionItem value="voice-design">
             <AccordionTrigger className="px-5 text-sm font-medium">
               <span className="flex items-center gap-2">
-                <svg className="h-4 w-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                <svg
+                  className="h-4 w-4 text-primary"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg>
                 Voice Design
               </span>
             </AccordionTrigger>
-            <AccordionContent className="px-5">
-              <VoiceDesignBuilder value={voiceDesign} onChange={setVoiceDesign} />
+            <AccordionContent className="px-5 py-1 mb-4">
+              <VoiceDesignBuilder
+                value={voiceDesign}
+                onChange={setVoiceDesign}
+              />
             </AccordionContent>
           </AccordionItem>
         </Accordion>
       </div>
 
       {/* Generate Speech — pinned at bottom */}
-      <div className={cn("shrink-0 border-t border-border p-5", "flex flex-col gap-3")}>
+      <div
+        className={cn(
+          "shrink-0 border-t border-border p-5",
+          "flex flex-col gap-3",
+        )}
+      >
         {generate.isError && (
           <p className="flex items-center gap-2 rounded-lg bg-error/10 px-3 py-2 text-xs text-error">
             <AlertCircle className="h-4 w-4 shrink-0" />
-            {(generate.error as Error)?.message ?? "Generation failed. Please try again."}
+            {(generate.error as Error)?.message ??
+              "Generation failed. Please try again."}
           </p>
         )}
 
@@ -156,12 +213,14 @@ export function GenerationPanel() {
           <div className="rounded-lg bg-warning/10 px-3 py-2">
             <p className="flex items-center gap-2 text-xs text-warning">
               <AlertCircle className="h-4 w-4 shrink-0" />
-              {tagIssues.length} unsupported tag{tagIssues.length !== 1 ? "s" : ""}:
+              {tagIssues.length} unsupported tag
+              {tagIssues.length !== 1 ? "s" : ""}:
             </p>
             <ul className="mt-1 space-y-0.5 pl-6">
               {tagIssues.map((issue) => (
                 <li key={issue.tagId} className="text-xs text-warning/80">
-                  [{issue.tagId}] &mdash; not supported by {activeModel?.name ?? "this model"}
+                  [{issue.tagId}] &mdash; not supported by{" "}
+                  {activeModel?.name ?? "this model"}
                 </li>
               ))}
             </ul>
