@@ -26,6 +26,15 @@ from app.models.registry_types import ModelDescriptor
 from app.services.capabilities import missing_capabilities as _missing_caps
 from app.services.model_adapter import ModelAdapter
 from app.services.tag_validation import find_unsupported_tags
+from app.services.variant_lifecycle import VariantStatus
+from app.services.voice_variant_artifact_repository import (
+    append_artifact,
+    get_active_artifact,
+    get_version,
+    list_versions,
+    prune_artifacts,
+    set_active,
+)
 from app.services.voice_variant_repository import (
     get_voice_identity_by_public_id,
     resolve_variant,
@@ -60,6 +69,48 @@ class ModelNotActive(Exception):
         self.model_id = model_id
         self.status = status
         super().__init__(f"Model '{model_id}' is not active (status: {status})")
+
+
+class VariantBuilding(Exception):
+    """A variant build is already in progress (ADR-0008). Poll for completion."""
+
+    def __init__(self, voice_id: str, model_id: str) -> None:
+        self.voice_id = voice_id
+        self.model_id = model_id
+        super().__init__(f"Variant build in progress for voice '{voice_id}' on '{model_id}'")
+
+
+class VariantBuildFailed(Exception):
+    """A variant build failed (ADR-0008). Retry transitions failed → building."""
+
+    def __init__(self, voice_id: str, model_id: str, error: Optional[str] = None) -> None:
+        self.voice_id = voice_id
+        self.model_id = model_id
+        self.error = error
+        super().__init__(
+            f"Variant build failed for voice '{voice_id}' on '{model_id}'"
+            + (f": {error}" if error else "")
+        )
+
+
+class VariantDeprecated(Exception):
+    """A variant's artifact is deprecated (ADR-0008). Rebuild required before use."""
+
+    def __init__(self, voice_id: str, model_id: str) -> None:
+        self.voice_id = voice_id
+        self.model_id = model_id
+        super().__init__(
+            f"Variant for voice '{voice_id}' on '{model_id}' is deprecated; rebuild required"
+        )
+
+
+class ArtifactVersionNotFound(Exception):
+    """A requested artifact version does not exist for the variant (ADR-0009)."""
+
+    def __init__(self, voice_id: str, model_id: str, version: int) -> None:
+        super().__init__(
+            f"No artifact version {version} for voice '{voice_id}' on '{model_id}'"
+        )
 
 
 class UnsupportedTags(Exception):
@@ -178,6 +229,132 @@ class PeakVoxRuntime:
                 f"No variant for voice '{public_voice_id}' on model '{descriptor.id}'"
             )
         return Resolution(voice=voice, model=descriptor, variant=variant, adapter=adapter)
+
+    # --- Variant build lifecycle (ADR-0008) + artifact versioning (ADR-0009) ------
+    #
+    # The Runtime owns variant existence: it dispatches builds to adapters, records the
+    # resulting artifact as a versioned row, flips the active pointer, and enforces retention.
+    # Adapters only *produce* artifacts; they never decide lifecycle state. Builds are
+    # synchronous here (the CE-appropriate path); an async build queue is deferred to platform
+    # scale (ADR-0008 Option 3 / Phase 10+).
+
+    async def _run_build(
+        self, db: AsyncSession, *, voice: Voice, model_id: str
+    ) -> VoiceVariant:
+        """Dispatch a build to the adapter, version the artifact, and activate it.
+
+        On adapter failure the variant is left in ``failed`` with an error message and a
+        :class:`VariantBuildFailed` is raised (the failure is a tracked, recoverable state).
+        """
+        self.ensure_available(model_id)
+        adapter = self.get_adapter(model_id)
+        try:
+            variant = await adapter.build_variant(db=db, voice=voice)
+        except Exception as exc:  # adapter build error — record and surface
+            existing = await resolve_variant(db, voice_id=voice.id, model_id=model_id)
+            if existing is not None:
+                existing.status = VariantStatus.FAILED
+                existing.error_message = str(exc)
+                await db.commit()
+            raise VariantBuildFailed(voice.id, model_id, str(exc)) from exc
+
+        # Version the artifact the adapter just produced and make it active (ADR-0009 §3).
+        artifact = await append_artifact(
+            db,
+            variant_id=variant.id,
+            storage_keys=variant.artifacts,
+            model_version=variant.model_version,
+        )
+        await set_active(db, variant, artifact)
+        variant.status = VariantStatus.READY
+        variant.error_message = None
+        await db.commit()
+        await db.refresh(variant)
+
+        # CE retention: keep the active version plus the last N (ADR-0009 §6).
+        await prune_artifacts(db, variant)
+        return variant
+
+    async def build_variant(
+        self, db: AsyncSession, *, voice: Voice, model_id: str
+    ) -> VoiceVariant:
+        """Build (or first-build) this model's variant for ``voice``; returns it ``ready``."""
+        return await self._run_build(db, voice=voice, model_id=model_id)
+
+    async def rebuild_variant(
+        self, db: AsyncSession, *, voice: Voice, model_id: str
+    ) -> VoiceVariant:
+        """Rebuild an existing variant — appends a new artifact version, preserving the old
+        one for rollback (ADR-0009 §3). The new version becomes active on success."""
+        return await self._run_build(db, voice=voice, model_id=model_id)
+
+    async def get_variant_status(
+        self, db: AsyncSession, *, voice: Voice, model_id: str
+    ) -> Optional[str]:
+        """The variant's lifecycle status, or ``None`` if no variant exists yet."""
+        variant = await resolve_variant(db, voice_id=voice.id, model_id=model_id)
+        return variant.status if variant is not None else None
+
+    async def ensure_variant(
+        self, db: AsyncSession, *, voice: Voice, model_id: str
+    ) -> VoiceVariant:
+        """Return a ``ready`` variant or take the correct lifecycle action (ADR-0008).
+
+        ready → return · missing/pending → build · building → in-progress · failed/deprecated →
+        actionable error. This is the resolution guard the generation path can call before
+        running inference.
+        """
+        variant = await resolve_variant(db, voice_id=voice.id, model_id=model_id)
+        if variant is None or variant.status == VariantStatus.PENDING:
+            return await self._run_build(db, voice=voice, model_id=model_id)
+        if variant.status == VariantStatus.READY:
+            return variant
+        if variant.status == VariantStatus.BUILDING:
+            raise VariantBuilding(voice.id, model_id)
+        if variant.status == VariantStatus.FAILED:
+            raise VariantBuildFailed(voice.id, model_id, variant.error_message)
+        if variant.status == VariantStatus.DEPRECATED:
+            raise VariantDeprecated(voice.id, model_id)
+        # Unknown/forward-compatible status — treat as unavailable rather than guessing.
+        raise VariantUnavailable(
+            f"Variant for voice '{voice.id}' on '{model_id}' has status '{variant.status}'"
+        )
+
+    async def get_active_artifact(self, db: AsyncSession, *, voice: Voice, model_id: str):
+        """The variant's active artifact version metadata, or ``None``."""
+        variant = await resolve_variant(db, voice_id=voice.id, model_id=model_id)
+        if variant is None:
+            return None
+        return await get_active_artifact(db, variant)
+
+    async def list_artifact_versions(self, db: AsyncSession, *, voice: Voice, model_id: str):
+        """Ordered artifact version history for the variant (empty if none)."""
+        variant = await resolve_variant(db, voice_id=voice.id, model_id=model_id)
+        if variant is None:
+            return []
+        return await list_versions(db, variant.id)
+
+    async def rollback_artifact(
+        self, db: AsyncSession, *, voice: Voice, model_id: str, version: int
+    ) -> VoiceVariant:
+        """Set the active artifact to a prior ``version`` without rebuilding (ADR-0009 §4)."""
+        variant = await resolve_variant(db, voice_id=voice.id, model_id=model_id)
+        if variant is None:
+            raise VariantUnavailable(f"No variant for voice '{voice.id}' on '{model_id}'")
+        target = await get_version(db, variant.id, version)
+        if target is None:
+            raise ArtifactVersionNotFound(voice.id, model_id, version)
+        await set_active(db, variant, target)
+        return variant
+
+    async def prune_artifacts(
+        self, db: AsyncSession, *, voice: Voice, model_id: str, keep_count: Optional[int] = None
+    ) -> list[str]:
+        """Enforce artifact retention for the variant; returns pruned artifact ids."""
+        variant = await resolve_variant(db, voice_id=voice.id, model_id=model_id)
+        if variant is None:
+            return []
+        return await prune_artifacts(db, variant, keep_count)
 
     # --- Generation (single entry point) ------------------------------------------
 

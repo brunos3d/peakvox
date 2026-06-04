@@ -82,6 +82,8 @@ versions per line become common) — never mutate artifacts under a pinned varia
 | `params` | JSON | model-specific (OmniVoice: `transcript`, `voice_design`, `generation_defaults`) |
 | `source` | str | `cloned`/`designed`/`uploaded`/`regenerated` |
 | `status` | str | `pending`/`building`/`ready`/`failed`/`deprecated` — see [ADR-0008](adrs/0008-voice-variant-build-lifecycle.md) for lifecycle |
+| `active_artifact_id` | str(36)? FK→voice_variant_artifacts | active version pointer (ADR-0009); NULL while pending/failed |
+| `error_message` | text? | last build failure detail (ADR-0008) |
 | `created_at`, `updated_at` | datetime | |
 
 **Constraint:** `UNIQUE(voice_id, model_id)`. Storage paths move under

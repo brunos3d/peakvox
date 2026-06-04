@@ -48,6 +48,11 @@ class Settings(BaseSettings):
 
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://frontend:3000"]
 
+    # Voice variant artifact retention (ADR-0009). CE keeps the active artifact plus the last
+    # N versions so recent rebuilds remain rollback-able without unbounded storage growth.
+    # Cloud overrides this with marketplace-grade retention.
+    ARTIFACT_RETENTION_COUNT: int = 3
+
     @property
     def features(self) -> Features:
         return Features.for_edition(self.EDITION)

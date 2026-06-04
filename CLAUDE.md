@@ -22,8 +22,15 @@ Ollama for Voice"). The full architecture lives in **`docs/architecture/`** — 
 > **runtime exclusivity** — all generation routes through `PeakVoxRuntime` (P3.7.5);
 > **edition-scoped model availability** ([ADR-0005](docs/architecture/adrs/0005-edition-scoped-model-availability.md));
 > the **FishAudioAdapter** — first non-OmniVoice provider, CE-only (`app/services/model_adapters/fish_adapter.py`, P3.8);
-> capability-driven UI gating (P3.9); and cross-provider **universal Voice asset validation**
-> (one Voice ID → OmniVoice/Singing/Fish variants via one Runtime, P3.10).
+> capability-driven UI gating (P3.9); cross-provider **universal Voice asset validation**
+> (one Voice ID → OmniVoice/Singing/Fish variants via one Runtime, P3.10); and the
+> **Voice Variant Build Lifecycle + Artifact Versioning** — the five-value variant status
+> machine (`app/services/variant_lifecycle.py`), Runtime-owned `build/rebuild/ensure_variant`
+> orchestration, and versioned `voice_variant_artifacts` rows with rollback + CE retention
+> (`app/services/voice_variant_artifact_repository.py`,
+> [ADR-0008](docs/architecture/adrs/0008-voice-variant-build-lifecycle.md) /
+> [ADR-0009](docs/architecture/adrs/0009-artifact-versioning-and-retention.md), P3.11; builds
+> are synchronous — an async build queue is deferred to platform scale).
 >
 > **Still planned (not built):** Auth, Billing, Creators, Marketplace, Cloud infra — their
 > schema/seams exist (P1) but no implementation. The commercial tables are empty in CE. Don't

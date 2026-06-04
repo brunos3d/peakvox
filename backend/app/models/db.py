@@ -204,12 +204,46 @@ class VoiceVariant(Base):
     model_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
     # reference_sample | embedding | checkpoint | adapter | finetune | metadata
     artifact_type: Mapped[str] = mapped_column(String(32), nullable=False, default="reference_sample")
-    artifacts: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # storage keys
+    artifacts: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # storage keys (deprecated by ADR-0009; dual-written)
     params: Mapped[dict | None] = mapped_column(JSON, nullable=True)     # model-specific config
     source: Mapped[str] = mapped_column(String(32), nullable=False, default="cloned")
+    # Five-value lifecycle (ADR-0008): pending|building|ready|failed|deprecated.
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="ready")
+    # Pointer to the active artifact version (ADR-0009). NULL while pending/failed.
+    active_artifact_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)  # last build failure (ADR-0008)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+
+class VoiceVariantArtifact(Base):
+    """A single, versioned build output of a VoiceVariant (ADR-0009).
+
+    Each ``rebuild_variant()`` appends a new row (version N+1); the variant points at one active
+    version via ``voice_variants.active_artifact_id``. Old versions are retained per policy
+    (CE: last N) so rollback and generation reproducibility are possible. The Artifact layer is
+    internal — never exposed on the public API; the Voice/VoiceVariant identity is what consumers
+    see (ADR-0004).
+    """
+
+    __tablename__ = "voice_variant_artifacts"
+    __table_args__ = (
+        UniqueConstraint("voice_variant_id", "version", name="uq_artifact_variant_version"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    voice_variant_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)  # monotonic per variant, from 1
+    storage_keys: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # same shape as variant.artifacts
+    storage_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)  # content hash (dedup/integrity)
+    size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    model_version: Mapped[str | None] = mapped_column(String(32), nullable=True)  # model version at build time
+    checksum: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    meta: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # build params / adapter info
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    retained_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )  # NULL = indefinite (active / marketplace voice)
 
 
 # ---------------------------------------------------------------------------

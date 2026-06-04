@@ -93,6 +93,11 @@ async def run_migrations(conn: AsyncConnection) -> None:
     # 7. Split legacy voice_profiles into voices + voice_variants (idempotent backfill).
     await _backfill_voice_split(conn)
 
+    # 8. Variant build lifecycle + artifact versioning (ADR-0008 / ADR-0009).
+    await _add_missing_variant_columns(conn)
+    await _remap_legacy_variant_status(conn)
+    await _backfill_artifact_versions(conn)
+
 
 async def _existing_voice_columns(conn: AsyncConnection) -> set[str]:
     res = await conn.execute(text("PRAGMA table_info(voice_profiles)"))
@@ -288,6 +293,74 @@ async def _backfill_voice_split(conn: AsyncConnection) -> None:
                 "status": variant["status"],
                 "now": now,
             },
+        )
+
+
+# New voice_variants columns (ADR-0008 lifecycle + ADR-0009 artifact pointer). Additive, NULL.
+_NEW_VARIANT_COLUMNS: list[tuple[str, str]] = [
+    ("active_artifact_id", "ALTER TABLE voice_variants ADD COLUMN active_artifact_id VARCHAR(36)"),
+    ("error_message", "ALTER TABLE voice_variants ADD COLUMN error_message TEXT"),
+]
+
+
+async def _add_missing_variant_columns(conn: AsyncConnection) -> None:
+    res = await conn.execute(text("PRAGMA table_info(voice_variants)"))
+    existing = {row[1] for row in res.fetchall()}
+    for column, ddl in _NEW_VARIANT_COLUMNS:
+        if column in existing:
+            continue
+        try:
+            await conn.execute(text(ddl))
+        except Exception:  # pragma: no cover - duplicate column on a racing run
+            logger.debug("Variant column {} already present, skipping", column)
+
+
+async def _remap_legacy_variant_status(conn: AsyncConnection) -> None:
+    """Remap ADR-0006 status values onto the ADR-0008 vocabulary (idempotent)."""
+    await conn.execute(
+        text("UPDATE voice_variants SET status = 'building' WHERE status = 'processing'")
+    )
+    await conn.execute(
+        text("UPDATE voice_variants SET status = 'deprecated' WHERE status = 'stale'")
+    )
+
+
+async def _backfill_artifact_versions(conn: AsyncConnection) -> None:
+    """Create a v1 artifact row for every variant that has inline artifacts but no active
+    pointer yet (ADR-0009 §11). One-time, additive: existing storage files keep their paths;
+    the version component is added only for future rebuilds."""
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT id, artifacts, model_version FROM voice_variants "
+                "WHERE active_artifact_id IS NULL AND artifacts IS NOT NULL"
+            )
+        )
+    ).mappings().all()
+    now = datetime.now(timezone.utc).isoformat()
+    for row in rows:
+        artifact_id = str(uuid.uuid4())
+        storage_keys = row["artifacts"]
+        # Raw SELECT returns JSON columns as strings; store them back as JSON text unchanged.
+        if not isinstance(storage_keys, str):
+            storage_keys = json.dumps(storage_keys)
+        await conn.execute(
+            text(
+                "INSERT INTO voice_variant_artifacts (id, voice_variant_id, version, "
+                "storage_keys, model_version, created_at) VALUES "
+                "(:id, :vid, 1, :keys, :mv, :now)"
+            ),
+            {
+                "id": artifact_id,
+                "vid": row["id"],
+                "keys": storage_keys,
+                "mv": row["model_version"],
+                "now": now,
+            },
+        )
+        await conn.execute(
+            text("UPDATE voice_variants SET active_artifact_id = :aid WHERE id = :vid"),
+            {"aid": artifact_id, "vid": row["id"]},
         )
 
 

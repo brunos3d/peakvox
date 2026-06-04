@@ -1,8 +1,14 @@
 # ADR-0009: Artifact Versioning and Retention
 
-- **Status:** Accepted
+- **Status:** Accepted — Implemented (P3.11)
 - **Date:** 2026-06-04
 - **Deciders:** Bruno Silva (product owner), architecture planning
+- **Implementation:** `voice_variant_artifacts` table + `voice_variants.active_artifact_id`
+  (`app/models/db.py`); additive backfill migration (`app/core/migrations.py`);
+  `app/services/voice_variant_artifact_repository.py` (append / active pointer / list / rollback /
+  prune); `PeakVoxRuntime.get_active_artifact / list_artifact_versions / rollback_artifact /
+  prune_artifacts`; `ARTIFACT_RETENTION_COUNT` setting. Default = **pin-by-variant** (no
+  `generation_jobs` schema change); pin-by-artifact-version remains the Cloud extension.
 
 ## Context
 

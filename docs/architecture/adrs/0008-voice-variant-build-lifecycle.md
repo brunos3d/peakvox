@@ -1,9 +1,14 @@
 # ADR-0008: Voice Variant Build Lifecycle
 
-- **Status:** Accepted
+- **Status:** Accepted — Implemented (P3.11, synchronous builds; async build queue deferred)
 - **Date:** 2026-06-04
 - **Deciders:** Bruno Silva (product owner), architecture planning
 - **Supersedes:** ADR-0006 §VoiceVariant lifecycle status values
+- **Implementation:** `app/services/variant_lifecycle.py` (status machine);
+  `PeakVoxRuntime.build_variant / rebuild_variant / ensure_variant / get_variant_status`
+  (`app/services/runtime.py`); `ModelAdapter.supported_realization_types` + `VariantBuildResult`
+  (`app/services/model_adapter.py`). The async/job-based build path (Option 3) remains deferred —
+  CE builds run synchronously inline.
 
 ## Context
 

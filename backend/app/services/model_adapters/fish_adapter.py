@@ -25,6 +25,11 @@ from app.services.model_adapter import ModelAdapter
 class FishAudioAdapter(ModelAdapter):
     """Adapter for Fish Audio S2 (CE-only). Distinct engine, same contract."""
 
+    # Fish realizes a voice as a precomputed speaker embedding, not a reference clip (ADR-0008).
+    @property
+    def supported_realization_types(self) -> list[str]:
+        return ["embedding"]
+
     async def install(self) -> None:
         # Community models are fetched via the HF installer; nothing platform-side to do.
         return None
