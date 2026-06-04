@@ -13,7 +13,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 echo "Starting dev infrastructure (backend + minio)..."
-COMPOSE_PROFILES=dev docker compose up -d
+COMPOSE_PROFILES=dev docker compose up -d --build
 
 echo "Waiting for backend to be ready..."
 until curl -s http://localhost:8000/health > /dev/null 2>&1; do
