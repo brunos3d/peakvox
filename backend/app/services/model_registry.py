@@ -37,10 +37,26 @@ class ModelRegistry:
 
     # ── Catalog ───────────────────────────────────────────────────────────────
     def set_descriptors(self, descriptors: list[ModelDescriptor]) -> None:
-        self._descriptors = {d.id: d for d in descriptors}
+        # Store independent copies so runtime lifecycle changes (status, etc.) never mutate the
+        # static BUILTIN_MODELS catalog (avoids global leakage between requests/tests).
+        self._descriptors = {d.id: d.model_copy(deep=True) for d in descriptors}
 
     def upsert_descriptor(self, descriptor: ModelDescriptor) -> None:
         self._descriptors[descriptor.id] = descriptor
+
+    def set_status(self, model_id: str, status: str) -> None:
+        """Sync an in-memory descriptor's status after a persisted lifecycle change.
+
+        Adapters share the registry's descriptor object (see wire_runtime), so this keeps the
+        runtime + /models view consistent with the DB without a reload.
+        """
+        descriptor = self._descriptors.get(model_id)
+        if descriptor is not None:
+            descriptor.status = status
+
+    def remove(self, model_id: str) -> None:
+        """Drop a descriptor from the in-memory catalog (e.g. a removed community model)."""
+        self._descriptors.pop(model_id, None)
 
     def list_models(self, edition: Optional[str] = None) -> list[ModelDescriptor]:
         models = list(self._descriptors.values())
