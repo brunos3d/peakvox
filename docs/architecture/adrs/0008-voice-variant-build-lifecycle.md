@@ -4,6 +4,10 @@
 - **Date:** 2026-06-04
 - **Deciders:** Bruno Silva (product owner), architecture planning
 - **Supersedes:** ADR-0006 §VoiceVariant lifecycle status values
+- **Refined by:** [ADR-0010](0010-voice-source-assets-and-automatic-variant-provisioning.md) —
+  the *build-trigger policy* (proactive provisioning at source-asset accept + model-install time;
+  CE blocks generation on a missing variant instead of building lazily). The five-state lifecycle,
+  the build mechanism, and failure recovery defined here are **unchanged**.
 - **Implementation:** `app/services/variant_lifecycle.py` (status machine);
   `PeakVoxRuntime.build_variant / rebuild_variant / ensure_variant / get_variant_status`
   (`app/services/runtime.py`); `ModelAdapter.supported_realization_types` + `VariantBuildResult`

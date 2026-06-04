@@ -69,6 +69,14 @@ versions per line become common) — never mutate artifacts under a pinned varia
 | `status`, `usage_count` | str / int | |
 | `created_at`, `updated_at`, `last_used_at` | datetime | |
 
+> **Voice Source Asset (future — [ADR-0010](adrs/0010-voice-source-assets-and-automatic-variant-provisioning.md), schema deferred).**
+> The original user-provided source material is a distinct, model-independent layer — the
+> **canonical source of truth** from which every variant is (re)built (never from another variant).
+> It will be modeled as a `voice_source_assets` association keyed to `voice_id` (one-or-more source
+> clips), elevating today's OmniVoice-variant `artifacts.audio` out of a single provider's variant.
+> No migration is introduced by ADR-0010 (architecture only); current code keeps the reference clip
+> on the OmniVoice variant until the provisioning pipeline lands.
+
 ### 3.3 `voice_variants` (new — the realization layer)
 
 | Column | Type | Notes |

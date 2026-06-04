@@ -125,6 +125,15 @@ publishes, and earns on; what an API caller references; what the marketplace lis
 **Invariant:** `public_voice_id` never changes — not on rename, re-record, re-train, or
 republish. External systems store only `public_voice_id`. See [VOICE_MODEL](../VOICE_MODEL.md).
 
+**Voice Source Asset (canonical source of truth, [ADR-0010](adrs/0010-voice-source-assets-and-automatic-variant-provisioning.md)).**
+A Voice is **not** a WAV file. The original user-provided source material (`larissa.wav`, a
+recording, an upload) is a distinct, model-independent layer associated with the **Voice** — *not*
+with any single variant. **Every VoiceVariant is (re)built from the Source Asset, never from
+another variant**, which is what makes a new provider's variant buildable and ADR-0009 artifact
+versions reproducible. The user creates **Source Assets**; PeakVox creates Variants and Artifacts.
+*(Today the OmniVoice reference clip doubles as the de-facto source; ADR-0010 elevates it to its
+own layer — schema deferred.)*
+
 **Note on today's `VoiceProfile`:** it fuses identity with OmniVoice artifacts. PeakVox splits
 it: identity fields → `Voice`; `audio_filename` / `transcript` / `voice_design` /
 `generation_defaults` → an **OmniVoice `VoiceVariant`**. See
@@ -174,10 +183,15 @@ Creator/User
    publish (Cloud: listing + royalty_config; CE: local library)
 ```
 
-**Lazy variant build:** in the common path a Voice is created with the OmniVoice variant; a
-variant for another model is built on demand the first time that `Voice+Model` is requested
-(or eagerly for published marketplace voices). **Automated retraining / artifact regeneration**
-on model updates reuses this same pipeline.
+**Automatic Variant Provisioning (the official policy, [ADR-0010](adrs/0010-voice-source-assets-and-automatic-variant-provisioning.md)).**
+When a Source Asset is accepted, the Runtime **proactively** provisions variants for every
+compatible installed model (and backfills existing voices when a new compatible model is
+installed) — keeping *installed models* and *supported voices* synchronized. Builds reuse the
+ADR-0008 lifecycle; what changed is the **trigger** (proactive at accept/install time, not lazy at
+generation time). Preset-only providers (`voice_pack`, e.g. Kokoro) cannot clone a Source Asset
+and are excluded from provisioning. **Automated retraining / artifact regeneration** on model
+updates reuses this same pipeline. *(Architecture accepted; current CE code still builds lazily
+until the provisioning scheduler ships.)*
 
 ## 7. Generation (resolution)
 
@@ -187,7 +201,9 @@ on model updates reuses this same pipeline.
 1. resolve model_id   (default if omitted; validate capabilities vs request, e.g. singing)
 2. resolve voice_id    (public_voice_id → Voice)
 3. resolve VoiceVariant(voice_id, model_id)
-      └─ if missing/deprecated → variant build pipeline builds it ([ADR-0008](adrs/0008-voice-variant-build-lifecycle.md)) (or 409/async if not buildable)
+      └─ CE: if missing → **block** with actionable guidance (build in Voice Library); no
+         generation-time build ([ADR-0010](adrs/0010-voice-source-assets-and-automatic-variant-provisioning.md))
+      └─ Cloud: provisioned transparently (deprecated → rebuild) ([ADR-0008](adrs/0008-voice-variant-build-lifecycle.md))
 4. run inference via the Model's provider
 5. emit generation.completed event  → usage metering (Cloud) + royalty accrual (Cloud)
 ```
@@ -216,7 +232,9 @@ All four are **schema-ready in CE** and **active only in Cloud**.
 | Event | Emitted by | Consumed by |
 |---|---|---|
 | `voice.created` / `voice.published` | Voice / Marketplace | Marketplace, search index |
+| `source_asset.accepted` | Voice onboarding | Automatic Variant Provisioning ([ADR-0010](adrs/0010-voice-source-assets-and-automatic-variant-provisioning.md)) — schedule builds across compatible installed models |
 | `variant.requested` / `variant.ready` / `variant.deprecated` | Generation / Onboarding | Variant build lifecycle ([ADR-0008](adrs/0008-voice-variant-build-lifecycle.md)) |
+| `model.installed` | Model Registry | Provisioning backfill ([ADR-0010](adrs/0010-voice-source-assets-and-automatic-variant-provisioning.md)) — build the new variant for existing voices |
 | `model.updated` | Model Registry | Variant lifecycle (mark variants `deprecated`) |
 | `generation.completed` | Generation | Metering, Royalties, usage_count |
 | `credits.consumed` / `royalty.accrued` | Monetization | Ledger, creator analytics |

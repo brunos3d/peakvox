@@ -8,7 +8,10 @@
 > (`processing`, `stale`, `ready`, `failed`) is **superseded** by [ADR-0008](0008-voice-variant-build-lifecycle.md).
 > ADR-0008 defines a five-value lifecycle (`pending`, `building`, `ready`, `failed`, `deprecated`)
 > that replaces it. This ADR remains authoritative for **realization types, artifact encapsulation,
-> and the open-taxonomy rules** — only the status vocabulary is superseded.
+> and the open-taxonomy rules** (and is **extended by**
+> [ADR-0010](0010-voice-source-assets-and-automatic-variant-provisioning.md): realizations build
+> from a first-class **Voice Source Asset** and variants are auto-provisioned across compatible
+> installed models) — only the status vocabulary is superseded.
 
 ## Context
 

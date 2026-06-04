@@ -19,6 +19,7 @@ captures one decision: its context, the options weighed, what was chosen, and th
 | [0007](0007-canonical-model-metadata.md) | Canonical Model Metadata Registry | Accepted |
 | [0008](0008-voice-variant-build-lifecycle.md) | Voice Variant Build Lifecycle (supersedes ADR-0006 status values) | Accepted |
 | [0009](0009-artifact-versioning-and-retention.md) | Artifact Versioning and Retention | Accepted |
+| [0010](0010-voice-source-assets-and-automatic-variant-provisioning.md) | Voice Source Assets and Automatic Variant Provisioning (extends 0006/0008/0009) | Accepted (architecture only) |
 
 ## Conventions
 

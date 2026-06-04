@@ -85,6 +85,7 @@ Phases 2–3 grow it toward the full adapter surface in §6 without changing cal
 |---|---|---|
 | Voice resolution (`public_voice_id` → Voice) | ✅ | persistence → repositories |
 | Variant resolution (`Voice + Model` → VoiceVariant) | ✅ | artifact storage → object storage |
+| Variant provisioning + synchronization ([ADR-0010](adrs/0010-voice-source-assets-and-automatic-variant-provisioning.md)) | ✅ | artifact production → adapter `build_variant()` |
 | Model routing (explicit + `auto`) | ✅ | capability truth → [ADR-0003](adrs/0003-model-capability-contract.md) |
 | Adapter lifecycle (install/load/unload/health) | ✅ | weights/inference → adapter/provider |
 | GPU allocation + VRAM management | ✅ | hardware provisioning → Cloud infra |
@@ -194,6 +195,18 @@ Runtime (adapter.generate(variant, text, params) → audio)
 
 Simple realizations (`reference_sample`) build synchronously; compute-heavy realizations
 (`speaker_embedding`, `checkpoint`) are async jobs. The Runtime handles both transparently.
+
+**Build-trigger policy — Automatic Variant Provisioning ([ADR-0010](adrs/0010-voice-source-assets-and-automatic-variant-provisioning.md)).**
+Variants are provisioned **proactively**, not lazily at generation time: when a **Voice Source
+Asset** (the canonical, model-independent source of truth) is accepted, and when a new compatible
+model is installed, the Runtime detects missing variants and schedules builds for every compatible
+installed model. Every variant builds from the Source Asset — never from another variant. The
+Runtime owns provisioning, synchronization, missing-variant detection, and rebuild orchestration;
+adapters still only `build_variant()`. **CE generation blocks on a missing variant** (explicit
+"build in Voice Library" guidance — no generation-time builds, no hidden behavior); **Cloud**
+provisions transparently behind "Processing Voice…". Preset-only providers (`voice_pack`, e.g.
+Kokoro) are excluded from clone-based provisioning. *(Architecture accepted; implementation
+deferred — current CE code still builds lazily via `ensure_variant`.)*
 
 ### 5.4 Artifact versioning (artifact-level lifecycle)
 
