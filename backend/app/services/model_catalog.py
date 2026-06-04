@@ -4,9 +4,8 @@ Seeded into the ``models`` table on startup (idempotent upsert). Adding a model 
 platform means adding a descriptor here (built-in) or inserting a ``models`` row at runtime
 (custom/community). The ``provider`` field names the runtime adapter that loads/runs it.
 
-Dependency-light (no torch). ``repo_id`` values for Distilled/Singing must be confirmed
-against the upstream OmniVoice releases before those models are enabled (see plan Risk R-7);
-until verified they ship with ``status="disabled"``.
+Dependency-light (no torch). Every built-in descriptor below corresponds to a real upstream
+provider-backed model source (ADR-0007). Fictional or unverified upstream models must not ship.
 """
 
 from app.models.registry_types import (
@@ -84,43 +83,29 @@ BUILTIN_MODELS: list[ModelDescriptor] = [
         ),
         requirements=ModelRequirements(gpu_required=False, runtime="torch"),
         license=ModelLicense(
+            name="Apache License 2.0",
             code="apache-2.0",
             commercial_use=True,
-            url="https://github.com/k2-fsa/OmniVoice",
+            url="https://huggingface.co/datasets/choosealicense/licenses/raw/main/markdown/apache-2.0.md",
         ),
         provider_metadata={
             "author": "k2-fsa",
-            "homepage": "https://github.com/k2-fsa/OmniVoice",
+            "provider_url": "https://huggingface.co/k2-fsa",
+            "homepage_url": "https://huggingface.co/k2-fsa/OmniVoice",
+            "repository_url": "https://github.com/k2-fsa/OmniVoice",
+            "paper_url": "https://arxiv.org/abs/2604.00688",
+            "model_size": "0.6B params",
+            "languages_summary": "600+ languages (Hugging Face reports 646 language tags)",
+            "metadata_sources": [
+                "https://huggingface.co/k2-fsa/OmniVoice",
+                "https://github.com/k2-fsa/OmniVoice",
+                "https://huggingface.co/datasets/choosealicense/licenses/raw/main/markdown/apache-2.0.md",
+            ],
+            "requirements_source": "upstream does not publish a minimum VRAM requirement; runtime=torch inferred from Python API",
+            "edition_availability_basis": "Apache-2.0 upstream license; approved for CE and Cloud",
         },
         status="available",
         is_default=True,
-        editions=["community", "cloud"],
-    ),
-    ModelDescriptor(
-        id="omnivoice-distilled",
-        name="OmniVoice Distilled",
-        description="A faster, distilled variant of OmniVoice Base. Same tags and cloning, "
-        "fewer diffusion steps for quicker generation.",
-        version="1.0.0",
-        provider="omnivoice",
-        repo_id="k2-fsa/OmniVoice-distilled",
-        supported_languages=[],
-        supported_tags=_BASE_TAGS,
-        supported_voice_design=_VOICE_DESIGN,
-        capabilities=ModelCapabilities(
-            supports_tts=True,
-            supports_voice_cloning=True,
-            supports_emotions=True,
-            supports_singing=False,
-            supports_streaming=False,
-            supports_api=True,
-            supports_emotion_tags=True,
-            supports_voice_design=True,
-            supports_multilingual=True,
-            supports_reference_audio=True,
-        ),
-        # Disabled until the upstream repo id/capabilities are confirmed (Risk R-7).
-        status="disabled",
         editions=["community", "cloud"],
     ),
     ModelDescriptor(
@@ -130,8 +115,11 @@ BUILTIN_MODELS: list[ModelDescriptor] = [
         "calm, excited) plus whisper, on top of OmniVoice cloning.",
         version="1.0.0",
         provider="omnivoice-singing",
-        repo_id="k2-fsa/OmniVoice-singing",
-        supported_languages=[],
+        repo_id="ModelsLab/omnivoice-singing",
+        supported_languages=[
+            "English", "Chinese", "Japanese", "Korean", "Spanish", "French",
+            "German", "Italian", "Russian", "Hindi", "Gujarati",
+        ],
         supported_tags=_SINGING_TAGS,
         supported_voice_design=_VOICE_DESIGN,
         capabilities=ModelCapabilities(
@@ -146,7 +134,30 @@ BUILTIN_MODELS: list[ModelDescriptor] = [
             supports_multilingual=True,
             supports_reference_audio=True,
         ),
-        # Disabled until the upstream repo id/capabilities are confirmed (Risk R-7).
+        requirements=ModelRequirements(gpu_required=True, runtime="torch"),
+        license=ModelLicense(
+            name="Apache License 2.0",
+            code="apache-2.0",
+            weights_license="Training datasets include non-commercial components; commercial use needs legal review before Cloud enablement.",
+            commercial_use=True,
+            url="https://huggingface.co/datasets/choosealicense/licenses/raw/main/markdown/apache-2.0.md",
+        ),
+        provider_metadata={
+            "author": "ModelsLab",
+            "provider_url": "https://huggingface.co/ModelsLab",
+            "homepage_url": "https://huggingface.co/ModelsLab/omnivoice-singing",
+            "repository_url": "https://huggingface.co/ModelsLab/omnivoice-singing",
+            "base_model": "k2-fsa/OmniVoice",
+            "model_size": "0.6B params",
+            "languages_summary": "11 languages listed on Hugging Face; model card says base multilingual behavior is preserved",
+            "metadata_sources": [
+                "https://huggingface.co/ModelsLab/omnivoice-singing",
+                "https://huggingface.co/k2-fsa/OmniVoice",
+                "https://huggingface.co/datasets/choosealicense/licenses/raw/main/markdown/apache-2.0.md",
+            ],
+            "requirements_source": "upstream examples use CUDA; no published minimum VRAM requirement",
+            "edition_availability_basis": "Apache-2.0 model license; available in CE and Cloud, subject to training dataset compliance review",
+        },
         status="disabled",
         editions=["community", "cloud"],
     ),
@@ -155,15 +166,15 @@ BUILTIN_MODELS: list[ModelDescriptor] = [
     # Community Edition only (ADR-0005). Disabled until weights/runtime are wired (Risk R-7).
     ModelDescriptor(
         id="fish-audio-s2",
-        name="Fish Audio S2",
-        description="Fish Audio S2 — an external (non-OmniVoice) TTS + voice-cloning engine. "
-        "Different architecture, voice representation, and inference pipeline; integrated purely "
-        "through the ModelAdapter contract.",
-        version="1.0.0",
+        name="Fish Audio S2 Pro",
+        description="Fish Audio S2 Pro is Fish Audio's open-weight TTS system with multi-speaker, "
+        "multi-turn generation, instruction-following control, streaming-oriented inference, and "
+        "voice cloning via Fish-specific speaker embeddings.",
+        version="S2",
         provider="fish-audio",
-        repo_id="fishaudio/fish-speech-1.5",
+        repo_id="fishaudio/s2-pro",
         supported_languages=[],
-        supported_tags=[],  # Fish does not use OmniVoice-style inline tags.
+        supported_tags=[],
         supported_voice_design=[],
         capabilities=ModelCapabilities(
             supports_tts=True,
@@ -172,14 +183,33 @@ BUILTIN_MODELS: list[ModelDescriptor] = [
             supports_reference_audio=True,
             supports_multilingual=True,
             supports_voice_conversion=True,
+            supports_streaming=True,
+            supports_speaker_embeddings=True,
         ),
-        requirements=ModelRequirements(gpu_required=True, runtime="torch"),
+        requirements=ModelRequirements(gpu_required=True, runtime="torch/sglang"),
         license=ModelLicense(
-            code="fish-audio-license",
-            commercial_use=None,  # pending commercial-licensing review (CE-only for now)
-            url="https://github.com/fishaudio/fish-speech",
+            name="Fish Audio Research License",
+            code="fish-audio-research",
+            weights_license="Research and non-commercial use permitted; commercial use requires a separate Fish Audio license.",
+            commercial_use=False,
+            url="https://huggingface.co/fishaudio/s2-pro",
         ),
-        provider_metadata={"author": "fishaudio", "homepage": "https://fish.audio"},
+        provider_metadata={
+            "author": "Fish Audio",
+            "provider_url": "https://huggingface.co/fishaudio",
+            "homepage_url": "https://fish.audio",
+            "repository_url": "https://github.com/fishaudio/fish-speech",
+            "paper_url": "https://arxiv.org/abs/2603.08823",
+            "model_size": "5B params",
+            "languages_summary": "multilingual; exact supported-language list is not published in the model card",
+            "metadata_sources": [
+                "https://huggingface.co/fishaudio/s2-pro",
+                "https://github.com/fishaudio/fish-speech",
+                "https://arxiv.org/abs/2603.08823",
+            ],
+            "requirements_source": "upstream publishes BF16 5B weights and SGLang inference; no minimum VRAM requirement published",
+            "edition_availability_basis": "Fish Audio Research License permits research/non-commercial use; Cloud disabled until commercial license review",
+        },
         editions=["community"],  # CE-only (ADR-0005)
         status="disabled",
     ),
