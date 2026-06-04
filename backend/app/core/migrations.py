@@ -113,6 +113,8 @@ async def _add_missing_columns(conn: AsyncConnection) -> None:
 # New generation_jobs columns (multi-model). Additive, NULL-default = back-compat.
 _NEW_JOB_COLUMNS: list[tuple[str, str]] = [
     ("model_id", "ALTER TABLE generation_jobs ADD COLUMN model_id VARCHAR(64)"),
+    ("voice_id", "ALTER TABLE generation_jobs ADD COLUMN voice_id VARCHAR(36)"),
+    ("voice_variant_id", "ALTER TABLE generation_jobs ADD COLUMN voice_variant_id VARCHAR(36)"),
 ]
 
 

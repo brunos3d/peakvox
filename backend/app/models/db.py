@@ -135,6 +135,9 @@ class GenerationJob(Base):
     # NULL = the platform default model (back-compat for rows created before multi-model).
     model_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     voice_profile_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    # PeakVox Phase 3: the resolved Voice identity + its model-specific VoiceVariant.
+    voice_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    voice_variant_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     ref_audio_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
     ref_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     language: Mapped[str | None] = mapped_column(String(64), nullable=True)
