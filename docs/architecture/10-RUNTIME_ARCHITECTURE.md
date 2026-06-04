@@ -181,6 +181,12 @@ each adapter ships behind its model's `status` (e.g. `disabled` until its repo/c
 verified, as the catalog already does). Future adapters (Chatterbox, Orpheus, …) implement the
 same `ModelAdapter` surface.
 
+The "Variant artifacts" column is the adapter's **realization type** — how that model stores the
+voice (`reference_sample`, `embedding`, `checkpoint`, `lora`, `voice_pack`, …). Realization is an
+implementation detail owned by the adapter + Runtime and **never exposed publicly**; the open
+taxonomy is defined in [ADR-0006](adrs/0006-voice-variant-realization-types.md)
+(`backend/app/services/realization.py`).
+
 ## 7. Model routing
 
 - **Explicit:** `model="omnivoice-singing"` → that adapter (validated against capabilities +

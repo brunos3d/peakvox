@@ -15,6 +15,7 @@ captures one decision: its context, the options weighed, what was chosen, and th
 | [0003](0003-model-capability-contract.md) | Model Capability Contract | Accepted |
 | [0004](0004-voice-variant-model-separation.md) | Voice, VoiceVariant, and Model are three separate concepts | Accepted |
 | [0005](0005-edition-scoped-model-availability.md) | Edition-scoped model availability (licensing-governed) | Accepted |
+| [0006](0006-voice-variant-realization-types.md) | Voice Variant Realization Types | Accepted |
 
 ## Conventions
 
