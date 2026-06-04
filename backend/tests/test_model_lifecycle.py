@@ -28,7 +28,7 @@ async def _status(session, model_id):
 
 async def test_deactivate_then_activate(session):
     await deactivate_model(session, "omnivoice-base")
-    assert await _status(session, "omnivoice-base") == "disabled"
+    assert await _status(session, "omnivoice-base") == "inactive"
     await activate_model(session, "omnivoice-base")
     assert await _status(session, "omnivoice-base") == "available"
 

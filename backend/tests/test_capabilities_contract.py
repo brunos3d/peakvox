@@ -14,6 +14,8 @@ def test_defaults_are_backward_compatible():
     assert c.supports_multilingual is False
     assert c.supports_reference_audio is False
     assert c.supports_batch_generation is False
+    assert c.supports_speaker_embeddings is False
+    assert c.supports_custom_training is False
 
 
 def test_capability_version_present_and_versioned():
