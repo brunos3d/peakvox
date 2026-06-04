@@ -8,6 +8,7 @@ torch; the heavy load happens only when the registry calls ``provider.load(...)`
 
 import logging
 
+from app.services.model_adapters.fish_adapter import FishAudioAdapter
 from app.services.model_adapters.omnivoice_adapter import (
     OmniVoiceAdapter,
     OmniVoiceSingingAdapter,
@@ -23,6 +24,7 @@ logger = logging.getLogger(__name__)
 _ADAPTER_BY_PROVIDER = {
     "omnivoice": OmniVoiceAdapter,
     "omnivoice-singing": OmniVoiceSingingAdapter,
+    "fish-audio": FishAudioAdapter,
 }
 
 

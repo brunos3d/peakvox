@@ -147,6 +147,39 @@ BUILTIN_MODELS: list[ModelDescriptor] = [
         # Disabled until the upstream repo id/capabilities are confirmed (Risk R-7).
         status="disabled",
     ),
+    # First non-OmniVoice provider — validates the multi-provider Runtime (Phase 3.8).
+    # CE-only: Fish Audio licensing requires commercial review, so it is available in the
+    # Community Edition only (ADR-0005). Disabled until weights/runtime are wired (Risk R-7).
+    ModelDescriptor(
+        id="fish-audio-s2",
+        name="Fish Audio S2",
+        description="Fish Audio S2 — an external (non-OmniVoice) TTS + voice-cloning engine. "
+        "Different architecture, voice representation, and inference pipeline; integrated purely "
+        "through the ModelAdapter contract.",
+        version="1.0.0",
+        provider="fish-audio",
+        repo_id="fishaudio/fish-speech-1.5",
+        supported_languages=[],
+        supported_tags=[],  # Fish does not use OmniVoice-style inline tags.
+        supported_voice_design=[],
+        capabilities=ModelCapabilities(
+            supports_tts=True,
+            supports_voice_cloning=True,
+            supports_api=True,
+            supports_reference_audio=True,
+            supports_multilingual=True,
+            supports_voice_conversion=True,
+        ),
+        requirements=ModelRequirements(gpu_required=True, runtime="torch"),
+        license=ModelLicense(
+            code="fish-audio-license",
+            commercial_use=None,  # pending commercial-licensing review (CE-only for now)
+            url="https://github.com/fishaudio/fish-speech",
+        ),
+        provider_metadata={"author": "fishaudio", "homepage": "https://fish.audio"},
+        editions=["community"],  # CE-only (ADR-0005)
+        status="disabled",
+    ),
 ]
 
 
