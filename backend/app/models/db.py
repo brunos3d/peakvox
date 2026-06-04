@@ -142,3 +142,120 @@ class GenerationJob(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+# ---------------------------------------------------------------------------
+# Schema-ready commercial entities (PeakVox).
+#
+# These tables are created in every edition (the idempotent runner's create_all builds them)
+# but are written/read only when the matching feature flag is on — Cloud only. Community
+# Edition leaves them empty. This is the open-core boundary: one schema, never a fork.
+# See docs/architecture/03-DATA_ARCHITECTURE.md §4.
+# ---------------------------------------------------------------------------
+
+
+class Role(Base):
+    """Additive role association. CE collapses every role onto the local owner."""
+
+    __tablename__ = "roles"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    role: Mapped[str] = mapped_column(String(32), nullable=False)  # user|creator|admin
+    scope: Mapped[str | None] = mapped_column(String(36), nullable=True)  # future org id
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class Creator(Base):
+    """A user's creator identity. Schema-ready; populated only in Cloud."""
+
+    __tablename__ = "creators"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    display_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    bio: Mapped[str | None] = mapped_column(Text, nullable=True)
+    avatar: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    verification_status: Mapped[str] = mapped_column(String(32), nullable=False, default="unverified")
+    payout_account_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    royalty_defaults: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class MarketplaceListing(Base):
+    """A discovery/pricing wrapper around a Voice. Schema-ready; Cloud-only semantics."""
+
+    __tablename__ = "marketplace_listings"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    voice_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="draft")
+    category: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    tags: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    pricing: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    preview_audio: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    stats: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+
+class CreditLedger(Base):
+    """Cached per-owner credit balance. Source of truth is the transactions ledger."""
+
+    __tablename__ = "credit_ledgers"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    owner_id: Mapped[str] = mapped_column(String(36), unique=True, index=True, nullable=False)
+    balance: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+
+class Transaction(Base):
+    """Append-only credit ledger. Rows are never updated or deleted — corrections are new rows."""
+
+    __tablename__ = "transactions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    owner_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    # purchase | consume | royalty_accrual | payout | adjustment
+    type: Mapped[str] = mapped_column(String(32), nullable=False)
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)  # signed credits
+    balance_after: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    ref: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class Royalty(Base):
+    """One royalty-bearing generation's split. Schema-ready; written only in Cloud."""
+
+    __tablename__ = "royalties"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    creator_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    voice_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    generation_job_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    model_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    gross_amount: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    creator_amount: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    platform_amount: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    infra_amount: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="accrued")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class Payout(Base):
+    """A settlement to a creator. Schema-ready; Cloud-only."""
+
+    __tablename__ = "payouts"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    creator_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    period: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    amount: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    currency: Mapped[str] = mapped_column(String(8), nullable=False, default="usd")
+    provider: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    provider_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
