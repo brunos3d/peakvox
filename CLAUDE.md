@@ -12,14 +12,18 @@ Ollama for Voice"). The full architecture lives in **`docs/architecture/`** — 
 [`00-VISION.md`](docs/architecture/00-VISION.md) first**, then the
 [`09-ROADMAP.md`](docs/architecture/09-ROADMAP.md) and the ADRs.
 
-> **Implementation status (branch `feat/peakvox-phase-1`):** Phases 1–3 and 3.5–3.7 are
+> **Implementation status (branch `feat/peakvox-phase-1`):** Phases 1–3 and 3.5–3.10 are
 > **built and tested** — edition feature flags + schema-ready commercial tables + vendor seams
 > (P1); first-class Model registry/metadata/lifecycle + HF installer (P2); the
 > **Voice/VoiceVariant split** with backfill + dual-write (P3); the **Model Capability
 > Contract** (`ModelCapabilities` superset + `app/services/capabilities.py`, P3.6); the
 > **`ModelAdapter` contract + `PeakVoxRuntime`** single entry point (`app/services/model_adapter.py`,
-> `app/services/runtime.py`, P3.5); and **OmniVoice + OmniVoiceSinging adapters** proving
-> multi-model resolution (`app/services/model_adapters/`, P3.7).
+> `app/services/runtime.py`, P3.5); **OmniVoice + OmniVoiceSinging adapters** (P3.7);
+> **runtime exclusivity** — all generation routes through `PeakVoxRuntime` (P3.7.5);
+> **edition-scoped model availability** ([ADR-0005](docs/architecture/adrs/0005-edition-scoped-model-availability.md));
+> the **FishAudioAdapter** — first non-OmniVoice provider, CE-only (`app/services/model_adapters/fish_adapter.py`, P3.8);
+> capability-driven UI gating (P3.9); and cross-provider **universal Voice asset validation**
+> (one Voice ID → OmniVoice/Singing/Fish variants via one Runtime, P3.10).
 >
 > **Still planned (not built):** Auth, Billing, Creators, Marketplace, Cloud infra — their
 > schema/seams exist (P1) but no implementation. The commercial tables are empty in CE. Don't
