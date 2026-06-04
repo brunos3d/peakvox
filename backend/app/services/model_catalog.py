@@ -77,6 +77,10 @@ BUILTIN_MODELS: list[ModelDescriptor] = [
             supports_singing=False,
             supports_streaming=False,
             supports_api=True,
+            supports_emotion_tags=True,
+            supports_voice_design=True,
+            supports_multilingual=True,
+            supports_reference_audio=True,
         ),
         requirements=ModelRequirements(gpu_required=False, runtime="torch"),
         license=ModelLicense(
@@ -109,6 +113,10 @@ BUILTIN_MODELS: list[ModelDescriptor] = [
             supports_singing=False,
             supports_streaming=False,
             supports_api=True,
+            supports_emotion_tags=True,
+            supports_voice_design=True,
+            supports_multilingual=True,
+            supports_reference_audio=True,
         ),
         # Disabled until the upstream repo id/capabilities are confirmed (Risk R-7).
         status="disabled",
@@ -131,6 +139,10 @@ BUILTIN_MODELS: list[ModelDescriptor] = [
             supports_singing=True,
             supports_streaming=False,
             supports_api=True,
+            supports_emotion_tags=True,
+            supports_voice_design=True,
+            supports_multilingual=True,
+            supports_reference_audio=True,
         ),
         # Disabled until the upstream repo id/capabilities are confirmed (Risk R-7).
         status="disabled",
