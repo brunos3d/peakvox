@@ -111,3 +111,11 @@
   @apply pointer-events-none float-left h-0 text-muted-foreground/40 content-[attr(data-placeholder)];
   font-style: normal;
 }
+
+.tippy-box .tippy-content {
+  @apply bg-popover;
+}
+
+.tippy-box .tippy-arrow {
+  @apply text-popover;
+}

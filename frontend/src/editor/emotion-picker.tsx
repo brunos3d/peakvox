@@ -25,10 +25,17 @@ function categoryLabel(category: string): string {
     question: "Questions",
     surprise: "Surprise",
   };
-  return labels[category] ?? category.charAt(0).toUpperCase() + category.slice(1);
+  return (
+    labels[category] ?? category.charAt(0).toUpperCase() + category.slice(1)
+  );
 }
 
-function GroupedItemList({ items, onSelect, selectedIndex, onSelectedIndexChange }: GroupedItemListProps) {
+function GroupedItemList({
+  items,
+  onSelect,
+  selectedIndex,
+  onSelectedIndexChange,
+}: GroupedItemListProps) {
   const groups = useMemo(() => {
     const map = new Map<string, TagMenuItem[]>();
     for (const item of items) {
@@ -61,10 +68,10 @@ function GroupedItemList({ items, onSelect, selectedIndex, onSelectedIndexChange
                 key={item.id}
                 type="button"
                 className={cn(
-                  "flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm transition-colors",
+                  "flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors",
                   idx === selectedIndex
-                    ? "bg-accent text-accent-foreground"
-                    : "text-popover-foreground hover:bg-accent/50",
+                    ? "bg-background text-foreground"
+                    : "text-popover-foreground hover:bg-accent",
                 )}
                 onClick={() => onSelect(item.id)}
                 onMouseEnter={() => onSelectedIndexChange(idx)}
@@ -95,10 +102,13 @@ function GroupedItemList({ items, onSelect, selectedIndex, onSelectedIndexChange
  *    keyboard handling. No search input needed — the plugin's query text
  *    provides the filter.
  */
-export const EmotionPicker = forwardRef<EmotionPickerRef, {
-  items: TagMenuItem[];
-  onSelect: (tagId: string) => void;
-}>(({ items, onSelect }, ref) => {
+export const EmotionPicker = forwardRef<
+  EmotionPickerRef,
+  {
+    items: TagMenuItem[];
+    onSelect: (tagId: string) => void;
+  }
+>(({ items, onSelect }, ref) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   useImperativeHandle(ref, () => ({
@@ -142,7 +152,10 @@ EmotionPicker.displayName = "EmotionPicker";
  * Renders grouped `CommandGroup` + `CommandItem` entries directly in the
  * Command list, leveraging Command's built-in keyboard navigation.
  */
-export function EmotionPickerItems({ items, onSelect }: {
+export function EmotionPickerItems({
+  items,
+  onSelect,
+}: {
   items: TagMenuItem[];
   onSelect: (tagId: string) => void;
 }) {
@@ -175,7 +188,9 @@ export function EmotionPickerItems({ items, onSelect }: {
             >
               <span className="mr-2">{item.emoji}</span>
               <span className="flex-1">{item.label}</span>
-              <span className="text-[10px] text-muted-foreground">[{item.id}]</span>
+              <span className="text-[10px] text-muted-foreground">
+                [{item.id}]
+              </span>
             </CommandItem>
           ))}
         </CommandGroup>
