@@ -6,11 +6,29 @@ import type { Editor } from "@tiptap/core";
 import { EmotionTag } from "@/editor/extensions/EmotionTag";
 import { useTagMenuItems } from "@/editor/useTagMenuItems";
 import { EmotionPickerItems } from "@/editor/emotion-picker";
-import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandInput, CommandList } from "@/components/ui/command";
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandList,
+} from "@/components/ui/command";
 
 const COMMON_TAG_IDS = [
-  "happy", "sad", "angry", "whisper", "calm", "excited", "singing", "laughter",
+  "happy",
+  "sad",
+  "angry",
+  "whisper",
+  "calm",
+  "excited",
+  "singing",
+  "laughter",
+  "sigh",
+  "question",
 ];
 
 interface EmotionToolbarProps {
@@ -25,19 +43,23 @@ export function EmotionToolbar({ editor }: EmotionToolbarProps) {
   const insertTag = useCallback(
     (tagId: string) => {
       if (!editor) return;
-      editor.chain().focus().insertContent({
-        type: EmotionTag.name,
-        attrs: { tagId, modelId: "omnivoice-base", invalid: false },
-      }).run();
+      editor
+        .chain()
+        .focus()
+        .insertContent({
+          type: EmotionTag.name,
+          attrs: { tagId, modelId: "omnivoice-base", invalid: false },
+        })
+        .run();
       setOpen(false);
       setSearch("");
     },
     [editor],
   );
 
-  const commonChips = COMMON_TAG_IDS
-    .map((id) => items.find((i) => i.id === id))
-    .filter((item): item is NonNullable<typeof item> => item != null);
+  const commonChips = COMMON_TAG_IDS.map((id) =>
+    items.find((i) => i.id === id),
+  ).filter((item): item is NonNullable<typeof item> => item != null);
 
   const filtered = search
     ? items.filter(
@@ -53,7 +75,7 @@ export function EmotionToolbar({ editor }: EmotionToolbarProps) {
         <button
           key={item.id}
           type="button"
-          className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+          className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium text-foreground transition-colors hover:bg-primary/20"
           onClick={() => insertTag(item.id)}
           title={item.description}
         >
@@ -62,7 +84,13 @@ export function EmotionToolbar({ editor }: EmotionToolbarProps) {
         </button>
       ))}
 
-      <Popover open={open} onOpenChange={(next) => { setOpen(next); if (!next) setSearch(""); }}>
+      <Popover
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) setSearch("");
+        }}
+      >
         <PopoverAnchor asChild>
           <button
             type="button"
