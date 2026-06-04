@@ -16,6 +16,9 @@ from app.services.model_lifecycle import (
     activate_model,
     deactivate_model,
     deprecate_model,
+    install_model,
+    remove_model,
+    update_model,
 )
 from app.services.model_registry import model_registry
 from app.services.tag_catalog import tags_for
@@ -25,20 +28,25 @@ router = APIRouter()
 
 
 def _descriptor_payload(descriptor) -> dict:
-    # model_dump() already serialises requirements/license/provider_metadata (nested models → dicts).
+    # model_dump() already serialises requirements/license/provider_metadata (nested models to dicts).
     data = descriptor.model_dump()
     data.update(model_registry.status(descriptor.id))
     return data
 
 
 def _writes_enabled() -> bool:
-    # Admin model management is a Cloud capability; CE is read-only for the registry.
-    return settings.features.auth
+    # Community Edition: the local owner manages their own instance ("Ollama for Voice") -
+    # install/activate/remove models locally. Cloud: model management is operator-only
+    # (admin roles arrive with Phase 4 auth), so user-facing writes are disabled there for now.
+    return settings.EDITION == "community"
 
 
 def _require_writes() -> None:
     if not _writes_enabled():
-        raise HTTPException(status_code=403, detail="Model management is a Cloud-only capability")
+        raise HTTPException(
+            status_code=403,
+            detail="Model management is operator-only in this edition",
+        )
 
 
 @router.get("/models")
@@ -46,6 +54,12 @@ async def list_models():
     """All models available in the current edition."""
     models = model_registry.list_models(edition=settings.EDITION)
     return {"models": [_descriptor_payload(m) for m in models]}
+
+
+@router.get("/api/models")
+async def list_api_models():
+    """Alias for clients that expect the internal registry under /api/models."""
+    return await list_models()
 
 
 @router.get("/models/status")
@@ -71,6 +85,11 @@ async def get_model(model_id: str):
     if descriptor is None:
         raise HTTPException(status_code=404, detail="Model not found")
     return _descriptor_payload(descriptor)
+
+
+@router.get("/api/models/{model_id}")
+async def get_api_model(model_id: str):
+    return await get_model(model_id)
 
 
 @router.get("/models/{model_id}/tags")
@@ -101,34 +120,65 @@ async def get_model_status(model_id: str):
     return model_registry.status(model_id)
 
 
-# --- Admin lifecycle (Cloud-only writes; 403 in Community Edition) -----------------
+# --- Model lifecycle ---------------------------------------------------------------
 
 
 @router.post("/models/{model_id}/activate")
 async def activate(model_id: str, session=Depends(get_db)):
     _require_writes()
     try:
-        await activate_model(session, model_id)
+        status = await activate_model(session, model_id)
     except ModelNotFoundError:
         raise HTTPException(status_code=404, detail="Model not found")
-    return {"id": model_id, "status": "available"}
+    return {"id": model_id, "status": status}
 
 
 @router.post("/models/{model_id}/deactivate")
 async def deactivate(model_id: str, session=Depends(get_db)):
     _require_writes()
     try:
-        await deactivate_model(session, model_id)
+        status = await deactivate_model(session, model_id)
     except ModelNotFoundError:
         raise HTTPException(status_code=404, detail="Model not found")
-    return {"id": model_id, "status": "disabled"}
+    return {"id": model_id, "status": status}
 
 
 @router.post("/models/{model_id}/deprecate")
 async def deprecate(model_id: str, session=Depends(get_db)):
     _require_writes()
     try:
-        await deprecate_model(session, model_id)
+        status = await deprecate_model(session, model_id)
     except ModelNotFoundError:
         raise HTTPException(status_code=404, detail="Model not found")
-    return {"id": model_id, "status": "deprecated"}
+    return {"id": model_id, "status": status}
+
+
+@router.post("/models/{model_id}/install")
+async def install(model_id: str, session=Depends(get_db)):
+    """Install a model locally (CE 'Ollama for Voice'). Download is mocked; the rest is real."""
+    _require_writes()
+    try:
+        status = await install_model(session, model_id)
+    except ModelNotFoundError:
+        raise HTTPException(status_code=404, detail="Model not found")
+    return {"id": model_id, "status": status}
+
+
+@router.post("/models/{model_id}/update")
+async def update(model_id: str, session=Depends(get_db)):
+    _require_writes()
+    try:
+        status = await update_model(session, model_id)
+    except ModelNotFoundError:
+        raise HTTPException(status_code=404, detail="Model not found")
+    return {"id": model_id, "status": status}
+
+
+@router.post("/models/{model_id}/remove")
+async def remove(model_id: str, session=Depends(get_db)):
+    _require_writes()
+    try:
+        status = await remove_model(session, model_id)
+    except ModelNotFoundError:
+        raise HTTPException(status_code=404, detail="Model not found")
+    return {"id": model_id, "status": status, "removed": True}

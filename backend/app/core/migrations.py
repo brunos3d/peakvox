@@ -153,9 +153,17 @@ async def _add_missing_model_columns(conn: AsyncConnection) -> None:
 
 async def _seed_builtin_models(conn: AsyncConnection) -> None:
     """Idempotently upsert built-in model rows. Built-in fields are refreshed on every run so
-    catalog edits (new tags, status changes) propagate; user/community rows (is_builtin=0) are
-    never touched."""
+    catalog edits (new tags, source URLs, licensing) propagate; lifecycle status is preserved
+    after the first insert. User/community rows (is_builtin=0) are never touched."""
     now = datetime.now(timezone.utc).isoformat()
+    builtin_ids = [m.id for m in BUILTIN_MODELS]
+    if builtin_ids:
+        placeholders = ", ".join(f":id_{i}" for i, _ in enumerate(builtin_ids))
+        await conn.execute(
+            text(f"DELETE FROM models WHERE is_builtin = 1 AND id NOT IN ({placeholders})"),
+            {f"id_{i}": model_id for i, model_id in enumerate(builtin_ids)},
+        )
+
     for m in BUILTIN_MODELS:
         await conn.execute(
             text(
@@ -184,7 +192,6 @@ async def _seed_builtin_models(conn: AsyncConnection) -> None:
                     supported_tags=excluded.supported_tags,
                     supported_voice_design=excluded.supported_voice_design,
                     capabilities=excluded.capabilities,
-                    status=excluded.status,
                     is_default=excluded.is_default,
                     editions=excluded.editions,
                     requirements=excluded.requirements,

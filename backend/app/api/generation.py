@@ -18,6 +18,7 @@ from app.services.runtime import (
     runtime,
     ModelNotRegistered,
     ModelNotAvailableInEdition,
+    ModelNotActive,
 )
 from app.services.storage import storage
 from app.services.voice_variant_repository import resolve_variant_stamp
@@ -125,8 +126,10 @@ async def create_generation_job(
         runtime.ensure_available(model.id)
     except ModelNotAvailableInEdition as exc:
         raise HTTPException(status_code=409, detail=str(exc))
-    if model.status == "disabled":
-        raise HTTPException(status_code=409, detail=f"Model '{model.id}' is not available")
+    try:
+        runtime.ensure_active(model.id)
+    except ModelNotActive as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
 
     # Authoritative tag validation via the runtime (capability/tag-driven, no name branching).
     bad_tags = runtime.validate_tags(model.id, request.text)

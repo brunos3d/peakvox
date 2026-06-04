@@ -193,7 +193,7 @@ async def v1_text_to_speech(
         model = model_registry.get_or_default(payload.modelId)
     except KeyError:
         raise HTTPException(status_code=404, detail=f"Model '{payload.modelId}' not found")
-    if model.status == "disabled":
+    if model.activation_status != "active":
         raise HTTPException(status_code=409, detail=f"Model '{model.id}' is not available")
 
     # Apply the voice's saved defaults so the API matches in-app behavior (Sub-project E).
