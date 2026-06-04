@@ -20,6 +20,7 @@ from app.schemas.voice import (
     VoiceProfileResponse,
 )
 from app.services.voice_metadata import characteristics_from_defaults
+from app.services.voice_onboarding import delete_voice_split, mirror_profile_to_split
 from app.services.voice_repository import (
     VALID_SCOPES,
     list_voices_page,
@@ -252,6 +253,9 @@ async def create_voice(
     await db.commit()
     await db.refresh(profile)
 
+    # PeakVox Phase 3: mirror into the split Voice + VoiceVariant tables (ADR-0001).
+    await mirror_profile_to_split(db, profile)
+
     logger.info(
         "Created voice profile %s (%s, %.2fs, src=%s)",
         profile_id, name, meta["duration"], meta["source_format"],
@@ -329,6 +333,10 @@ async def update_voice(
 
     await db.commit()
     await db.refresh(profile)
+
+    # PeakVox Phase 3: keep the split Voice + VoiceVariant tables in sync (ADR-0001).
+    await mirror_profile_to_split(db, profile)
+
     logger.info("Updated voice profile %s", profile_id)
     return profile
 
@@ -378,5 +386,7 @@ async def delete_voice(profile_id: str, db: AsyncSession = Depends(get_db)):
     omnivoice_service.invalidate_voice_cache(profile.id)
     await db.delete(profile)
     await db.commit()
+    # PeakVox Phase 3: remove the mirrored Voice + variants (ADR-0001).
+    await delete_voice_split(db, profile_id)
     logger.info("Deleted voice profile %s", profile_id)
     return {"detail": "Voice profile deleted"}
