@@ -7,6 +7,7 @@ the SaaS-ready voice entity model without recreating any voice.
 """
 
 import json
+import uuid
 from datetime import datetime, timezone
 
 from loguru import logger
@@ -16,7 +17,22 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from app.core.config import settings
 from app.core.database import Base
 from app.services.model_catalog import BUILTIN_MODELS
+from app.services.voice_onboarding import split_profile_row
 from app.utils.ids import generate_unique_public_voice_id
+
+
+def _new_variant_id() -> str:
+    return str(uuid.uuid4())
+
+
+def _maybe_json(value):
+    """Decode a JSON string column read via raw SQL into a Python object; pass through otherwise."""
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except (ValueError, TypeError):
+            return value
+    return value
 
 # Importing the models registers every table on Base.metadata for create_all.
 import app.models.db  # noqa: F401
@@ -73,6 +89,9 @@ async def run_migrations(conn: AsyncConnection) -> None:
 
     # 6. Upsert the built-in model catalog (never clobbers user/community models).
     await _seed_builtin_models(conn)
+
+    # 7. Split legacy voice_profiles into voices + voice_variants (idempotent backfill).
+    await _backfill_voice_split(conn)
 
 
 async def _existing_voice_columns(conn: AsyncConnection) -> set[str]:
@@ -191,6 +210,73 @@ async def _seed_builtin_models(conn: AsyncConnection) -> None:
                 "requirements": json.dumps(m.requirements.model_dump()),
                 "license": json.dumps(m.license.model_dump()) if m.license else None,
                 "provider_metadata": json.dumps(m.provider_metadata),
+                "now": now,
+            },
+        )
+
+
+async def _backfill_voice_split(conn: AsyncConnection) -> None:
+    """Split each voice_profiles row into a voices row + an omnivoice-base voice_variants row.
+
+    Idempotent: skips any profile whose public_voice_id already exists in voices. The Voice
+    reuses the profile UUID and carries public_voice_id over unchanged (ADR-0001).
+    """
+    existing = await conn.execute(text("SELECT public_voice_id FROM voices"))
+    already = {r[0] for r in existing.fetchall()}
+
+    profiles = await conn.execute(text("SELECT * FROM voice_profiles"))
+    rows = profiles.mappings().all()
+    now = datetime.now(timezone.utc).isoformat()
+
+    for row in rows:
+        if row["public_voice_id"] in already:
+            continue
+        # Raw SELECT returns JSON columns as strings (no ORM type decoding) — decode them so
+        # split_profile_row receives the same dict shape the ORM dual-write path provides.
+        row_dict = dict(row)
+        for json_col in ("generation_defaults", "meta", "characteristics"):
+            row_dict[json_col] = _maybe_json(row_dict.get(json_col))
+        voice, variant = split_profile_row(row_dict)
+        await conn.execute(
+            text(
+                "INSERT INTO voices (id, public_voice_id, creator_id, owner_id, name, "
+                "description, language, language_code, preview_audio, meta, characteristics, "
+                "royalty_config, is_public, is_community_voice, is_preset_voice, is_favorite, "
+                "status, usage_count, created_at, updated_at) VALUES "
+                "(:id, :public_voice_id, :creator_id, :owner_id, :name, :description, :language, "
+                ":language_code, :preview_audio, :meta, :characteristics, :royalty_config, "
+                ":is_public, :is_community_voice, :is_preset_voice, :is_favorite, :status, "
+                ":usage_count, :now, :now)"
+            ),
+            {
+                **voice,
+                "meta": json.dumps(voice["meta"]) if voice["meta"] is not None else None,
+                "characteristics": (
+                    json.dumps(voice["characteristics"])
+                    if voice["characteristics"] is not None
+                    else None
+                ),
+                "royalty_config": None,
+                "now": now,
+            },
+        )
+        await conn.execute(
+            text(
+                "INSERT INTO voice_variants (id, voice_id, model_id, model_version, "
+                "artifact_type, artifacts, params, source, status, created_at, updated_at) "
+                "VALUES (:id, :voice_id, :model_id, :model_version, :artifact_type, "
+                ":artifacts, :params, :source, :status, :now, :now)"
+            ),
+            {
+                "id": _new_variant_id(),
+                "voice_id": variant["voice_id"],
+                "model_id": variant["model_id"],
+                "model_version": variant["model_version"],
+                "artifact_type": variant["artifact_type"],
+                "artifacts": json.dumps(variant["artifacts"]),
+                "params": json.dumps(variant["params"]),
+                "source": variant["source"],
+                "status": variant["status"],
                 "now": now,
             },
         )
