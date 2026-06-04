@@ -20,6 +20,7 @@ from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.models.db import Voice, VoiceVariant
 from app.models.registry_types import ModelDescriptor
 from app.services.capabilities import missing_capabilities as _missing_caps
@@ -41,6 +42,15 @@ class VoiceNotFound(Exception):
 
 class VariantUnavailable(Exception):
     pass
+
+
+class ModelNotAvailableInEdition(Exception):
+    """A model is installed/registered but not licensed/available in the active edition (ADR-0005)."""
+
+    def __init__(self, model_id: str, edition: str) -> None:
+        self.model_id = model_id
+        self.edition = edition
+        super().__init__(f"Model '{model_id}' is not available in the '{edition}' edition")
 
 
 class UnsupportedTags(Exception):
@@ -94,6 +104,19 @@ class PeakVoxRuntime:
             return next(iter(self._adapters.values())).descriptor
         raise ModelNotRegistered("no adapters registered")
 
+    # --- Edition-scoped availability (ADR-0005; never name-driven) ----------------
+
+    def is_available(self, model_id: str, edition: Optional[str] = None) -> bool:
+        """True if the model is available in ``edition`` (defaults to the active edition)."""
+        edition = edition or settings.EDITION
+        descriptor = self.get_adapter(model_id).descriptor
+        return edition in (descriptor.editions or [])
+
+    def ensure_available(self, model_id: str, edition: Optional[str] = None) -> None:
+        edition = edition or settings.EDITION
+        if not self.is_available(model_id, edition):
+            raise ModelNotAvailableInEdition(model_id, edition)
+
     # --- Capability / tag validation (capability-driven, never name-driven) -------
 
     def validate_tags(self, model_id: str, text: str) -> list[str]:
@@ -111,6 +134,7 @@ class PeakVoxRuntime:
     ) -> Resolution:
         """Resolve ``Voice + Model → VoiceVariant`` for a stable public voice id."""
         descriptor = self.resolve_model(model_id)
+        self.ensure_available(descriptor.id)
         adapter = self.get_adapter(descriptor.id)
         voice = await get_voice_identity_by_public_id(db, public_voice_id)
         if voice is None:
@@ -142,6 +166,7 @@ class PeakVoxRuntime:
         required_capabilities: Optional[set[str]] = None,
     ) -> tuple[float, list[str]]:
         descriptor = self.resolve_model(model_id)
+        self.ensure_available(descriptor.id)
         adapter = self.get_adapter(descriptor.id)
 
         # Capability-driven validation — no model-name branching.
