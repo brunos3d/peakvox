@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
-import { AudioLines, Library, Mic, History, Settings, LayoutDashboard, KeyRound, Code2, BarChart3, type LucideIcon } from "lucide-react"
+import { AudioLines, Library, Mic, History, Settings, LayoutDashboard, KeyRound, Code2, BarChart3, Cpu, type LucideIcon } from "lucide-react"
 import { useModelStatus } from "@/hooks/use-generation"
 import { fetchDeviceSettings } from "@/lib/api"
 import { StatusRow } from "@/components/shell/StatusRow"
@@ -18,6 +18,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { href: "/", label: "Text to Speech", icon: AudioLines },
   { href: "/voices", label: "Voice Library", icon: Library },
+  { href: "/models", label: "Models", icon: Cpu },
   { href: "/clone", label: "Voice Clone", icon: Mic },
   { href: "/history", label: "History", icon: History },
   { href: "/settings", label: "Settings", icon: Settings },

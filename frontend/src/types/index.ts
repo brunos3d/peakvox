@@ -153,6 +153,7 @@ export interface ModelRequirements {
 }
 
 export interface ModelLicense {
+  name: string | null
   code: string | null
   weights_license: string | null
   commercial_use: boolean | null
@@ -173,11 +174,24 @@ export interface Model {
   capabilities: ModelCapabilities
   requirements?: ModelRequirements
   license?: ModelLicense | null
-  provider_metadata?: Record<string, string>
-  status: "available" | "loading" | "loaded" | "error" | "disabled"
+  provider_metadata?: Record<string, string | string[]>
+  status: "available" | "loading" | "loaded" | "error" | "disabled" | "inactive" | "deprecated"
   is_default: boolean
   is_builtin: boolean
   editions: string[]
+  available_in_ce: boolean
+  available_in_cloud: boolean
+  homepage_url: string | null
+  repository_url: string | null
+  provider_url: string | null
+  license_name: string | null
+  license_url: string | null
+  gpu_requirements: { required: boolean; source: string }
+  memory_requirements: { min_vram_gb: number | null; source: string }
+  runtime_requirements: { runtime: string | null; source: string }
+  edition_availability: { community: boolean; cloud: boolean; basis: string }
+  install_status: "installed" | "not_installed" | "downloading" | "failed"
+  activation_status: "active" | "inactive"
 }
 
 export interface ModelTagMetadata {

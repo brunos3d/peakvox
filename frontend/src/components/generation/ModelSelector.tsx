@@ -13,12 +13,11 @@ import {
 import { ModelCard } from "@/components/generation/ModelCard";
 import { useAppStore } from "@/store/use-store";
 import { useModels } from "@/hooks/use-models";
-import { cn } from "@/lib/utils";
 
 export function ModelSelector() {
   const selectedModelId = useAppStore((s) => s.selectedModelId);
   const setSelectedModelId = useAppStore((s) => s.setSelectedModelId);
-  const { data: models, isLoading, error } = useModels();
+  const { data: models, isLoading } = useModels();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -27,7 +26,7 @@ export function ModelSelector() {
     : models?.find((m) => m.is_default);
 
   const filtered = (models ?? [])
-    .filter((m) => m.status !== "disabled")
+    .filter((m) => m.activation_status === "active")
     .filter(
       (m) =>
         m.name.toLowerCase().includes(query.toLowerCase()) ||

@@ -11,6 +11,8 @@ const statusColors: Record<string, string> = {
   loaded: "bg-success/15 text-success",
   error: "bg-error/15 text-error",
   disabled: "bg-muted text-muted-foreground",
+  inactive: "bg-muted text-muted-foreground",
+  deprecated: "bg-warning/15 text-warning",
 };
 
 interface CapabilityRowProps {

@@ -1,8 +1,30 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAppStore } from "@/store/use-store";
-import { fetchModels, fetchModel, fetchModelTags } from "@/lib/api";
+import {
+  activateModel,
+  deactivateModel,
+  fetchModel,
+  fetchModels,
+  fetchModelTags,
+  installModel,
+  removeModel,
+  updateModel,
+} from "@/lib/api";
 import type { ModelTagMetadata } from "@/types";
 import { FALLBACK_TAGS } from "@/editor/tags";
+
+export type ModelLifecycleAction = "install" | "update" | "remove" | "activate" | "deactivate";
+type ModelLifecycleResult =
+  | { id: string; status: string }
+  | { id: string; removed: boolean };
+
+const lifecycleFns: Record<ModelLifecycleAction, (id: string) => Promise<ModelLifecycleResult>> = {
+  install: installModel,
+  update: updateModel,
+  remove: removeModel,
+  activate: activateModel,
+  deactivate: deactivateModel,
+};
 
 export function useModels() {
   return useQuery({
@@ -31,6 +53,20 @@ export function useModelTags(modelId: string | null) {
     enabled: !!modelId,
     staleTime: 120_000,
     placeholderData: FALLBACK_TAGS,
+  });
+}
+
+export function useModelLifecycleAction() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, action }: { id: string; action: ModelLifecycleAction }) =>
+      lifecycleFns[action](id),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["models"] });
+      queryClient.invalidateQueries({ queryKey: ["model", variables.id] });
+      queryClient.invalidateQueries({ queryKey: ["model-status"] });
+    },
   });
 }
 
