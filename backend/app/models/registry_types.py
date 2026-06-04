@@ -13,14 +13,31 @@ ModelStatus = Literal["available", "loading", "loaded", "error", "disabled"]
 
 
 class ModelCapabilities(BaseModel):
-    """The feature surface a model advertises. Drives capability-gated UI and validation."""
+    """The feature surface a model advertises (ADR-0003, the Model Capability Contract).
 
+    Declared, never inferred. The Runtime, API, UI, and Marketplace all read this one contract;
+    no code branches on model id/name. New capabilities are additive and default to ``False``
+    (forward-compatible); unknown fields from a newer model are ignored by older readers.
+    """
+
+    # Contract version — bumped when capabilities are added (additive only).
+    capability_version: int = 1
+
+    # Legacy v1 subset (kept for back-compat).
     supports_tts: bool = True
     supports_voice_cloning: bool = False
     supports_emotions: bool = False
     supports_singing: bool = False
     supports_streaming: bool = False
     supports_api: bool = True
+
+    # ADR-0003 superset (additive; safe default = unsupported).
+    supports_voice_conversion: bool = False
+    supports_emotion_tags: bool = False
+    supports_voice_design: bool = False
+    supports_multilingual: bool = False
+    supports_reference_audio: bool = False
+    supports_batch_generation: bool = False
 
 
 class ModelRequirements(BaseModel):
