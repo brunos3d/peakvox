@@ -7,9 +7,16 @@ live validation from a single backend source of truth (plan AD-3).
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.config import settings
+from app.core.database import get_db
+from app.services.model_lifecycle import (
+    ModelNotFoundError,
+    activate_model,
+    deactivate_model,
+    deprecate_model,
+)
 from app.services.model_registry import model_registry
 from app.services.tag_catalog import tags_for
 
@@ -18,9 +25,20 @@ router = APIRouter()
 
 
 def _descriptor_payload(descriptor) -> dict:
+    # model_dump() already serialises requirements/license/provider_metadata (nested models → dicts).
     data = descriptor.model_dump()
     data.update(model_registry.status(descriptor.id))
     return data
+
+
+def _writes_enabled() -> bool:
+    # Admin model management is a Cloud capability; CE is read-only for the registry.
+    return settings.features.auth
+
+
+def _require_writes() -> None:
+    if not _writes_enabled():
+        raise HTTPException(status_code=403, detail="Model management is a Cloud-only capability")
 
 
 @router.get("/models")
@@ -81,3 +99,36 @@ async def get_model_status(model_id: str):
     if model_registry.get(model_id) is None:
         raise HTTPException(status_code=404, detail="Model not found")
     return model_registry.status(model_id)
+
+
+# --- Admin lifecycle (Cloud-only writes; 403 in Community Edition) -----------------
+
+
+@router.post("/models/{model_id}/activate")
+async def activate(model_id: str, session=Depends(get_db)):
+    _require_writes()
+    try:
+        await activate_model(session, model_id)
+    except ModelNotFoundError:
+        raise HTTPException(status_code=404, detail="Model not found")
+    return {"id": model_id, "status": "available"}
+
+
+@router.post("/models/{model_id}/deactivate")
+async def deactivate(model_id: str, session=Depends(get_db)):
+    _require_writes()
+    try:
+        await deactivate_model(session, model_id)
+    except ModelNotFoundError:
+        raise HTTPException(status_code=404, detail="Model not found")
+    return {"id": model_id, "status": "disabled"}
+
+
+@router.post("/models/{model_id}/deprecate")
+async def deprecate(model_id: str, session=Depends(get_db)):
+    _require_writes()
+    try:
+        await deprecate_model(session, model_id)
+    except ModelNotFoundError:
+        raise HTTPException(status_code=404, detail="Model not found")
+    return {"id": model_id, "status": "deprecated"}
