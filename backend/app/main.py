@@ -13,7 +13,7 @@ from app.api.settings import router as settings_router
 from app.api.api_keys import router as api_keys_router
 from app.api.v1 import router as v1_router
 from app.services.model_registry import model_registry
-from app.services.model_wiring import wire_registry
+from app.services.model_wiring import wire_registry, wire_runtime
 from app.services.storage import storage
 from app.services.migration import run_migration
 
@@ -27,8 +27,10 @@ async def lifespan(app: FastAPI):
     await init_db()
     storage.ensure_bucket()
     await run_migration()
-    # Wire the model registry (descriptors + provider factories) and warm the default model.
+    # Wire the model registry (descriptors + provider factories), the PeakVox Runtime
+    # (model adapters), and warm the default model.
     wire_registry()
+    wire_runtime()
     default_id = model_registry.resolve_default().id
     asyncio.create_task(model_registry.ensure_loaded(default_id))
     yield
