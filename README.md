@@ -49,7 +49,10 @@ It is designed as **open core**: a free, source-available **Community Edition** 
 
 ## Screenshot
 
-<img width="1918" height="922" alt="image" src="https://github.com/user-attachments/assets/27bfdc8d-5abf-4666-9933-8231aa6e5438" />
+<img width="1749" height="993" alt="image" src="https://github.com/user-attachments/assets/bbed84c7-c33d-4148-a510-dea942862aa4" />
+
+<img width="1749" height="993" alt="image" src="https://github.com/user-attachments/assets/468d8370-9780-4c81-ab9f-12faea146997" />
+
 
 ## Architecture Overview
 
