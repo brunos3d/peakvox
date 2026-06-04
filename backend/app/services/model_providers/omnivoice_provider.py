@@ -1,4 +1,4 @@
-"""Provider adapter for OmniVoice-family models (Base, Distilled).
+"""Provider adapter for OmniVoice-family models.
 
 Delegates to the existing :data:`omnivoice_service` singleton so the proven inference path is
 preserved verbatim (plan Risk R-6). torch/omnivoice are imported lazily by the service, so

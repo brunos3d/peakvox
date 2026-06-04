@@ -1,6 +1,6 @@
 """OmniVoice-family ModelAdapters — the first real adapters proving the multi-model runtime.
 
-``OmniVoiceAdapter`` (Base/Distilled) and ``OmniVoiceSingingAdapter`` (Singing + Emotion) share
+``OmniVoiceAdapter`` (Base) and ``OmniVoiceSingingAdapter`` (Singing + Emotion) share
 one engine and one variant shape (reference-audio cloning) but advertise different capabilities
 and tags via their descriptors. Both implement the same :class:`ModelAdapter` contract, so the
 Runtime treats them identically — the difference is *declared data*, not branching code.
@@ -140,7 +140,7 @@ class OmniVoiceFamilyAdapter(ModelAdapter):
 
 
 class OmniVoiceAdapter(OmniVoiceFamilyAdapter):
-    """OmniVoice Base / Distilled — TTS, cloning, emotion tags, voice design."""
+    """OmniVoice Base — TTS, cloning, emotion tags, voice design."""
 
 
 class OmniVoiceSingingAdapter(OmniVoiceFamilyAdapter):
