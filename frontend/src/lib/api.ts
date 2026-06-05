@@ -18,6 +18,8 @@ import type {
   VariantSummaryItem,
   ArtifactVersionResponse,
   BackfillResponse,
+  ProviderVoiceResponse,
+  CreateFromPresetRequest,
 } from "@/types"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
@@ -292,4 +294,31 @@ export async function uploadAudio(file: File): Promise<{ filename: string }> {
  */
 export async function getFeatures(): Promise<PlatformInfo> {
   return request<PlatformInfo>("/platform/features")
+}
+
+export async function fetchProviderVoices(params?: {
+  provider?: string
+  language?: string
+  gender?: string
+  search?: string
+}): Promise<ProviderVoiceResponse[]> {
+  const qs = new URLSearchParams()
+  if (params?.provider) qs.set("provider", params.provider)
+  if (params?.language) qs.set("language", params.language)
+  if (params?.gender) qs.set("gender", params.gender)
+  if (params?.search) qs.set("search", params.search)
+  const query = qs.toString()
+  return request<ProviderVoiceResponse[]>(`/api/provider-voices${query ? `?${query}` : ""}`)
+}
+
+export async function fetchProviderVoice(id: string): Promise<ProviderVoiceResponse> {
+  return request<ProviderVoiceResponse>(`/api/provider-voices/${id}`)
+}
+
+export async function createVoiceFromPreset(data: CreateFromPresetRequest): Promise<VoiceProfile> {
+  return request<VoiceProfile>("/voices/from-preset", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  })
 }

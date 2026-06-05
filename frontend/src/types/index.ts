@@ -311,3 +311,21 @@ export interface BackfillResponse {
   total_skipped: number
   total_errors: number
 }
+
+export interface ProviderVoiceResponse {
+  provider_voice_id: string
+  provider_id: string
+  external_id: string
+  name: string
+  description: string
+  language: string | null
+  gender: string | null
+  is_default: boolean
+}
+
+export interface CreateFromPresetRequest {
+  provider: string
+  preset_name: string
+  name: string
+  model_id: string
+}

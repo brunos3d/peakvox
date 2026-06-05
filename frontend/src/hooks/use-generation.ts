@@ -56,8 +56,7 @@ export function useVoicesPage(
       }),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.next_cursor,
-    // Community/Preset are disabled for now — skip the round-trip.
-    enabled: scope === "mine" || scope === "recent",
+    enabled: scope === "mine" || scope === "recent" || scope === "preset",
   });
 }
 

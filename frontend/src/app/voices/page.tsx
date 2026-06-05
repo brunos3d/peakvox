@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/shell/PageHeader"
 import { FilterBar } from "@/components/common/FilterBar"
 import { Chip } from "@/components/common/Chip"
 import { VariantDashboard } from "@/components/voice/VariantDashboard"
+import { PresetVoicesTab } from "@/components/voice/PresetVoicesTab"
 import { VoiceGrid } from "@/components/voice/VoiceGrid"
 import { VoiceDetailsDrawer } from "@/components/voice/VoiceDetailsDrawer"
 import { VoiceEditDialog } from "@/components/voice/VoiceEditDialog"
@@ -33,7 +34,7 @@ const ACCENTS = [
 
 const TABS: { value: VoiceScope; label: string }[] = [
   { value: "mine", label: "My Voices" },
-  { value: "recent", label: "Recently Used" },
+  { value: "preset", label: "Preset Voices" },
 ]
 
 const EMPTY_FILTERS: VoiceQueryFilters = {}
@@ -184,6 +185,8 @@ export default function VoiceLibraryPage() {
                 if (voice) setSelectedProfile(voice)
               }}
             />
+          ) : scope === "preset" ? (
+            <PresetVoicesTab onScopeChange={(v) => setScope(v as VoiceScope)} />
           ) : (
             <>
               <FilterBar search={search} onSearchChange={setSearch} placeholder="Search voices…">
