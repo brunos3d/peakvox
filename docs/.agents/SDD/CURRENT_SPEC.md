@@ -16,8 +16,8 @@ No new feature spec is open. The current work is **stabilization** of in-flight 
 
 ## Most recent specs (reference)
 
-- `../../superpowers/specs/2026-06-04-voice-library-2-design.md`
-- `../../superpowers/specs/2026-06-04-peakvox-runtime-validation-design.md`
+- @docs/.agents/SPECS/FEATURES/2026-06-04-voice-library-2-design.md
+- @docs/.agents/SPECS/FEATURES/2026-06-04-peakvox-runtime-validation-design.md
 
 ## Next likely spec
 
