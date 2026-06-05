@@ -1,125 +1,228 @@
-# DESIGN — Kokoro Preset Voice Adapter
+# DESIGN — Kokoro Preset Voice Adapter (Phase 2)
 
 > How it will be built. SDD stage 3. Reference SPEC.md.
 
-## Approach
+## Architecture
 
-### Architecture layering
+### Generation path — single, unified
 
 ```
-API / Voice Library
+POST /generate
     │
     ▼
-PeakVoxRuntime.generate(voice_id, model_id, text, ...)
+PeakVoxRuntime.generate(public_voice_id, model_id, text, ...)
     │
-    ├── ProviderVoiceRegistry.get(voice_id)  ← O(1), no string parsing
-    │   └── found → adapter.generate(voice_id=external_id, ...)
+    ▼
+resolve Voice by public_voice_id (DB)
     │
-    └── not found → persisted Voice resolution (existing path)
-        └── Voice/VoiceVariant/Artifact → adapter.generate(...)
+    ▼
+resolve VoiceVariant for model_id (DB)
+    │
+    ▼
+extract variant.params + active artifact
+    │
+    ▼
+adapter.generate(text, voice_id=public_voice_id, ref_audio=artifact, **variant_params)
 ```
 
-### Key abstractions
+Preset voices (`creation_source = "PRESET_VOICE"`) flow through the exact same path.
+The only difference: their variant params contain `{provider, preset_name}` instead of
+`{transcript}`, and their artifacts are metadata-only (no reference audio).
 
-1. **`ProviderVoice`** — frozen dataclass in new `provider_voice.py`. Ephemeral, in-memory, no
-   DB row. Deterministic ID: `voice_{provider_id}_{external_id}`.
+### Catalog path — ProviderVoiceRegistry only
 
-2. **`ProviderVoiceCatalog`** — `@runtime_checkable Protocol`. Optional on ModelAdapter.
-   Three methods: `list_provider_voices()`, `get_provider_voice(external_id)`,
-   `has_provider_voice(external_id)`.
+```
+GET /api/provider-voices
+    │
+    ▼
+ProviderVoiceRegistry.search(provider, language, gender, query)
+    │
+    ▼
+Returns list of ProviderVoice (ephemeral, in-memory)
+```
 
-3. **`ProviderVoiceRegistry`** — owned by `PeakVoxRuntime`. Lifecycle: register (during
-   wiring), refresh (atomic replace per provider), reload (from all catalog adapters),
-   remove / remove_provider (model uninstall). Also: search (text + filters).
+ProviderVoiceRegistry is a **catalog only**. It never participates in generation. The
+frontend uses it to populate the Preset Voices tab. When a user selects a preset, the
+frontend calls `POST /voices/from-preset` to materialize it into the DB.
 
-4. **`KokoroAdapter(ModelAdapter)`** — implements both the abstract ModelAdapter contract
-   and the ProviderVoiceCatalog protocol. The adapter lazily imports the `kokoro` library
-   at generation time. Preset voices are hardcoded (or loaded from the library's
-   `list_voices()` API) and returned via the catalog protocol. No VoiceVariant needed for
-   the primary (ephemeral) path — `build_variant()` exists but is only used for persisted
-   `PRESET_VOICE` Voice records.
+### Voice creation from preset
 
-### Kokoro health model
+```
+POST /voices/from-preset
+{
+  "provider": "kokoro",
+  "preset_name": "af_heart",
+  "name": "af_heart"
+  "model_id": "kokoro-base"
+}
+    │
+    ▼
+1. Look up ProviderVoice from registry (validate preset exists)
+    │
+    ▼
+2. Create Voice:
+   - public_voice_id = auto-generated UUID
+   - creation_source = "PRESET_VOICE"
+   - name = from request
+   - meta = { provider, preset_name }
+    │
+    ▼
+3. Create VoiceVariant:
+   - voice_id = Voice.id
+   - model_id = "kokoro-base"
+   - status = "ready"
+   - params = { provider: "kokoro", preset_name: "af_heart" }
+   - realization_type = "voice_pack"
+    │
+    ▼
+4. Create VoiceVariantArtifact:
+   - variant_id = VoiceVariant.id
+   - version = 1
+   - storage_keys = { provider: "kokoro", preset_name: "af_heart" }
+   - is_active = True
+    │
+    ▼
+5. Return VoiceProfileResponse
+```
 
-Unlike Fish Audio (remote HTTP server) or OmniVoice (registry-loaded service), Kokoro is a
-Python library loaded in-process. Health check verifies the library is importable and at least
-one checkpoint file exists on disk. No network call.
+### KokoroAdapter.build_variant()
+
+Unlike OmniVoice (which generates an embedding from reference audio) or Fish Audio (which
+will generate a provider-native artifact), Kokoro has no heavy build step. Its
+`build_variant()` is a metadata-only operation:
+
+```python
+async def build_variant(
+    self,
+    voice_id: str,
+    model_id: str,
+    ref_audio_path: Optional[str] = None,
+    ref_text: Optional[str] = None,
+    **kwargs,
+) -> VariantBuildResult:
+    # Kokoro presets require no audio processing, no embedding, no checkpoint.
+    # The preset name comes from variant params, not from a build step.
+    # This method exists to satisfy ADR-0008 lifecycle contract.
+    return VariantBuildResult(
+        params={"provider": "kokoro", "preset_name": kwargs.get("preset_name", "")},
+        artifacts={},
+        status="ready",
+    )
+```
+
+### KokoroAdapter.generate()
+
+The adapter receives preset info via `**kwargs` (passed from variant params by the runtime):
+
+```python
+async def generate(
+    self,
+    text: str,
+    voice_id: str,
+    ref_audio_path: Optional[str] = None,
+    ref_text: Optional[str] = None,
+    language: Optional[str] = None,
+    **kwargs,
+) -> GenerateResult:
+    provider = kwargs.get("provider", "kokoro")
+    preset_name = kwargs.get("preset_name", "")
+    # ... lazy import kokoro, run KPipeline with preset_name
+```
+
+### ProviderVoiceRegistry — catalog only
+
+The two-tier resolution in `runtime.generate()` from Phase 1 is removed. The registry
+retains these methods for catalog use:
+
+- `register(voice)` / `register_many(voices)`
+- `get(provider_voice_id)` — single lookup
+- `list_all()` / `list_by_provider(provider_id)`
+- `search(query, provider_id, language, gender)` — filtered listing
+- `refresh(provider_id, voices)` — atomic replace
+- `reload(adapters)` — full rebuild
+- `remove(provider_voice_id)` / `remove_provider(provider_id)`
+
+## API endpoints
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/provider-voices` | List/search presets |
+| GET | `/api/provider-voices/{provider_voice_id}` | Single preset detail |
+| POST | `/voices/from-preset` | Create Voice from preset |
+
+Query params for `GET /api/provider-voices`:
+- `provider` — filter by provider ID (e.g. "kokoro")
+- `language` — filter by language code (e.g. "en-us")
+- `gender` — filter by gender ("male", "female")
+- `search` — text search across name/description
+
+## Frontend
+
+### Voice Library — "Preset Voices" tab
+
+```
+[ My Voices ] [ Preset Voices ]
+    ┌──────────────────────────────────────┐
+    │ Provider: [All ▼] Lang: [All ▼]     │
+    │ Gender: [All ▼]  Search: [........] │
+    ├──────────────────────────────────────┤
+    │ ┌──────────┐ ┌──────────┐ ┌─────────┐│
+    │ │ af_heart │ │ am_adam  │ │ff_siwis ││
+    │ │ Kokoro   │ │ Kokoro   │ │ Kokoro  ││
+    │ │ English  │ │ English  │ │ French  ││
+    │ │ Female   │ │ Male     │ │ Female  ││
+    │ │ [Use Now]│ │ [Use Now]│ │[Use Now]││
+    │ │ [+ Lib]  │ │ [+ Lib]  │ │ [+ Lib] ││
+    │ └──────────┘ └──────────┘ └─────────┘│
+    └──────────────────────────────────────┘
+```
+
+- **Use Now**: `POST /voices/from-preset` → select resulting Voice → `POST /generate`
+- **+ Library**: `POST /voices/from-preset` → switch to My Voices tab
+- Filters are frontend-side (call API with query params)
 
 ## Components touched
 
-- **New files:**
-  - `backend/app/services/provider_voice.py` — ProviderVoice, ProviderVoiceCatalog,
-    ProviderVoiceRegistry, build_provider_voice_id
-  - `backend/app/services/model_adapters/kokoro_adapter.py` — KokoroAdapter
+### New files
+- `backend/app/api/provider_voices.py` — provider-voices endpoint
+- `backend/app/api/voices_from_preset.py` — from-preset endpoint (or add to `api/voices.py`)
+- `frontend/src/components/voice/PresetVoicesTab.tsx` — preset voices tab content
 
-- **Edited files:**
-  - `backend/app/services/runtime.py` — add `ProviderVoiceRegistry` instance, two-tier
-    `generate()` path
-  - `backend/app/services/model_wiring.py` — add `kokoro` mapping, populate registry
-    via `reload()` after adapter registration
-  - `backend/app/services/model_catalog.py` — add Kokoro ModelDescriptor
+### Edited files
+- `backend/app/services/runtime.py` — remove two-tier resolution; pass variant params to generate
+- `backend/app/services/model_adapters/kokoro_adapter.py` — implement build_variant; update generate
+- `backend/app/services/provider_voice.py` — no architectural changes (catalog-only confirmed)
+- `backend/app/main.py` — register new router(s)
+- `frontend/src/app/voices/page.tsx` — add Preset Voices tab
+- `frontend/src/hooks/use-generation.ts` — enable "preset" scope
+- `frontend/src/lib/api.ts` — add preset API functions
 
-- **No changes to:**
-  - `db.py` — ProviderVoice is NOT a DB model
-  - `variant_lifecycle.py` — preset path never enters build lifecycle
-  - `model_adapter.py` — protocol lives in separate file
-  - `voice_onboarding.py` — no onboarding changes
-  - `voice_variant_repository.py` — no variant changes
-  - `voice_variant_artifact_repository.py` — no artifact changes
+### No changes to
+- `db.py` — creation_source already exists
+- `variant_lifecycle.py` — build_variant() lifecycle unchanged
+- `voice_variant_repository.py` — no changes needed
+- `voice_variant_artifact_repository.py` — no changes needed
+- `model_adapter.py` — no contract changes (kwargs passed through)
 
-## Data / schema changes
+## ADR alignment
 
-**None.** ProviderVoice is ephemeral (in-memory). No migrations, no new tables, no new columns.
-The `Voice.creation_source` field already exists at `db.py:186` for future `PRESET_VOICE`
-persistence but is not required for Phase 1.
-
-Additive + idempotent only (Constitution Art. VI).
-
-## Capability / edition gating
-
-Kokoro ModelDescriptor capabilities:
-```python
-ModelCapabilities(
-    supports_tts=True,
-    supports_voice_cloning=False,    # Kokoro has no cloning
-    supports_emotions=False,
-    supports_singing=False,
-    supports_streaming=False,
-    supports_api=True,
-    supports_emotion_tags=False,
-    supports_voice_design=False,
-    supports_multilingual=False,     # Kokoro is English-only in known presets
-    supports_reference_audio=False,  # No ref audio — presets only
-    supports_speaker_embeddings=False,
-    supports_batch_generation=False,
-    supports_custom_training=False,
-)
-```
-
-Editions: `["community", "cloud"]` (Apache-2.0, no commercial restriction).
-
-## Constrained by ADRs
-
-| ADR | Constraint | How design meets it |
-|---|---|---|
-| 0001 | Voice/VoiceVariant split | ProviderVoice is a 3rd type — not merged into either |
-| 0004 | Three-way separation | ProviderVoice is distinct from Voice/VoiceVariant/Model |
-| 0004 Rule 1 | No public API exposure of variant internals | Runtime encapsulates registry; API handlers never import ProviderVoice |
-| 0005 | Edition-scoped availability | Kokoro descriptor declares editions; `ensure_available` enforces |
-| 0006 | Realization taxonomy | ProviderVoice is not a realization type — it's a domain type |
-| 0008 | Build lifecycle | Preset path never enters it; `build_variant` exists for compat only |
-| 0010 §8 | Preset-only providers exempt from provisioning | ProviderVoice excluded from automatic variant provisioning |
-| 0011 | Creation sources | ProviderVoice is the `PRESET_VOICE` origin in spirit, without requiring a DB row |
+| ADR | How design meets it |
+|---|---|
+| 0001 | Presets become proper `Voice` + `VoiceVariant` records |
+| 0004 | Runtime never knows creation source — single generate path |
+| 0008 | `build_variant()` always called; Kokoro returns immediately (no heavy build) |
+| 0009 | `VoiceVariantArtifact` created with version 1 |
+| 0010 | Presets are truly exempt from provisioning — no audio processing |
+| 0011 | `creation_source = "PRESET_VOICE"` for all preset-derived Voices |
 
 ## Risks
 
 | Risk | Mitigation |
 |---|---|
-| **R-1:** Kokoro library API changes between versions | Adapter pins `kokoro>=0.9.0`; version check at import time |
-| **R-2:** Kokoro preset list is large (54) and may grow | `ProviderVoice` is immutable — adding presets is a catalog update + code release |
-| **R-3:** Deterministic IDs conflict with future `public_voice_id` format | Namespaces are disjoint: deterministic `voice_{provider}_{key}` vs random `voice_{8 chars}`. Registry resolves first — no ambiguity |
-| **R-4:** ProviderVoiceRegistry grows unbounded with 10+ providers each with 100+ presets | In-memory dict with <10K entries is negligible. If scale demands it, lazy loading per provider is a future optimization |
-| **R-5:** Kokoro CPU inference quality unacceptable at 82M params | Architecture-validate with unit tests first; provider-validate with real audio in Phase 2 |
+| ProviderVoiceRegistry catalog-only means presets can't generate without prior DB creation | Intentional — enforces "all voices are DB voices" principle |
+| `build_variant()` metadata-only may confuse readers expecting real builds | Document clearly; Kokoro's preset voice IS the artifact — no build needed |
+| Frontend "Use Now" has 2-step flow (create + generate) — perceived as slow | Both are fast (preset creation is metadata-only, no audio processing) |
+| Kokoro preset list hardcoded — upstream may add voices | Expandable enum; code release adds new presets |
 
 ---
 

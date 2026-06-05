@@ -1,79 +1,91 @@
-# TASKS — Kokoro Preset Voice Adapter
+# TASKS — Kokoro Preset Voice Adapter (Phase 2)
 
-> Task-by-task breakdown. SDD stage 4. Use TDD per task.
+> Phase 2: First-class preset Voices. Prerequisite: Phase 1 complete.
+> Use TDD per task (RED → GREEN → REFACTOR).
 
-## Implementation order
+## Phase 1 recap (done)
 
-1. [ ] **Task 1 — ProviderVoice domain type** · `provider_voice.py`
-      - `ProviderVoice` frozen dataclass with deterministic `provider_voice_id` from
-        `build_provider_voice_id(provider_id, external_id)`
-      - `ProviderVoiceCatalog` runtime-checkable protocol
-      - `ProviderVoiceRegistry` with: register, get, list_all, list_by_provider, refresh,
-        reload, remove, remove_provider, search
-      - Test: dataclass immutability, ID determinism, all registry lifecycle operations,
-        search filtering, provider unisolate (remove_provider clears correctly)
+1–8. ProviderVoice domain, registry, catalog, KokoroAdapter lifecycle, 54 presets,
+      generate(), wiring, tests (81 new, 339/339 pass).
 
-2. [ ] **Task 2 — ProviderVoiceRegistry integration in Runtime** · `runtime.py`
-      - `PeakVoxRuntime._provider_voice_registry: ProviderVoiceRegistry`
-      - Two-tier `generate()`: check registry first, fall through to persisted Voice resolution
-      - No string-prefix detection — pure `dict.get()` lookup
-      - `register_provider_voice()`, `list_provider_voices()` public surface
-      - Test: registry lookup works in generate; persisted path unchanged;
-        provider voice ID and public_voice_id coexist; runtime wiring test
+## Phase 2 tasks
 
-3. [ ] **Task 3 — Wiring: auto-populate registry from ProviderVoiceCatalog adapters** · `model_wiring.py`
-      - `wire_runtime()` calls `runtime.provider_voice_registry.reload(runtime.list_adapters())`
-        after adapter registration
-      - Test: wiring populates registry; mock adapter implementing ProviderVoiceCatalog
-        has its voices registered; non-catalog adapters are ignored
+### A. Backend — Runtime refactor
 
-4. [ ] **Task 4 — Kokoro ModelDescriptor** · `model_catalog.py`
-      - Kokoro model entry with correct id, name, provider, capabilities, languages, editions
-      - Capabilities: only `supports_tts=True` (no cloning, no emotions, no streaming, no ref audio)
-      - Editions: `["community", "cloud"]`
-      - Provider metadata with upstream URLs, architecture (82M), license (Apache-2.0)
-      - Test: descriptor loads from catalog; capabilities match spec;
-        model appears in builtin_by_id and default_model
+1. [ ] **Remove two-tier resolution from `runtime.generate()`**
+      - Remove `ProviderVoiceRegistry.get(voice_id)` check at top of `generate()`
+      - Single path: resolve Voice by `public_voice_id` → VoiceVariant → Artifact
+      - Pass `variant.params` as `**kwargs` to `adapter.generate()`
+      - Test: provider voice IDs no longer resolve without DB record;
+        standard Voice resolution unchanged;
+        variant params flow through to adapter
 
-5. [ ] **Task 5 — KokoroAdapter: lifecycle methods** · `kokoro_adapter.py`
-      - `install()` — no-op (weights loaded by kokoro on first use)
-      - `load()` — verify kokoro library importable, verify checkpoint exists
-      - `unload()` — no-op (CPU-only, no GPU offload needed)
-      - `health_check()` — import check + checkpoint presence
-      - Test: all lifecycle methods return without error; health_check returns bool;
-        load twice is idempotent
+### B. Backend — KokoroAdapter.build_variant()
 
-6. [ ] **Task 6 — KokoroAdapter: ProviderVoiceCatalog implementation** · `kokoro_adapter.py`
-      - `list_provider_voices()` returns all 54 Kokoro presets with deterministic IDs
-      - `get_provider_voice(external_id)` returns single voice or None
-      - `has_provider_voice(external_id)` returns bool
-      - Each ProviderVoice has: provider_voice_id, provider_id, external_id, name,
-        description, language, gender, tags (empty for now), is_default
-      - Test: all 54 voices returned; IDs match pattern `voice_kokoro_{external_id}`;
-        known voices resolvable by external_id; unknown returns None;
-        deterministic across calls
+2. [ ] **Implement `KokoroAdapter.build_variant()` as metadata-only**
+      - Return `VariantBuildResult(params={provider, preset_name}, artifacts={}, status="ready")`
+      - No audio processing, no embedding, no checkpoint
+      - Test: build_variant returns ready status; params contain provider + preset_name;
+        build_variant called twice produces version 2 artifact
 
-7. [ ] **Task 7 — KokoroAdapter: generate()** · `kokoro_adapter.py`
-      - Lazy import of `kokoro` library (deferred to generate time)
-      - `generate(text, voice_id, output_path, ...)` — uses voice_id to select preset,
-        generates audio, writes to output_path
-      - `clone_voice()` — raises `NotImplementedError` (Kokoro has no cloning)
-      - `build_variant()` — creates variant with `artifact_type="voice_pack"`,
-        `source="preset"`, `status="ready"` for persisted PRESET_VOICE compat
-      - Test: generate produces valid WAV; unknown voice_id raises error;
-        clone_voice raises NotImplementedError; build_variant creates ready variant;
-        output file exists after generate
+### C. Backend — Provider voice API
 
-8. [ ] **Task 8 — Kokoro model wiring integration** · `model_wiring.py`
-      - Add `"kokoro": KokoroAdapter` to `_ADAPTER_BY_PROVIDER`
-      - Verify registry populated with 54 Kokoro voices after wiring
-      - Test: full wiring integration — adapter registered, voices in registry,
-        runtime can resolve both provider and persisted voices
+3. [ ] **`GET /api/provider-voices` endpoint**
+      - Returns presets from `ProviderVoiceRegistry`
+      - Supports `provider`, `language`, `gender`, `search` query params
+      - Returns `ProviderVoiceResponse` schema (camelCase for public API)
+      - Test: returns all presets; filters work; empty results for unknown params
+      - Register router in `main.py`
 
-9. [ ] **Verify: all tests green**
+4. [ ] **`GET /api/provider-voices/{provider_voice_id}` endpoint**
+      - Single preset detail from registry
+      - Test: returns correct preset; 404 for unknown ID
 
-10. [ ] **Update** IMPLEMENTATION_STATUS, PROJECT_STATE, HANDOFF, execution ledger
+5. [ ] **`POST /voices/from-preset` endpoint**
+      - Accepts `{provider, preset_name, name, model_id}`
+      - Validates preset exists in `ProviderVoiceRegistry`
+      - Creates Voice (`creation_source="PRESET_VOICE"`, meta={provider, preset_name})
+      - Creates VoiceVariant (`params={provider, preset_name}`, `status="ready"`)
+      - Creates VoiceVariantArtifact (version 1, metadata-only)
+      - Returns `VoiceProfileResponse`
+      - Test: creates all 3 records; returns 404 for unknown preset;
+        voice appears in My Voices list; generation defaults work
+
+### D. Frontend — Preset Voices tab
+
+6. [ ] **Add preset API functions to `lib/api.ts`**
+      - `fetchProviderVoices(params)`, `fetchProviderVoice(id)`, `createVoiceFromPreset(data)`
+      - Type: `ProviderVoiceResponse` and `CreateFromPresetRequest`
+
+7. [ ] **Add "Preset Voices" tab to Voice Library**
+      - Add `"preset"` to the `TABS` array in `page.tsx`
+      - Enable "preset" scope in `useVoicesPage` hook
+      - Create `PresetVoicesTab` component with filters
+      - Provider/language/gender dropdowns + text search
+      - "Use Now" → create Voice from preset → select → route to generate
+      - "+ Library" → create Voice from preset → switch to My Voices tab
+      - Test: visual verification (no automated frontend tests yet)
+
+### E. Validation
+
+8. [ ] **Run full test suite** — all 339 existing + new tests green
+9. [ ] **Update state files** — VALIDATION.md, STATUS.md, IMPLEMENTATION_STATUS.md,
+      EXECUTION_LEDGER.md, HANDOFF.md, PROJECT_STATE.md
+10. [ ] **Atomic commits**
 
 ---
 
-Related: `DESIGN.md` · `VALIDATION.md`
+## Task summary
+
+| # | Area | Description | Est. tests |
+|---|---|---|---|
+| 1 | Runtime | Remove two-tier resolution, pass variant params | ~5 |
+| 2 | KokoroAdapter | build_variant() metadata-only | ~3 |
+| 3 | API | GET /api/provider-voices | ~6 |
+| 4 | API | GET /api/provider-voices/{id} | ~2 |
+| 5 | API | POST /voices/from-preset | ~8 |
+| 6 | Frontend | lib/api.ts + types | — |
+| 7 | Frontend | Preset Voices tab | — |
+| 8–10 | Validation | Tests + docs | — |
+
+Related: `DESIGN.md` · `VALIDATION.md` · `STATUS.md`
