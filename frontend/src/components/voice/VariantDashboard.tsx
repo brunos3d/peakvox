@@ -1,15 +1,17 @@
 "use client"
 
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   AlertCircle,
   CheckCircle2,
   Clock,
+  Hammer,
   Loader2,
   MinusCircle,
   XCircle,
 } from "lucide-react"
-import { fetchVariantSummary } from "@/lib/api"
+import { Button } from "@/components/ui/button"
+import { fetchVariantSummary, backfillMissingVariants } from "@/lib/api"
 
 const STATUS_ICONS: Record<string, typeof CheckCircle2> = {
   ready: CheckCircle2,
@@ -39,6 +41,15 @@ export function VariantDashboard({ onSelectVoice }: VariantDashboardProps) {
     queryFn: fetchVariantSummary,
   })
 
+  const queryClient = useQueryClient()
+
+  const backfillMut = useMutation({
+    mutationFn: () => backfillMissingVariants(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["variant-summary"] })
+    },
+  })
+
   if (summaryQ.isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -60,22 +71,38 @@ export function VariantDashboard({ onSelectVoice }: VariantDashboardProps) {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-4 gap-4">
-        <div className="rounded-lg border border-border bg-surface p-4 text-center">
-          <p className="text-2xl font-bold">{totalVoices}</p>
-          <p className="text-xs text-muted-foreground">Voices</p>
+      <div className="flex items-center justify-between">
+        <div className="grid grid-cols-4 gap-4 flex-1">
+          <div className="rounded-lg border border-border bg-surface p-4 text-center">
+            <p className="text-2xl font-bold">{totalVoices}</p>
+            <p className="text-xs text-muted-foreground">Voices</p>
+          </div>
+          <div className="rounded-lg border border-border bg-surface p-4 text-center">
+            <p className="text-2xl font-bold text-success">{totalReady}</p>
+            <p className="text-xs text-muted-foreground">Ready</p>
+          </div>
+          <div className="rounded-lg border border-border bg-surface p-4 text-center">
+            <p className="text-2xl font-bold text-warning">{totalPending}</p>
+            <p className="text-xs text-muted-foreground">Pending</p>
+          </div>
+          <div className="rounded-lg border border-border bg-surface p-4 text-center">
+            <p className="text-2xl font-bold text-error">{totalFailed}</p>
+            <p className="text-xs text-muted-foreground">Failed</p>
+          </div>
         </div>
-        <div className="rounded-lg border border-border bg-surface p-4 text-center">
-          <p className="text-2xl font-bold text-success">{totalReady}</p>
-          <p className="text-xs text-muted-foreground">Ready</p>
-        </div>
-        <div className="rounded-lg border border-border bg-surface p-4 text-center">
-          <p className="text-2xl font-bold text-warning">{totalPending}</p>
-          <p className="text-xs text-muted-foreground">Pending</p>
-        </div>
-        <div className="rounded-lg border border-border bg-surface p-4 text-center">
-          <p className="text-2xl font-bold text-error">{totalFailed}</p>
-          <p className="text-xs text-muted-foreground">Failed</p>
+        <div className="ml-4">
+          <Button
+            variant="secondary"
+            size="sm"
+            className="gap-1.5 text-xs shrink-0"
+            disabled={backfillMut.isPending}
+            onClick={() => backfillMut.mutate()}
+          >
+            {backfillMut.isPending
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              : <Hammer className="h-3.5 w-3.5" />}
+            Backfill Missing
+          </Button>
         </div>
       </div>
 

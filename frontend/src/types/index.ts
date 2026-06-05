@@ -292,3 +292,22 @@ export interface ArtifactVersionResponse {
   size_bytes: number | null
   storage_keys: Record<string, unknown> | null
 }
+
+export interface BackfillEntry {
+  voice_id: string
+  voice_name: string
+  model_id: string
+  model_name: string
+  error?: string
+  status?: string
+  note?: string
+}
+
+export interface BackfillResponse {
+  built: BackfillEntry[]
+  skipped: BackfillEntry[]
+  errors: BackfillEntry[]
+  total_built: number
+  total_skipped: number
+  total_errors: number
+}

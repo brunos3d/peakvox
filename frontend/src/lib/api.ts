@@ -17,6 +17,7 @@ import type {
   VariantBuildResponse,
   VariantSummaryItem,
   ArtifactVersionResponse,
+  BackfillResponse,
 } from "@/types"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
@@ -162,6 +163,11 @@ export async function fetchVariantSummary(): Promise<VariantSummaryItem[]> {
   const res = await fetch(`${API_URL}/variants/summary`)
   if (!res.ok) throw new ApiError(res.status, "Failed to fetch variant summary")
   return res.json()
+}
+
+export async function backfillMissingVariants(modelFilter?: string): Promise<BackfillResponse> {
+  const qs = modelFilter ? `?model_filter=${encodeURIComponent(modelFilter)}` : ""
+  return request<BackfillResponse>(`/variants/backfill${qs}`, { method: "POST" })
 }
 
 // ── API keys (internal dashboard) ────────────────────────────────────────────
