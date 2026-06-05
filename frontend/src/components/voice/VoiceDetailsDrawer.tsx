@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AudioPlayer } from "@/components/AudioPlayer"
 import { UseInApiDialog } from "@/components/api/UseInApiDialog"
 import { VariantManager } from "@/components/voice/VariantManager"
+import { ArtifactHistory } from "@/components/voice/ArtifactHistory"
 import { SourceAssetTab } from "@/components/voice/SourceAssetTab"
 import { getVoiceAudioUrl } from "@/lib/api"
 import { cn, formatDuration } from "@/lib/utils"
@@ -202,9 +203,7 @@ export function VoiceDetailsDrawer({ voice, open, onOpenChange, onUse, onEdit, o
                 </TabsContent>
 
                 <TabsContent value="artifacts" className="p-6 space-y-6">
-                  <div className="flex items-center justify-center py-12 text-muted-foreground">
-                    <p className="text-sm">Artifact history coming in the next update</p>
-                  </div>
+                  <ArtifactHistory publicVoiceId={voice.public_voice_id} />
                 </TabsContent>
               </div>
             </Tabs>
