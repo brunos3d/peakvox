@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { fetchProviderVoices, createVoiceFromPreset } from "@/lib/api"
 import type { ProviderVoiceResponse } from "@/types"
@@ -26,10 +26,17 @@ export function PresetVoicesTab({ onScopeChange }: PresetVoicesTabProps) {
   const [language, setLanguage] = useState<string>("")
   const [gender, setGender] = useState<string>("")
   const [search, setSearch] = useState<string>("")
+  const [debouncedSearch, setDebouncedSearch] = useState<string>("")
+  const [addError, setAddError] = useState<string | null>(null)
 
-  const { data: voices, isLoading } = useQuery({
-    queryKey: ["provider-voices", provider, language, gender, search],
-    queryFn: () => fetchProviderVoices({ provider, language, gender, search }),
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  const { data: voices, isLoading, isError } = useQuery({
+    queryKey: ["provider-voices", provider, language, gender, debouncedSearch],
+    queryFn: () => fetchProviderVoices({ provider, language, gender, search: debouncedSearch }),
   })
 
   const providers = useMemo(() => {
@@ -55,8 +62,19 @@ export function PresetVoicesTab({ onScopeChange }: PresetVoicesTabProps) {
     )
   }
 
+  if (isError) {
+    return (
+      <div className="text-center py-16 text-destructive">
+        Failed to load preset voices. Please try again.
+      </div>
+    )
+  }
+
   return (
     <div>
+      {addError && (
+        <div className="mb-3 text-sm text-destructive">{addError}</div>
+      )}
       <div className="flex gap-2 mb-4 flex-wrap">
         <Select value={provider} onValueChange={setProvider}>
           <SelectTrigger className="w-36">
@@ -107,7 +125,7 @@ export function PresetVoicesTab({ onScopeChange }: PresetVoicesTabProps) {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {voices.map((voice) => (
             <div key={voice.provider_voice_id}>
-              <PresetVoiceCard voice={voice} onScopeChange={onScopeChange} />
+              <PresetVoiceCard voice={voice} onScopeChange={onScopeChange} onError={setAddError} />
             </div>
           ))}
         </div>
@@ -116,7 +134,7 @@ export function PresetVoicesTab({ onScopeChange }: PresetVoicesTabProps) {
   )
 }
 
-function PresetVoiceCard({ voice, onScopeChange }: { voice: ProviderVoiceResponse; onScopeChange?: (scope: string) => void }) {
+function PresetVoiceCard({ voice, onScopeChange, onError }: { voice: ProviderVoiceResponse; onScopeChange?: (scope: string) => void; onError?: (msg: string | null) => void }) {
   const queryClient = useQueryClient()
   const router = useRouter()
   const setSelectedProfile = useAppStore((s) => s.setSelectedProfile)
@@ -124,6 +142,7 @@ function PresetVoiceCard({ voice, onScopeChange }: { voice: ProviderVoiceRespons
 
   const addToLibrary = async (useNow: boolean) => {
     setIsAdding(true)
+    onError?.(null)
     try {
       const profile = await createVoiceFromPreset({
         provider: voice.provider_id,
@@ -138,6 +157,9 @@ function PresetVoiceCard({ voice, onScopeChange }: { voice: ProviderVoiceRespons
       } else if (onScopeChange) {
         onScopeChange("mine")
       }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to add voice"
+      onError?.(msg)
     } finally {
       setIsAdding(false)
     }

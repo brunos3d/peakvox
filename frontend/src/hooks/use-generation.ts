@@ -56,7 +56,7 @@ export function useVoicesPage(
       }),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.next_cursor,
-    enabled: scope === "mine" || scope === "recent" || scope === "preset",
+    enabled: scope === "mine" || scope === "recent",
   });
 }
 
