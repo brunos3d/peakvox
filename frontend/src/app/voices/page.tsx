@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { Plus, Library, Wand2, Pencil, Trash2, SlidersHorizontal, Users, Sparkles } from "lucide-react"
+import { Plus, Library, Wand2, Pencil, Trash2, SlidersHorizontal } from "lucide-react"
 import { PageLayout } from "@/components/shell/PageLayout"
 import { PageHeader } from "@/components/shell/PageHeader"
 import { FilterBar } from "@/components/common/FilterBar"
 import { Chip } from "@/components/common/Chip"
+import { VariantDashboard } from "@/components/voice/VariantDashboard"
 import { VoiceGrid } from "@/components/voice/VoiceGrid"
 import { VoiceDetailsDrawer } from "@/components/voice/VoiceDetailsDrawer"
 import { VoiceEditDialog } from "@/components/voice/VoiceEditDialog"
@@ -32,8 +33,6 @@ const ACCENTS = [
 
 const TABS: { value: VoiceScope; label: string }[] = [
   { value: "mine", label: "My Voices" },
-  { value: "community", label: "Community" },
-  { value: "preset", label: "Preset" },
   { value: "recent", label: "Recently Used" },
 ]
 
@@ -55,6 +54,7 @@ export default function VoiceLibraryPage() {
   const queryClient = useQueryClient()
 
   const [scope, setScope] = useState<VoiceScope>("mine")
+  const [viewMode, setViewMode] = useState<"library" | "variants">("library")
   const [search, setSearch] = useState("")
   const debouncedSearch = useDebouncedValue(search)
   const [filters, setFilters] = useState<VoiceQueryFilters>(EMPTY_FILTERS)
@@ -96,8 +96,6 @@ export default function VoiceLibraryPage() {
     setEditVoice(voice)
     setEditOpen(true)
   }
-
-  const isComingSoon = scope === "community" || scope === "preset"
 
   const contextPanel = (
     <div className="flex flex-col gap-5 p-6">
@@ -146,23 +144,45 @@ export default function VoiceLibraryPage() {
         />
 
         <div className="mt-6 space-y-4">
-          <Tabs value={scope} onValueChange={(v) => setScope(v as VoiceScope)}>
-            <TabsList>
-              {TABS.map((t) => (
-                <TabsTrigger key={t.value} value={t.value}>{t.label}</TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+          <div className="flex items-center justify-between">
+            <Tabs value={scope} onValueChange={(v) => setScope(v as VoiceScope)}>
+              <TabsList>
+                {TABS.map((t) => (
+                  <TabsTrigger key={t.value} value={t.value}>{t.label}</TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
 
-          {isComingSoon ? (
-            <EmptyState
-              icon={scope === "community" ? Users : Sparkles}
-              title={scope === "community" ? "Community voices coming soon" : "Preset voices coming soon"}
-              description={
-                scope === "community"
-                  ? "Publishing and browsing community voices will arrive in a future release."
-                  : "Curated built-in voices (Narrator, Podcast Host, …) are on the roadmap."
-              }
+            <div className="flex gap-0.5 bg-surface rounded-lg p-0.5 border border-border">
+              <button
+                onClick={() => setViewMode("library")}
+                className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+                  viewMode === "library"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Library
+              </button>
+              <button
+                onClick={() => setViewMode("variants")}
+                className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+                  viewMode === "variants"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Variants
+              </button>
+            </div>
+          </div>
+
+          {viewMode === "variants" ? (
+            <VariantDashboard
+              onSelectVoice={(voiceId) => {
+                const voice = voices.find((v) => v.id === voiceId)
+                if (voice) setSelectedProfile(voice)
+              }}
             />
           ) : (
             <>
