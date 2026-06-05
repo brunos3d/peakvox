@@ -25,16 +25,25 @@ import asyncio
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+_project_root = os.path.dirname(_script_dir)
+# Inside Docker: app/ package is at <project_root>/app/
+# Locally: app/ package is at <project_root>/backend/app/
+for _candidate in (_project_root, os.path.join(_project_root, "backend")):
+    if os.path.isdir(os.path.join(_candidate, "app")):
+        sys.path.insert(0, _candidate)
+        break
+else:
+    sys.exit("FATAL: cannot find app/ package — run from project root or inside Docker container")
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.core.config import settings
 from app.models.db import Voice, Model, VoiceVariant
-from app.services.runtime import PeakVoxRuntime, ModelNotRegistered
+from app.services.runtime import runtime, ModelNotRegistered
 from app.services.voice_variant_repository import get_voice_identity_by_public_id
-from app.services.model_adapter import ModelAdapter
+from app.services.model_wiring import wire_registry, wire_runtime
 
 
 async def backfill(
@@ -73,8 +82,8 @@ async def backfill(
         for v in all_variants:
             variant_lookup[(v.voice_id, v.model_id)] = v
 
-        runtime = PeakVoxRuntime()
-        _init_runtime_adapters(runtime)
+        wire_registry()
+        wire_runtime()
 
         total_built = 0
         total_skipped = 0
@@ -120,23 +129,6 @@ async def backfill(
     print(f"\nSummary: {total_built} built, {total_skipped} skipped, {total_errors} errors")
     if dry_run:
         print("(dry run — no changes made)")
-
-
-def _init_runtime_adapters(runtime: PeakVoxRuntime) -> None:
-    from app.services.model_adapters.omnivoice_adapter import OmniVoiceAdapter
-    from app.services.model_adapters.fish_adapter import FishAudioAdapter
-
-    try:
-        runtime.register_adapter(OmniVoiceAdapter())
-        print("  Registered OmniVoice adapter")
-    except Exception as e:
-        print(f"  WARN: Could not register OmniVoice adapter: {e}")
-
-    try:
-        runtime.register_adapter(FishAudioAdapter())
-        print("  Registered Fish Audio adapter")
-    except Exception as e:
-        print(f"  WARN: Could not register Fish Audio adapter: {e}")
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

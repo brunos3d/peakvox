@@ -6,7 +6,10 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 if command -v docker &>/dev/null && docker compose ls &>/dev/null 2>&1; then
   echo "Running backfill via Docker..."
+  docker compose exec -T backend mkdir -p /app/scripts
+  docker compose cp "$SCRIPT_DIR/backfill_variants.py" backend:/app/scripts/backfill_variants.py
   docker compose exec -T backend python /app/scripts/backfill_variants.py "$@"
+  docker compose exec -T backend rm -rf /app/scripts
 else
   echo "Running backfill directly (requires backend venv)..."
   if [ -f "$PROJECT_DIR/backend/.venv/bin/activate" ]; then
