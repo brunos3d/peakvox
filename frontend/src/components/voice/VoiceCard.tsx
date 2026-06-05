@@ -8,6 +8,15 @@ import { getVoiceAudioUrl } from "@/lib/api"
 import { formatDuration, cn } from "@/lib/utils"
 import type { VoiceProfile } from "@/types"
 
+const CREATION_SOURCE_LABELS: Record<string, { label: string; className: string }> = {
+  SOURCE_ASSET: { label: "Source Audio", className: "bg-sky-500/10 text-sky-500 border-sky-500/20" },
+  PRESET_VOICE: { label: "Preset", className: "bg-amber-500/10 text-amber-500 border-amber-500/20" },
+  MARKETPLACE_VOICE: { label: "Marketplace", className: "bg-purple-500/10 text-purple-500 border-purple-500/20" },
+  TRAINED_VOICE: { label: "Trained", className: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" },
+  IMPORTED_VOICE: { label: "Imported", className: "bg-violet-500/10 text-violet-500 border-violet-500/20" },
+  SYSTEM_VOICE: { label: "System", className: "bg-muted text-muted-foreground border-border" },
+}
+
 interface VoiceCardProps {
   voice: VoiceProfile
   selected?: boolean
@@ -67,6 +76,17 @@ export function VoiceCard({
         <div className="min-w-0 flex-1">
           <p className="text-card-title truncate">{voice.name}</p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            {voice.creation_source && (
+              <Badge
+                variant="outline"
+                className={cn(
+                  "px-1.5 py-0 text-[10px]",
+                  CREATION_SOURCE_LABELS[voice.creation_source]?.className ?? "border-border text-muted-foreground"
+                )}
+              >
+                {CREATION_SOURCE_LABELS[voice.creation_source]?.label ?? voice.creation_source}
+              </Badge>
+            )}
             {voice.language && (
               <Badge variant="outline" className="px-1.5 py-0 text-[10px]">{voice.language}</Badge>
             )}
