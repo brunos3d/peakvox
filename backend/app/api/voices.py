@@ -12,12 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.models.db import VoiceProfile
+from app.models.db import VoiceProfile, VoiceSourceAsset
 from app.schemas.voice import (
     FavoriteUpdate,
     VoiceGenerationDefaults,
     VoiceListPage,
     VoiceProfileResponse,
+    VoiceSourceAssetResponse,
 )
 from app.services.voice_metadata import characteristics_from_defaults
 from app.services.voice_onboarding import delete_voice_split, mirror_profile_to_split
@@ -134,6 +135,17 @@ async def _process_and_upload(
         shutil.rmtree(work_dir, ignore_errors=True)
 
 
+async def _fetch_source_asset_map(
+    db: AsyncSession, profile_ids: list[str]
+) -> dict[str, VoiceSourceAsset]:
+    if not profile_ids:
+        return {}
+    result = await db.execute(
+        select(VoiceSourceAsset).where(VoiceSourceAsset.voice_id.in_(profile_ids))
+    )
+    return {sa.voice_id: sa for sa in result.scalars().all()}
+
+
 @router.get("", response_model=list[VoiceProfileResponse])
 async def list_voices(db: AsyncSession = Depends(get_db)):
     result = await db.execute(
@@ -142,7 +154,16 @@ async def list_voices(db: AsyncSession = Depends(get_db)):
             VoiceProfile.created_at.desc(),
         )
     )
-    return result.scalars().all()
+    items = result.scalars().all()
+    asset_map = await _fetch_source_asset_map(db, [v.id for v in items])
+    responses = []
+    for v in items:
+        resp = VoiceProfileResponse.model_validate(v)
+        sa = asset_map.get(v.id)
+        if sa:
+            resp.source_asset = VoiceSourceAssetResponse.model_validate(sa)
+        responses.append(resp)
+    return responses
 
 
 @router.get("/page", response_model=VoiceListPage)
@@ -173,8 +194,16 @@ async def list_voices_page_endpoint(
         limit=limit,
         cursor=cursor,
     )
+    asset_map = await _fetch_source_asset_map(db, [v.id for v in items])
+    responses = []
+    for v in items:
+        resp = VoiceProfileResponse.model_validate(v)
+        sa = asset_map.get(v.id)
+        if sa:
+            resp.source_asset = VoiceSourceAssetResponse.model_validate(sa)
+        responses.append(resp)
     return VoiceListPage(
-        items=[VoiceProfileResponse.model_validate(v) for v in items],
+        items=responses,
         next_cursor=next_cursor,
     )
 
@@ -184,7 +213,14 @@ async def get_voice(profile_id: str, db: AsyncSession = Depends(get_db)):
     profile = await db.get(VoiceProfile, profile_id)
     if not profile:
         raise HTTPException(status_code=404, detail="Voice profile not found")
-    return profile
+    result = await db.execute(
+        select(VoiceSourceAsset).where(VoiceSourceAsset.voice_id == profile.id).limit(1)
+    )
+    source_asset = result.scalar_one_or_none()
+    resp = VoiceProfileResponse.model_validate(profile)
+    if source_asset:
+        resp.source_asset = VoiceSourceAssetResponse.model_validate(source_asset)
+    return resp
 
 
 @router.get("/{profile_id}/audio")
@@ -255,6 +291,17 @@ async def create_voice(
 
     # PeakVox Phase 3: mirror into the split Voice + VoiceVariant tables (ADR-0001).
     await mirror_profile_to_split(db, profile)
+
+    # PeakVox Phase 4: record the Voice Source Asset (ADR-0010).
+    source_asset = VoiceSourceAsset(
+        voice_id=profile_id,
+        storage_key=f"voices/{profile_id}/reference.wav",
+        asset_type="reference_audio",
+        original_filename=file.filename,
+        audio_duration=meta["duration"],
+    )
+    db.add(source_asset)
+    await db.commit()
 
     logger.info(
         "Created voice profile %s (%s, %.2fs, src=%s)",

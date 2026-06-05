@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Any, Literal, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # Lifecycle status of a voice. Stored as a string column; constrained here.
 VoiceStatus = Literal["ready", "archived", "processing", "failed"]
@@ -54,6 +54,18 @@ class VoiceProfileUpdate(BaseModel):
     preset_tags: Optional[list[str]] = None
 
 
+class VoiceSourceAssetResponse(BaseModel):
+    id: str
+    asset_type: str
+    original_filename: Optional[str] = None
+    content_type: Optional[str] = None
+    file_size: Optional[int] = None
+    audio_duration: Optional[float] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class VoiceProfileResponse(BaseModel):
     id: str
     public_voice_id: str
@@ -75,11 +87,20 @@ class VoiceProfileResponse(BaseModel):
     is_favorite: bool = False
     status: VoiceStatus = "ready"
     usage_count: int = 0
+    creation_source: str = "SOURCE_ASSET"
+    source_asset: Optional[VoiceSourceAssetResponse] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
     last_used_at: Optional[datetime]
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _derive_creation_source(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "creation_source" not in data:
+            data["creation_source"] = "PRESET_VOICE" if data.get("is_preset_voice") else "SOURCE_ASSET"
+        return data
 
 
 class VoiceListPage(BaseModel):
