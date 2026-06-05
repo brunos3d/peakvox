@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from pathlib import Path
 from typing import Optional
 
@@ -249,11 +250,11 @@ class KokoroAdapter(ModelAdapter, ProviderVoiceCatalog):
         The preset name is read from voice.meta (set by POST /voices/from-preset).
         """
         from app.models.db import VoiceVariant as VV
-        from sqlalchemy import select as _select
+        from sqlalchemy import select
 
         existing = (
             await db.execute(
-                _select(VV).where(
+                select(VV).where(
                     VV.voice_id == voice.id,
                     VV.model_id == self.model_id,
                 )
@@ -264,7 +265,6 @@ class KokoroAdapter(ModelAdapter, ProviderVoiceCatalog):
             return existing
 
         meta = voice.meta or {}
-        import uuid
 
         variant = VV(
             id=str(uuid.uuid4()),
