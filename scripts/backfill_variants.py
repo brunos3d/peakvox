@@ -58,7 +58,7 @@ async def backfill(
     async with engine.begin() as conn:
         await conn.run_sync(lambda sync_conn: None)
 
-    async with AsyncSession(engine) as db:
+    async with AsyncSession(engine, expire_on_commit=False) as db:
         await init_db()
 
         voices = (await db.execute(select(Voice))).scalars().all()
