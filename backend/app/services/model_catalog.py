@@ -209,14 +209,14 @@ BUILTIN_MODELS: list[ModelDescriptor] = [
             "model_size": "5B params (BF16)",
             "languages_summary": "80+ languages per the Hugging Face model card (Tier-1: Japanese, English, Chinese; Tier-2: Korean, Spanish, Portuguese, Arabic, Russian, French, German)",
             "performance_summary": "RTF 0.195 and ~100 ms time-to-first-audio on a single NVIDIA H200 (vendor-reported)",
-            "voice_cloning_method_source": "The S2 Pro model card does NOT document the voice-cloning/voice-conditioning mechanism. PeakVox models Fish as a speaker-embedding realization (ADR-0006/0008) as an INTEGRATION ASSUMPTION pending provider validation (see docs/architecture/12-PROVIDER-VALIDATION.md).",
+            "voice_cloning_method_source": "P0 validation (2026-06-04): Fish Audio S2 Pro uses reference audio for voice cloning, not pre-computed speaker embeddings. The VQ encoding (DAC codec) that produces speaker features is a model-internal step performed at inference time. The PeakVox adapter now treats Fish as reference_sample realization (same pattern as OmniVoice). See docs/architecture/12-PROVIDER-VALIDATION.md §3.2.",
             "metadata_sources": [
                 "https://huggingface.co/fishaudio/s2-pro",
                 "https://huggingface.co/fishaudio/s2-pro/blob/main/LICENSE.md",
                 "https://github.com/fishaudio/fish-speech",
                 "https://huggingface.co/papers/2603.08823",
             ],
-            "requirements_source": "upstream publishes BF16 5B weights and an SGLang streaming engine; benchmarks tested on NVIDIA H200; no minimum VRAM requirement is published",
+            "requirements_source": "upstream publishes BF16 5B weights and an SGLang streaming engine; benchmarks tested on NVIDIA H200; no minimum VRAM requirement is published. The PeakVox adapter connects remotely (FISH_AUDIO_SERVER_URL) so no local GPU is required.",
             "edition_availability_basis": "Fish Audio Research License permits research/non-commercial use; Cloud disabled until commercial license review",
         },
         editions=["community"],  # CE-only (ADR-0005)

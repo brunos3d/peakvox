@@ -367,6 +367,7 @@ class PeakVoxRuntime:
         model_id: Optional[str] = None,
         public_voice_id: Optional[str] = None,
         voice_profile_id: Optional[str] = None,
+        voice_id: Optional[str] = None,
         ref_audio_path: Optional[str] = None,
         ref_text: Optional[str] = None,
         language: Optional[str] = None,
@@ -398,12 +399,16 @@ class PeakVoxRuntime:
             variant_params = resolution.variant.params or {}
             ref_audio_path = ref_audio_path or artifacts.get("audio")
             ref_text = ref_text if ref_text is not None else variant_params.get("transcript")
+            voice_id = voice_id or resolution.voice.id
             voice_profile_id = voice_profile_id or resolution.voice.id
+
+        # Normalise: prefer the post-split voice_id, fall back to the legacy profile id.
+        resolved_voice_id = voice_id or voice_profile_id
 
         return await adapter.generate(
             text=text,
             output_path=output_path,
-            voice_profile_id=voice_profile_id,
+            voice_profile_id=resolved_voice_id,
             ref_audio_path=ref_audio_path,
             ref_text=ref_text,
             language=language,

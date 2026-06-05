@@ -55,6 +55,7 @@ class OmniVoiceFamilyAdapter(ModelAdapter):
         text: str,
         output_path: Path,
         voice_profile_id: Optional[str] = None,
+        voice_id: Optional[str] = None,
         ref_audio_path: Optional[str] = None,
         ref_text: Optional[str] = None,
         language: Optional[str] = None,
@@ -66,11 +67,12 @@ class OmniVoiceFamilyAdapter(ModelAdapter):
         # cross-model offload), and the provider's proven inference path.
         from app.services.model_registry import model_registry
 
+        resolved_voice_id = voice_id or voice_profile_id
         return await model_registry.generate(
             self.model_id,
             text=text,
             output_path=output_path,
-            voice_profile_id=voice_profile_id,
+            voice_profile_id=resolved_voice_id,
             ref_audio_path=ref_audio_path,
             ref_text=ref_text,
             language=language,
@@ -83,7 +85,7 @@ class OmniVoiceFamilyAdapter(ModelAdapter):
 
     async def _upsert_variant(
         self, db: AsyncSession, *, voice: Voice, audio_key: Optional[str],
-        transcript: Optional[str], source: str,
+        transcript: Optional[str], source: str, status: Optional[str] = None,
     ) -> VoiceVariant:
         existing = (
             await db.execute(
@@ -103,14 +105,16 @@ class OmniVoiceFamilyAdapter(ModelAdapter):
                 artifacts=artifacts,
                 params=params,
                 source=source,
-                status="ready",
             )
+            if status:
+                existing.status = status
             db.add(existing)
         else:
             existing.artifacts = artifacts
             existing.params = params
             existing.source = source
-            existing.status = "ready"
+            if status:
+                existing.status = status
         await db.commit()
         await db.refresh(existing)
         return existing
@@ -120,7 +124,7 @@ class OmniVoiceFamilyAdapter(ModelAdapter):
     ) -> VoiceVariant:
         """Create this model's variant from an explicit reference clip."""
         return await self._upsert_variant(
-            db, voice=voice, audio_key=reference_audio_key, transcript=None, source="cloned"
+            db, voice=voice, audio_key=reference_audio_key, transcript=None, source="cloned", status="ready"
         )
 
     async def build_variant(self, *, db: AsyncSession, voice: Voice) -> VoiceVariant:

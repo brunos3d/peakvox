@@ -12,7 +12,6 @@ adapters import heavy runtimes lazily so this module stays import-safe without a
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
@@ -23,29 +22,6 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from app.models.db import Voice, VoiceVariant
-
-
-@dataclass(frozen=True)
-class VariantBuildResult:
-    """The outcome of an adapter producing a VoiceVariant artifact (ADR-0008).
-
-    The adapter reports *what it built*; the Runtime owns persisting it (status, artifact
-    version, active pointer). ``job_type`` distinguishes instant builds (``reference_sample``)
-    from compute-heavy async builds (``speaker_embedding``, ``checkpoint``) — the latter is
-    deferred to a queue at platform scale (ADR-0008 Option 3).
-    """
-
-    status: str  # "success" | "failure"
-    realization_type: str = DEFAULT_REALIZATION
-    artifacts: Optional[dict] = None
-    error_message: Optional[str] = None
-    job_type: str = "sync"  # "sync" | "async"
-    model_version: Optional[str] = None
-    meta: dict = field(default_factory=dict)
-
-    @property
-    def ok(self) -> bool:
-        return self.status == "success"
 
 
 class ModelAdapter(ABC):
@@ -104,6 +80,7 @@ class ModelAdapter(ABC):
         text: str,
         output_path: Path,
         voice_profile_id: Optional[str] = None,
+        voice_id: Optional[str] = None,
         ref_audio_path: Optional[str] = None,
         ref_text: Optional[str] = None,
         language: Optional[str] = None,

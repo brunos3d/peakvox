@@ -18,6 +18,7 @@ def split_profile_row(profile: dict[str, Any]) -> tuple[dict[str, Any], dict[str
     The Voice reuses the profile's UUID as its ``id`` (so existing storage prefixes
     ``/data/voices/{id}/`` keep working) and carries ``public_voice_id`` unchanged.
     """
+    is_preset = bool(profile.get("is_preset_voice", False))
     voice = {
         "id": profile["id"],
         "public_voice_id": profile["public_voice_id"],
@@ -33,10 +34,11 @@ def split_profile_row(profile: dict[str, Any]) -> tuple[dict[str, Any], dict[str
         "royalty_config": None,
         "is_public": bool(profile.get("is_public", False)),
         "is_community_voice": bool(profile.get("is_community_voice", False)),
-        "is_preset_voice": bool(profile.get("is_preset_voice", False)),
+        "is_preset_voice": is_preset,
         "is_favorite": bool(profile.get("is_favorite", False)),
         "status": profile.get("status", "ready"),
         "usage_count": int(profile.get("usage_count", 0) or 0),
+        "creation_source": "PRESET_VOICE" if is_preset else "SOURCE_ASSET",
     }
     defaults = profile.get("generation_defaults") or {}
     variant = {
