@@ -56,6 +56,9 @@ provider validation.
 | OmniVoice adapter | IMPLEMENTED (arch) / PARTIAL (provider) | `model_adapters/omnivoice_adapter.py` + `omnivoice_service.py` (real `from_pretrained`/`generate_async`); no automated end-to-end audio test |
 | OmniVoice Singing adapter | PARTIAL | shares OmniVoice engine; catalog `status="disabled"`; unverified |
 | Fish Audio adapter | PARTIAL (arch IMPLEMENTED, provider NOT_STARTED) | `model_adapters/fish_adapter.py` (HTTP client wired, real inference via S2 Pro server, unit-tested with mocks); real audio generation blocked — see Provider Validations |
+| Kokoro adapter | IMPLEMENTED (arch) / PARTIAL (provider) | `model_adapters/kokoro_adapter.py` (82M, 54 presets, 9 languages, lazy `kokoro` import, WAV 24kHz); architecture-validated via mock-kokoro tests; real inference requires `kokoro` pip package |
+| `ProviderVoice` domain type + `ProviderVoiceRegistry` | IMPLEMENTED | `services/provider_voice.py` (frozen dataclass, O(1) dict lifecycle, search); tests `test_provider_voice` (31 tests) |
+| `ProviderVoiceCatalog` protocol | IMPLEMENTED | `services/provider_voice.py` (`@runtime_checkable Protocol` on `ModelAdapter`); auto-populated at `register_adapter()` time |
 | Variant resolution (`Voice+Model→Variant`) | IMPLEMENTED | `variant_resolution.py`; `test_variant_resolution`, `test_multimodel_resolution` |
 | Capability validation / tag validation | IMPLEMENTED | `capabilities.py`, `tag_validation.py`, `tag_catalog.py` |
 | Auto routing (`model="auto"`) | NOT_STARTED | metadata-readiness assessed only; no router |
@@ -70,6 +73,7 @@ provider validation.
 | VoiceVariantArtifact versioning | IMPLEMENTED | `voice_variant_artifact_repository.py` |
 | Voice onboarding pipeline | IMPLEMENTED | `voice_onboarding.py`, `audio_preprocessing_service.py` |
 | Voice Source Asset layer | PARTIAL | schema/UI references present; full ADR-0010 provisioning not built |
+| ProviderVoice (ephemeral preset voices) | IMPLEMENTED | `services/provider_voice.py` (no DB, no assets, no variants, no provisioning — ADR-0010 §8 exempt) |
 | Idempotent SQLite migrations | IMPLEMENTED | `core/migrations.py` |
 | Storage abstraction | IMPLEMENTED | `services/storage.py` |
 

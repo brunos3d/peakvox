@@ -66,6 +66,14 @@
 - **Validation:** full regression + frontend verification.
 - **Result:** Implemented; architecture suite consistent before Phase 1 implementation.
 
+### 2026-06-05 · Kokoro Preset Voice Adapter (Phase 1)
+- **Task:** ProviderVoice domain type, ProviderVoiceCatalog protocol, ProviderVoiceRegistry lifecycle, KokoroAdapter (54 presets, generate), runtime two-tier resolution, auto-population wiring.
+- **Spec/Plan:** `docs/.agents/SPECS/FEATURES/kokoro-preset-voice-adapter/`
+- **ADRs:** 0010 (exempt from asset/provisioning), 0008 (build_variant → NotImplementedError for presets).
+- **Files:** `services/provider_voice.py`, `model_adapters/kokoro_adapter.py`, `runtime.py`, `model_catalog.py`, `model_wiring.py`, `tests/test_provider_voice.py`, `tests/test_kokoro_adapter.py`, `tests/test_runtime_provider_voice.py`, spec docs (SPEC/DESIGN/TASKS/STATUS/VALIDATION), `CHANGELOG.md`.
+- **Validation:** 81 new tests (31 + 34 + 16), 339/339 all pass (full suite). Deterministic `voice_*` IDs. No string prefix detection. 54 presets across 9 languages.
+- **Result:** Implemented. Kokoro is the first non-OmniVoice provider architecture-validated through the Runtime. ProviderVoice proves the preset-voice, non-cloning provider pattern (ADR-0008/0010 edge cases).
+
 ### 2026-06-05 · Stabilise and commit in-flight working tree
 - **Task:** Commit Fish-adapter expansion, variant schema, migrations, voice_id dual-path, VoiceSourceAsset model — everything that had been uncommitted.
 - **Plans:** `superpowers/plans/2026-06-04-voice-library-2.md`, `superpowers/plans/2026-06-04-variant-backfill-ux.md`.

@@ -13,8 +13,9 @@
 
 PeakVox Phase 1 (Platform Foundations) through Phase 3.11 are built. The CE spine
 (Phases 1–3 plus sub-phases 3.5–3.11) is implemented and covered by automated tests.
-Active work is post-Phase-3 CE hardening: Voice Library 2.0 UI, variant backfill UX, and
-Fish Audio provider wiring. Cloud phases (4–10) are not started.
+Active work is post-Phase-3 CE hardening: Kokoro Preset Voice Adapter (Phase 1 complete),
+Voice Library 2.0 UI, variant backfill UX, and Fish Audio provider wiring. Cloud phases
+(4–10) are not started.
 
 See [`ROADMAP/CURRENT_PHASE.md`](ROADMAP/CURRENT_PHASE.md) and
 [`ROADMAP/ROADMAP.md`](ROADMAP/ROADMAP.md).
@@ -33,8 +34,10 @@ See [`ROADMAP/CURRENT_PHASE.md`](ROADMAP/CURRENT_PHASE.md) and
 - Voice / VoiceVariant split with backfill + dual-write (`models/db.py`,
   `voice_variant_repository.py`, `variant_resolution.py`, `voice_onboarding.py`).
 - `PeakVoxRuntime` single generation entry point (`runtime.py`); all generation routes through it.
-- `ModelAdapter` contract + OmniVoice / OmniVoiceSinging / Fish adapters (`model_adapter.py`,
+- `ModelAdapter` contract + OmniVoice / OmniVoiceSinging / Fish / Kokoro adapters (`model_adapter.py`,
   `model_adapters/`).
+- `ProviderVoice` domain type + `ProviderVoiceCatalog` protocol + `ProviderVoiceRegistry` lifecycle
+  (`services/provider_voice.py`).
 - Variant build lifecycle (5-state machine) + artifact versioning/retention/rollback
   (`variant_lifecycle.py`, `voice_variant_artifact_repository.py`).
 - Edition-scoped model availability (`runtime.ensure_available`, `ModelDescriptor.editions`).
@@ -67,13 +70,17 @@ See [`ROADMAP/CURRENT_PHASE.md`](ROADMAP/CURRENT_PHASE.md) and
   contracts, data model, and orchestration. See [`VALIDATION/RETROSPECTIVES/`](VALIDATION/RETROSPECTIVES/).
 - **Provider validated:** narrow. Only OmniVoice has a real engine. Fish Audio is integrated
   at the contract level; real inference is blocked on hardware/codec issues. Kokoro is
-  research-only. See [`VALIDATION/PROVIDER_VALIDATIONS/`](VALIDATION/PROVIDER_VALIDATIONS/).
+  architecture-validated (54 presets, mock-kokoro tests); real inference requires `kokoro`
+  pip package. See [`VALIDATION/PROVIDER_VALIDATIONS/`](VALIDATION/PROVIDER_VALIDATIONS/).
 
 ## Current risks
 
 - **Single-real-provider runtime.** The multi-provider thesis is proven as architecture, not
-  as production reality. Risk: undiscovered provider-diversity assumptions (e.g. preset-voice,
-  non-cloning providers like Kokoro stress ADR-0008's build-from-reference-audio assumption).
+  as production reality. Kokoro has de-risked the preset-voice, non-cloning provider pattern
+  (ProviderVoice, 54 presets, `build_variant`→NotImplementedError) — but still no real audio
+  E2E for any non-OmniVoice provider.
+- **Kokoro real inference deferred.** Architecture-validated; real inference requires `kokoro`
+  pip package (not in local venv).
 - **Fish Audio real inference still deferred.** The Fish adapter is now wired as HTTP client
   and unit-tested, but the S2 Pro server (codec.pth / 24GB+ VRAM) remains blocked.
 - **Premature Cloud investment.** Beginning SaaS/billing work before provider validation would
@@ -84,7 +91,10 @@ See [`ROADMAP/CURRENT_PHASE.md`](ROADMAP/CURRENT_PHASE.md) and
 - **Fish Audio real inference** is deferred. Root cause: v1.4/v1.5 codec checkpoint is
   structurally incomplete for an 8GB GPU; full `codec.pth` (s2-pro) needs 24GB+ VRAM. See
   [`VALIDATION/PROVIDER_VALIDATIONS/`](VALIDATION/PROVIDER_VALIDATIONS/) (Fish blocker report).
+- **Kokoro real inference** is deferred (not blocked). Requires `kokoro` pip package; no GPU or
+  large model download needed — Kokoro is CPU-capable at 82M params.
 - No GPU in CI, so end-to-end audio generation cannot be automated in the test suite.
+- `test_voices.py` requires `torch` — excluded from local test suite; only runs in Docker.
 
 ---
 
