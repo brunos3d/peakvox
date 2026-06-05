@@ -7,6 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+- **Kokoro preset voice adapter + ProviderVoice domain** (Phase 1):
+  - `ProviderVoice` frozen dataclass — ephemeral, in-memory preset voice identity (no DB, no assets, no variants).
+  - `ProviderVoiceCatalog` runtime-checkable protocol — optional interface on `ModelAdapter` for providers with built-in presets.
+  - `ProviderVoiceRegistry` — O(1) dict-based lifecycle (register, refresh, reload, remove, remove_provider, search).
+  - `KokoroAdapter` — implements `ModelAdapter` + `ProviderVoiceCatalog` with 54 presets across 9 languages, EPHEMERAL `voice_pack` realization, lazy `kokoro` import, WAV generation at 24kHz.
+  - Runtime two-tier `generate()` — registry-first (O(1) dict) → persisted Voice DB fallback; no string prefix detection.
+  - Auto-population of `ProviderVoiceRegistry` at adapter registration time for `ProviderVoiceCatalog` adapters.
+  - Deterministic voice IDs: `voice_{provider}_{external_id}` (e.g. `voice_kokoro_af_heart`).
 - **Phase 2 — Voice Platform** (SaaS-ready foundation):
   - **Stable Voice IDs** (`public_voice_id`, e.g. `voice_8JXQ29K4L3`) — permanent external identifier for every voice; minimal local-owner `users` model; `owner_id` across resources; derived voice `characteristics` and richer metadata; idempotent startup migrations.
   - **646-language registry** generated from OmniVoice's language list, with a searchable combobox; language stored as OmniVoice id + display name.

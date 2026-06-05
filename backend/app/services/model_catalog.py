@@ -169,6 +169,51 @@ BUILTIN_MODELS: list[ModelDescriptor] = [
     # CE-only: Fish Audio licensing requires commercial review, so it is available in the
     # Community Edition only (ADR-0005). Disabled until weights/runtime are wired (Risk R-7).
     ModelDescriptor(
+        id="kokoro-base",
+        name="Kokoro 82M",
+        description="Lightweight open-weight TTS with 54 preset voices across 9 languages. "
+        "82M params, Apache-2.0, CPU-capable. No voice cloning — preset-only.",
+        version="0.9.2",
+        provider="kokoro",
+        repo_id="hexgrad/Kokoro-82M",
+        supported_languages=["en-us", "en-gb", "es", "fr", "hi", "it", "ja", "pt", "zh"],
+        supported_tags=[],
+        supported_voice_design=[],
+        capabilities=ModelCapabilities(
+            supports_tts=True,
+            supports_voice_cloning=False,
+            supports_singing=False,
+            supports_streaming=False,
+            supports_api=True,
+            supports_emotion_tags=False,
+            supports_voice_design=False,
+            supports_multilingual=True,
+            supports_reference_audio=False,
+        ),
+        requirements=ModelRequirements(gpu_required=False, runtime="kokoro"),
+        license=ModelLicense(
+            name="Apache License 2.0",
+            code="apache-2.0",
+            commercial_use=True,
+            url="https://huggingface.co/datasets/choosealicense/licenses/raw/main/markdown/apache-2.0.md",
+        ),
+        provider_metadata={
+            "author": "hexgrad",
+            "provider_url": "https://huggingface.co/hexgrad",
+            "homepage_url": "https://huggingface.co/hexgrad/Kokoro-82M",
+            "repository_url": "https://github.com/hexgrad/kokoro",
+            "architecture": "StyleTTS 2 + ISTFTNet (decoder-only, no diffusion)",
+            "model_size": "82M params",
+            "languages_summary": "9 languages across 54 preset voices",
+            "metadata_sources": ["https://huggingface.co/hexgrad/Kokoro-82M"],
+            "requirements_source": "CPU-capable at 82M params",
+            "edition_availability_basis": "Apache-2.0 upstream license; approved for CE and Cloud",
+        },
+        status="available",
+        is_default=False,
+        editions=["community", "cloud"],
+    ),
+    ModelDescriptor(
         id="fish-audio-s2",
         name="Fish Audio S2 Pro",
         description="Fish Audio S2 Pro is Fish Audio's open-weight TTS system with multi-speaker, "

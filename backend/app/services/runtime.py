@@ -25,6 +25,7 @@ from app.models.db import Voice, VoiceVariant
 from app.models.registry_types import ModelDescriptor
 from app.services.capabilities import missing_capabilities as _missing_caps
 from app.services.model_adapter import ModelAdapter
+from app.services.provider_voice import ProviderVoice, ProviderVoiceCatalog, ProviderVoiceRegistry
 from app.services.tag_validation import find_unsupported_tags
 from app.services.variant_lifecycle import VariantStatus
 from app.services.voice_variant_artifact_repository import (
@@ -138,11 +139,14 @@ class PeakVoxRuntime:
 
     def __init__(self) -> None:
         self._adapters: dict[str, ModelAdapter] = {}
+        self._provider_voice_registry: ProviderVoiceRegistry = ProviderVoiceRegistry()
 
     # --- Adapter registry ---------------------------------------------------------
 
     def register_adapter(self, adapter: ModelAdapter) -> None:
         self._adapters[adapter.model_id] = adapter
+        if isinstance(adapter, ProviderVoiceCatalog):
+            self._provider_voice_registry.register_many(adapter.list_provider_voices())
 
     def get_adapter(self, model_id: str) -> ModelAdapter:
         try:
@@ -152,6 +156,21 @@ class PeakVoxRuntime:
 
     def list_adapters(self) -> list[ModelAdapter]:
         return list(self._adapters.values())
+
+    # --- Provider voice registry delegations ------------------------------------
+
+    def register_provider_voice(self, voice: ProviderVoice) -> None:
+        self._provider_voice_registry.register(voice)
+
+    def register_provider_voices(self, voices: list[ProviderVoice]) -> None:
+        self._provider_voice_registry.register_many(voices)
+
+    def list_provider_voices(
+        self, provider_id: Optional[str] = None
+    ) -> list[ProviderVoice]:
+        if provider_id is not None:
+            return self._provider_voice_registry.list_by_provider(provider_id)
+        return self._provider_voice_registry.list_all()
 
     # --- Readiness / concurrency (so endpoints never poke providers directly) ------
 
@@ -390,8 +409,17 @@ class PeakVoxRuntime:
             if missing:
                 raise UnsupportedCapability(missing)
 
-        # Voice + Model → VoiceVariant resolution (optional; ad-hoc reference otherwise).
-        if public_voice_id is not None:
+        # Two-tier voice resolution: provider voice registry (O(1)) first,
+        # then persisted Voice DB path, then ad-hoc.
+        provider_voice: Optional[ProviderVoice] = None
+        if voice_id is not None:
+            provider_voice = self._provider_voice_registry.get(voice_id)
+
+        if provider_voice is not None:
+            # Provider voice path — no DB, no variant, no artifact.
+            resolved_voice_id = provider_voice.provider_voice_id
+        elif public_voice_id is not None:
+            # Persisted Voice DB path (unchanged).
             resolution = await self.resolve(
                 db, public_voice_id=public_voice_id, model_id=descriptor.id
             )
@@ -401,9 +429,10 @@ class PeakVoxRuntime:
             ref_text = ref_text if ref_text is not None else variant_params.get("transcript")
             voice_id = voice_id or resolution.voice.id
             voice_profile_id = voice_profile_id or resolution.voice.id
-
-        # Normalise: prefer the post-split voice_id, fall back to the legacy profile id.
-        resolved_voice_id = voice_id or voice_profile_id
+            resolved_voice_id = voice_id or voice_profile_id
+        else:
+            # Ad-hoc — no voice resolution at all.
+            resolved_voice_id = voice_id or voice_profile_id
 
         return await adapter.generate(
             text=text,

@@ -13,6 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.model_adapters.fish_adapter import FishAudioAdapter
+from app.services.model_adapters.kokoro_adapter import KokoroAdapter
 from app.services.model_adapters.omnivoice_adapter import (
     OmniVoiceAdapter,
     OmniVoiceSingingAdapter,
@@ -35,6 +36,7 @@ _ADAPTER_BY_PROVIDER = {
     "omnivoice": OmniVoiceAdapter,
     "omnivoice-singing": OmniVoiceSingingAdapter,
     "fish-audio": FishAudioAdapter,
+    "kokoro": KokoroAdapter,
 }
 
 
