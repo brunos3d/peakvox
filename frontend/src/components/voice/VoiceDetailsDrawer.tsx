@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AudioPlayer } from "@/components/AudioPlayer"
 import { UseInApiDialog } from "@/components/api/UseInApiDialog"
 import { VariantManager } from "@/components/voice/VariantManager"
+import { SourceAssetTab } from "@/components/voice/SourceAssetTab"
 import { getVoiceAudioUrl } from "@/lib/api"
 import { cn, formatDuration } from "@/lib/utils"
 import type { VoiceProfile } from "@/types"
@@ -193,9 +194,7 @@ export function VoiceDetailsDrawer({ voice, open, onOpenChange, onUse, onEdit, o
                 </TabsContent>
 
                 <TabsContent value="source" className="p-6 space-y-6">
-                  <div className="flex items-center justify-center py-12 text-muted-foreground">
-                    <p className="text-sm">Source Asset tab coming in the next update</p>
-                  </div>
+                  <SourceAssetTab voice={voice} />
                 </TabsContent>
 
                 <TabsContent value="variants" className="p-6 space-y-6">
