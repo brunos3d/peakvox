@@ -12,7 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.models.db import VoiceProfile, VoiceSourceAsset
+from app.models.db import VoiceProfile, VoiceSourceAsset, Voice, VoiceVariant, VoiceVariantArtifact
+from app.schemas.provider_voice import CreateFromPresetRequest
 from app.schemas.voice import (
     FavoriteUpdate,
     VoiceGenerationDefaults,
@@ -437,3 +438,77 @@ async def delete_voice(profile_id: str, db: AsyncSession = Depends(get_db)):
     await delete_voice_split(db, profile_id)
     logger.info("Deleted voice profile %s", profile_id)
     return {"detail": "Voice profile deleted"}
+
+
+@router.post("/from-preset", response_model=VoiceProfileResponse, status_code=201)
+async def create_voice_from_preset(
+    body: CreateFromPresetRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    from app.services.provider_voice import build_provider_voice_id
+    from app.services.runtime import runtime as rt
+
+    provider_voice_id = build_provider_voice_id(body.provider, body.preset_name)
+    provider_voice = rt._provider_voice_registry.get(provider_voice_id)
+    if provider_voice is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Preset '{body.preset_name}' not found for provider '{body.provider}'",
+        )
+
+    profile_id = str(uuid.uuid4())
+    public_id = f"voice_{uuid.uuid4().hex[:10].upper()}"
+
+    profile = VoiceProfile(
+        id=profile_id,
+        public_voice_id=public_id,
+        name=body.name,
+        description=f"{body.provider} preset: {provider_voice.name} ({provider_voice.language or ''})",
+        language=provider_voice.language,
+        language_code=provider_voice.language,
+        transcript="",
+        audio_filename="",
+        audio_duration=0.0,
+        is_preset_voice=True,
+        owner_id=settings.LOCAL_OWNER_ID,
+        meta={"provider": body.provider, "preset_name": body.preset_name},
+    )
+    db.add(profile)
+    await db.commit()
+    await db.refresh(profile)
+
+    await mirror_profile_to_split(db, profile)
+
+    # Create VoiceVariant
+    voice = (await db.execute(
+        select(Voice).where(Voice.id == profile_id)
+    )).scalars().first()
+
+    variant = VoiceVariant(
+        id=str(uuid.uuid4()),
+        voice_id=voice.id,
+        model_id=body.model_id,
+        artifact_type="voice_pack",
+        params={"provider": body.provider, "preset_name": body.preset_name},
+        artifacts={},
+        source="preset",
+        status="ready",
+    )
+    db.add(variant)
+    await db.commit()
+    await db.refresh(variant)
+
+    artifact = VoiceVariantArtifact(
+        id=str(uuid.uuid4()),
+        voice_variant_id=variant.id,
+        version=1,
+        storage_keys={},
+        meta={"provider": body.provider, "preset_name": body.preset_name},
+    )
+    db.add(artifact)
+    await db.commit()
+
+    logger.info("Created preset voice %s (%s/%s)", profile_id, body.provider, body.preset_name)
+    resp = VoiceProfileResponse.model_validate(profile)
+    resp.creation_source = "PRESET_VOICE"
+    return resp
