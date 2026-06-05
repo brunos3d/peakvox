@@ -9,6 +9,19 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _to_response(v) -> ProviderVoiceResponse:
+    return ProviderVoiceResponse(
+        provider_voice_id=v.provider_voice_id,
+        provider_id=v.provider_id,
+        external_id=v.external_id,
+        name=v.name,
+        description=v.description,
+        language=v.language,
+        gender=v.gender,
+        is_default=v.is_default,
+    )
+
+
 @router.get("/api/provider-voices", response_model=list[ProviderVoiceResponse])
 async def list_provider_voices(
     provider: Optional[str] = None,
@@ -22,19 +35,7 @@ async def list_provider_voices(
         language=language,
         gender=gender,
     )
-    return [
-        ProviderVoiceResponse(
-            provider_voice_id=v.provider_voice_id,
-            provider_id=v.provider_id,
-            external_id=v.external_id,
-            name=v.name,
-            description=v.description,
-            language=v.language,
-            gender=v.gender,
-            is_default=v.is_default,
-        )
-        for v in voices
-    ]
+    return [_to_response(v) for v in voices]
 
 
 @router.get("/api/provider-voices/{provider_voice_id}", response_model=ProviderVoiceResponse)
@@ -42,13 +43,4 @@ async def get_provider_voice(provider_voice_id: str):
     voice = runtime._provider_voice_registry.get(provider_voice_id)
     if voice is None:
         raise HTTPException(status_code=404, detail="Provider voice not found")
-    return ProviderVoiceResponse(
-        provider_voice_id=voice.provider_voice_id,
-        provider_id=voice.provider_id,
-        external_id=voice.external_id,
-        name=voice.name,
-        description=voice.description,
-        language=voice.language,
-        gender=voice.gender,
-        is_default=voice.is_default,
-    )
+    return _to_response(voice)
