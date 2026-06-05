@@ -79,12 +79,12 @@ async def test_build_variant_creates_variant_with_artifact_version(session):
     assert active.storage_keys["audio"] == "voices/uuid-1/reference.wav"
 
 
-async def test_build_fish_variant_embedding(session):
+async def test_build_fish_variant_reference_sample(session):
     rt = _runtime()
     voice = await _voice(session)
     variant = await rt.build_variant(session, voice=voice, model_id="fish-audio-s2")
     assert variant.status == "ready"
-    assert variant.artifact_type == "embedding"
+    assert variant.artifact_type == "reference_sample"
 
 
 async def test_rebuild_appends_version_and_preserves_old(session):

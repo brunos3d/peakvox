@@ -98,10 +98,10 @@ async def test_variant_formats_are_encapsulated_per_provider(session):
     )).scalars().all()
     by_model = {v.model_id: v for v in variants}
 
-    # OmniVoice realizes as a reference sample; Fish as an embedding — both hidden behind the
-    # variant, neither leaking into the Voice identity.
+    # Both OmniVoice and Fish use reference_sample realization — the difference is in
+    # the engine, not in the variant format (P0 validation corrected this assumption).
     assert by_model["omnivoice-base"].artifact_type == "reference_sample"
-    assert by_model["fish-audio-s2"].artifact_type == "embedding"
+    assert by_model["fish-audio-s2"].artifact_type == "reference_sample"
 
 
 def test_capabilities_belong_to_models_not_voices():
