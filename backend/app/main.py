@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal, init_db
 from app.core.editions import mount_cloud_routers
-from app.api import voices, generation, health, media, models, platform, variants
+from app.api import backfill, voices, generation, health, media, models, platform, variants
 from app.api.variants_summary import router as variants_summary_router
 from app.api.settings import router as settings_router
 from app.api.api_keys import router as api_keys_router
@@ -56,6 +56,7 @@ app.include_router(media.router, tags=["Media"])
 app.include_router(voices.router, prefix="/voices", tags=["Voices"])
 app.include_router(variants.router, prefix="/voices", tags=["Variants"])
 app.include_router(variants_summary_router, tags=["Variants"])
+app.include_router(backfill.router, tags=["Variants"])
 app.include_router(generation.router, prefix="", tags=["Generation"])
 app.include_router(settings_router, prefix="", tags=["Settings"])
 app.include_router(api_keys_router, prefix="/api-keys", tags=["API Keys"])
