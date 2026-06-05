@@ -11,10 +11,9 @@ from app.models.registry_types import ModelCapabilities, ModelDescriptor
 from app.services.model_adapter import ModelAdapter
 from app.services.provider_voice import (
     ProviderVoice,
-    ProviderVoiceCatalog,
     build_provider_voice_id,
 )
-from app.services.runtime import PeakVoxRuntime, VoiceNotFound
+from app.services.runtime import PeakVoxRuntime
 
 
 class TrackingAdapter(ModelAdapter):

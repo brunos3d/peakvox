@@ -19,7 +19,6 @@ from app.services.runtime import (
     PeakVoxRuntime,
     ModelNotRegistered,
     VoiceNotFound,
-    VariantUnavailable,
 )
 
 

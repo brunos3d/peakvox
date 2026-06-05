@@ -427,11 +427,7 @@ class PeakVoxRuntime:
 
         # Merge variant params into generate kwargs so adapters can read
         # provider/preset_name for preset voices.
-        gen_kwargs = dict(params or {})
-        if variant_params:
-            gen_kwargs.update(variant_params)
-        if params:
-            gen_kwargs.update(params)
+        gen_kwargs = {**(variant_params or {}), **(params or {})}
 
         return await adapter.generate(
             text=text,
