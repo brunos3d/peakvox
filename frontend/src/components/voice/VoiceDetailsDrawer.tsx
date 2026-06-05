@@ -10,6 +10,7 @@ import { AudioPlayer } from "@/components/AudioPlayer"
 import { UseInApiDialog } from "@/components/api/UseInApiDialog"
 import { VariantManager } from "@/components/voice/VariantManager"
 import { ArtifactHistory } from "@/components/voice/ArtifactHistory"
+import { ModelCompatibilitySection } from "@/components/voice/ModelCompatibilitySection"
 import { SourceAssetTab } from "@/components/voice/SourceAssetTab"
 import { getVoiceAudioUrl } from "@/lib/api"
 import { cn, formatDuration } from "@/lib/utils"
@@ -145,6 +146,8 @@ export function VoiceDetailsDrawer({ voice, open, onOpenChange, onUse, onEdit, o
                       <MetaRow label="Duration" value={formatDuration(voice.audio_duration)} />
                     </div>
                   </div>
+
+                  <ModelCompatibilitySection publicVoiceId={voice.public_voice_id} />
 
                   {voice.characteristics && Object.values(voice.characteristics).some((v) => (Array.isArray(v) ? v.length : v)) && (
                     <div className="space-y-1">
