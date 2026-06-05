@@ -82,3 +82,29 @@
 - **Commits:** `2732236` (db model + migrations), `fcdfbc9` (schemas + generation API), `e714cb9` (Fish adapter + contract), `cd900f2` (tests).
 - **Validation:** `262 passed in 14.34s` — full backend test suite green.
 - **Result:** Clean `git status`; 4 Conventional Commits; state files updated.
+
+### 2026-06-05 · Kokoro Preset Voice — Phase 2 (first-class preset Voices)
+- **Task:** Make preset voices first-class Voice entities with full Voice→VoiceVariant→VoiceVariantArtifact→Generation lifecycle; catalog-only ProviderVoiceRegistry; metadata-only build_variant; Preset Voices frontend tab.
+- **Spec/Plan:** `docs/.agents/SPECS/FEATURES/kokoro-preset-voice-adapter/` (Phase 2 sections); `docs/.agents/IMPLEMENTATION/PLANS/kokoro-preset-voice-phase-2.md`.
+- **ADRs:** 0001 (Voice/Variant split), 0004 (separation), 0008 (build lifecycle — build_variant participation), 0009 (artifact versioning).
+- **Files:**
+  - `services/runtime.py` — removed two-tier resolution; single DB-path resolution; variant params flow as generate kwargs
+  - `model_adapters/kokoro_adapter.py` — `build_variant()` creates metadata-only VoiceVariant (no audio/embedding)
+  - `schemas/provider_voice.py` — NEW; `ProviderVoiceResponse`, `CreateFromPresetRequest`
+  - `api/provider_voices.py` — NEW; `GET /api/provider-voices` endpoints with filters
+  - `api/voices.py` — `POST /voices/from-preset` (materializes preset into VoiceProfile+VoiceVariant+Artifact)
+  - `main.py` — registered provider_voices router
+  - `tests/test_runtime_single_path.py` — NEW (2 tests)
+  - `tests/test_provider_voices_api.py` — NEW (7 tests)
+  - `tests/test_voices_from_preset.py` — NEW (2 tests)
+  - `frontend/src/types/index.ts`, `lib/api.ts` — types + API functions
+  - `frontend/src/components/voice/PresetVoicesTab.tsx` — NEW; preset voices tab with filters + cards
+  - `frontend/src/app/voices/page.tsx` — added Preset Voices tab
+  - `frontend/src/hooks/use-generation.ts` — no change (preset scope not added to useVoicesPage)
+- **Design changes:**
+  - ProviderVoiceRegistry is catalog-only — no longer participates in generation resolution
+  - `KokoroAdapter.build_variant()` creates metadata-only variant (not NotImplementedError)
+  - All providers participate identically in ADR-0008 lifecycle
+  - `POST /voices/from-preset` (not `/from-preset/use`) — client orchestrates create→generate
+- **Validation:** 347/347 backend tests pass (8 new + 339 baseline). Frontend: 0 new TS errors (only pre-existing `VariantDashboard.tsx` error). Full suite: `pytest tests/ --ignore=tests/test_voices.py` all green.
+- **Result:** Phase 2 implemented and validated. All commits on `feat/peakvox-phase-1`. State files updated.

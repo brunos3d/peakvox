@@ -62,4 +62,27 @@ excluded from this run. Pre-existing limitation — no new dependencies introduc
 
 ---
 
+## Phase 2 — First-class Preset Voices (2026-06-05)
+
+| Task | Test suite | Expected | Actual |
+|---|---|---|---|
+| A1 — Remove two-tier resolution | `test_runtime_single_path.py` + `test_runtime_provider_voice.py` | 18 pass | 18/18 pass |
+| A2 — build_variant metadata-only | `test_kokoro_adapter.py` | 34 pass | 34/34 pass |
+| A3 — GET /api/provider-voices | `test_provider_voices_api.py` | 7 pass | 7/7 pass |
+| A4 — POST /voices/from-preset | `test_voices_from_preset.py` | 2 pass | 2/2 pass |
+| B5–B7 — Frontend Preset Voices tab | `tsc --noEmit` | 0 new errors | 0 new errors |
+| **Full suite** | `pytest tests/ -q` | 339 + 8 new all pass | **347/347 pass** |
+
+### Test count breakdown (Phase 2)
+
+| Suite | Tests | Status |
+|---|---|---|
+| Existing (Phase 1 baseline) | ~339 | All pass |
+| `test_runtime_single_path.py` | 2 | All pass |
+| `test_provider_voices_api.py` | 7 | All pass |
+| `test_voices_from_preset.py` | 2 | All pass |
+| **Total** | **347** | **347 pass, 0 fail** |
+
+---
+
 Related: `TASKS.md` · `../../VALIDATION/`

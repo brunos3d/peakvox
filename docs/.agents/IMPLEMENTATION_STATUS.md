@@ -56,7 +56,7 @@ provider validation.
 | OmniVoice adapter | IMPLEMENTED (arch) / PARTIAL (provider) | `model_adapters/omnivoice_adapter.py` + `omnivoice_service.py` (real `from_pretrained`/`generate_async`); no automated end-to-end audio test |
 | OmniVoice Singing adapter | PARTIAL | shares OmniVoice engine; catalog `status="disabled"`; unverified |
 | Fish Audio adapter | PARTIAL (arch IMPLEMENTED, provider NOT_STARTED) | `model_adapters/fish_adapter.py` (HTTP client wired, real inference via S2 Pro server, unit-tested with mocks); real audio generation blocked — see Provider Validations |
-| Kokoro adapter | IMPLEMENTED (arch) / PARTIAL (provider) | `model_adapters/kokoro_adapter.py` (82M, 54 presets, 9 languages, lazy `kokoro` import, WAV 24kHz); architecture-validated via mock-kokoro tests; real inference requires `kokoro` pip package |
+| Kokoro adapter | IMPLEMENTED (arch) / PARTIAL (provider) | `model_adapters/kokoro_adapter.py` (82M, 54 presets, 9 languages, lazy `kokoro` import, WAV 24kHz); architecture-validated via mock-kokoro tests; real inference requires `kokoro` pip package. `build_variant()` creates metadata-only VoiceVariant (Phase 2) |
 | `ProviderVoice` domain type + `ProviderVoiceRegistry` | IMPLEMENTED | `services/provider_voice.py` (frozen dataclass, O(1) dict lifecycle, search); tests `test_provider_voice` (31 tests) |
 | `ProviderVoiceCatalog` protocol | IMPLEMENTED | `services/provider_voice.py` (`@runtime_checkable Protocol` on `ModelAdapter`); auto-populated at `register_adapter()` time |
 | Variant resolution (`Voice+Model→Variant`) | IMPLEMENTED | `variant_resolution.py`; `test_variant_resolution`, `test_multimodel_resolution` |
@@ -73,7 +73,7 @@ provider validation.
 | VoiceVariantArtifact versioning | IMPLEMENTED | `voice_variant_artifact_repository.py` |
 | Voice onboarding pipeline | IMPLEMENTED | `voice_onboarding.py`, `audio_preprocessing_service.py` |
 | Voice Source Asset layer | PARTIAL | schema/UI references present; full ADR-0010 provisioning not built |
-| ProviderVoice (ephemeral preset voices) | IMPLEMENTED | `services/provider_voice.py` (no DB, no assets, no variants, no provisioning — ADR-0010 §8 exempt) |
+| ProviderVoice (ephemeral preset voices) | IMPLEMENTED | `services/provider_voice.py` (no DB, no assets, no variants, no provisioning — ADR-0010 §8 exempt); catalog-only since Phase 2 — two-tier resolution removed from `runtime.generate()` |
 | Idempotent SQLite migrations | IMPLEMENTED | `core/migrations.py` |
 | Storage abstraction | IMPLEMENTED | `services/storage.py` |
 
@@ -86,6 +86,8 @@ provider validation.
 | `/variants` (+ summary, backfill) | IMPLEMENTED | `api/variants.py`, `api/variants_summary.py` |
 | `/models` (+ lifecycle) | IMPLEMENTED | `api/models.py` |
 | `/generate` + jobs | IMPLEMENTED | `api/generation.py` |
+| `GET /api/provider-voices` | IMPLEMENTED | `api/provider_voices.py`; tests `test_provider_voices_api` (7 tests) |
+| `POST /voices/from-preset` | IMPLEMENTED | `api/voices.py` (create_voice_from_preset); tests `test_voices_from_preset` (2 tests) |
 | Hashed API keys | IMPLEMENTED | `api/api_keys.py`, `services/api_keys.py` |
 | `/v1/speech/generate` final contract freeze | PLANNED (P9) | — |
 
@@ -94,6 +96,7 @@ provider validation.
 | Surface | Status | Evidence |
 |---|---|---|
 | Voice Library 2.0 (tabs, source asset, variants, artifacts) | IMPLEMENTED | `frontend/src/components/voice/*` |
+| Preset Voices tab | IMPLEMENTED | `frontend/src/components/voice/PresetVoicesTab.tsx`; registered in `voices/page.tsx` |
 | Variant Dashboard + backfill UX | IMPLEMENTED | `VariantDashboard.tsx`, `ModelCompatibilitySection.tsx` |
 | Capability-driven generation controls | IMPLEMENTED | `GenerationPanel` (Voice Design gating) |
 | Commercial nav (marketplace/creator/billing) | NOT_STARTED (flag-gated, hidden in CE) | — |

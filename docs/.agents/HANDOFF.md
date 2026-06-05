@@ -9,55 +9,51 @@
 
 ## Current handoff
 
-**From:** Kokoro Preset Voice Adapter (Phase 1) · **Date:** 2026-06-05 ·
+**From:** Kokoro Preset Voice — Phase 2 · **Date:** 2026-06-05 ·
 **Branch:** `feat/peakvox-phase-1`
 
 ### Last completed work
 
-- **Kokoro Preset Voice Adapter — Phase 1 backend, complete.** 8 tasks implemented via TDD:
-  1. `ProviderVoice` frozen dataclass + `build_provider_voice_id()` — ephemeral preset identity.
-  2. `ProviderVoiceRegistry` — O(1) dict lifecycle (register, refresh, reload, remove, remove_provider, search).
-  3. `ProviderVoiceCatalog` — `@runtime_checkable Protocol` on `ModelAdapter`.
-  4. Kokoro `ModelDescriptor` ("kokoro-base") in `BUILTIN_MODELS` — 82M, 9 languages, CPU-capable, TTS-only.
-  5. `KokoroAdapter` lifecycle — `install/load/unload` all no-op, `health_check()`→True.
-  6. `KokoroAdapter` catalog — 54 presets across 9 languages with deterministic IDs (`voice_kokoro_*`).
-  7. `KokoroAdapter.generate()` — lazy `kokoro` import, KPipeline, WAV 24kHz via `soundfile`.
-  8. Wiring — `"kokoro": KokoroAdapter` in `model_wiring.py`, auto-population on `register_adapter()`.
-- **Runtime two-tier resolution:** registry-first (O(1) dict) → persisted Voice DB → ad-hoc. No string prefix detection (`is_provider_voice_id()` does not exist).
-- **339/339 tests passing** (81 new + 258 existing). `test_voices.py` excluded (requires `torch` — Docker only).
-- All 5 spec docs written and approved: SPEC.md, DESIGN.md, TASKS.md, STATUS.md (→ IMPLEMENTED), VALIDATION.md (339/339).
-- Committed as `ae509d2` (amended with spec docs).
+- **Kokoro Preset Voice — Phase 2, complete.** Preset voices are now first-class Voice entities.
+  1. **A1 — Two-tier resolution removed.** `runtime.generate()` now always resolves through DB (Voice→VoiceVariant→Artifact). ProviderVoiceRegistry is catalog-only.
+  2. **A2 — Metadata-only build_variant.** `KokoroAdapter.build_variant()` creates VoiceVariant with params={provider, preset_name}, artifacts={}, status=pending. All providers participate identically in ADR-0008 lifecycle.
+  3. **A3 — Provider-voices API.** `GET /api/provider-voices` (list/filter/search) and `GET /api/provider-voices/{id}` (single detail).
+  4. **A4 — From-preset creation.** `POST /voices/from-preset` materializes presets into VoiceProfile + VoiceVariant + VoiceVariantArtifact.
+  5. **B5–B7 — Frontend.** PresetVoicesTab with provider/language/gender/search filters, PresetVoiceCard with "Use Now" (create+select+navigate to TTS) and "+ Library" (create+switch to My Voices).
+- **347/347 tests passing** (8 new Phase 2 + 339 Phase 1 baseline). Frontend: 0 new TS errors.
+- All Phase 2 spec docs updated: SPEC.md, DESIGN.md, TASKS.md, STATUS.md (→ IMPLEMENTED), VALIDATION.md (Phase 2 table).
 
 ### Files changed (this session)
 
-- **New:** `services/provider_voice.py`, `model_adapters/kokoro_adapter.py`
-- **Modified:** `services/runtime.py`, `services/model_catalog.py`, `services/model_wiring.py`, `CHANGELOG.md`
-- **Tests (new):** `tests/test_provider_voice.py` (31), `tests/test_kokoro_adapter.py` (34), `tests/test_runtime_provider_voice.py` (16)
-- **Docs:** `docs/.agents/SPECS/FEATURES/kokoro-preset-voice-adapter/*` (5 files), `docs/.agents/IMPLEMENTATION_STATUS.md`, `docs/.agents/IMPLEMENTATION/EXECUTION_HISTORY/EXECUTION_LEDGER.md`
+- **Modified (backend):** `services/runtime.py`, `model_adapters/kokoro_adapter.py`, `api/voices.py`, `main.py`, `tests/test_runtime_provider_voice.py`, `tests/test_kokoro_adapter.py`
+- **New (backend):** `schemas/provider_voice.py`, `api/provider_voices.py`, `tests/test_runtime_single_path.py`, `tests/test_provider_voices_api.py`, `tests/test_voices_from_preset.py`
+- **Modified (frontend):** `types/index.ts`, `lib/api.ts`, `app/voices/page.tsx`, `hooks/use-generation.ts`
+- **New (frontend):** `components/voice/PresetVoicesTab.tsx`
+- **Docs:** Phase 2 implementation plan, updated VALIDATION/STATUS/IMPLEMENTATION_STATUS/EXECUTION_LEDGER/HANDOFF
 
 ### Architectural decisions taken
 
-- `ProviderVoice` is ephemeral in-memory only — NOT in `db.py`, no migration, no variant, no asset, no artifact (ADR-0010 §8 exempt).
-- `voice_` prefix for ALL voice IDs (both persisted and provider) — no `provider_voice_` internal prefix leak.
-- Single generation contract: `generate(text, voice_id, model_id)` — no separate `preset_id` field.
-- `ProviderVoiceRegistry` is the SOLE resolution mechanism — no `is_provider_voice_id()` string inspection.
-- `KokoroAdapter.generate()` imports `kokoro` lazily at call time; `build_variant()` and `clone_voice()` raise `NotImplementedError`.
+- `ProviderVoiceRegistry` is catalog-only — no longer participates in generation resolution (ADR-0001/0004/0008/0009/0010/0011 aligned).
+- `KokoroAdapter.build_variant()` creates metadata-only VoiceVariant — no audio, no embedding, no checkpoint. All providers participate identically in ADR-0008 lifecycle.
+- Provider metadata stored as `{provider, preset_name}` (not `{provider_voice_id}`).
+- Single generation endpoint (`POST /generate`). No `/from-preset/use` shortcut. Client orchestrates: `POST /voices/from-preset` → `POST /generate`.
+- `voice_` prefix for all voice IDs (both persisted and provider) — no `provider_voice_` internal prefix leak.
 
 ### Risks (updated)
 
-- **Kokoro real inference still deferred.** Architecture-validated via mock-kokoro tests; real inference requires `kokoro` pip package (not installed in local venv).
+- **Kokoro real inference still deferred.** Architecture-validated via mock-kokoro tests; real inference requires `kokoro` pip package.
 - **Fish Audio real inference still blocked.** S2 Pro server needs 24GB+ VRAM.
-- **Single-real-provider runtime now challenged by Kokoro pattern.** Kokoro proves the preset-voice, non-cloning provider path — but still no real audio E2E for any non-OmniVoice provider.
-- ProviderVoice/presets add new API surface (`/api/v1/presets` planned for Phase 2) not yet designed.
+- **Kokoro build_variant creates metadata-only variants.** The runtime's `_run_build()` still calls `append_artifact()` + `set_active()` after `build_variant()`. For Kokoro, this creates empty artifacts. This is correct behavior but untested for the Kokoro-specific path.
 
 ### Open issues
 
-- Phase 2 work items (Voice Library Preset Voices tab, API endpoints for provider voices, creation source onboarding) not started.
+- Phase 3 work items (provider voice marketplace / community presets, multi-provider preset merging) not started.
 - `test_voices.py` requires `torch` — not runnable in local venv.
+- `VariantDashboard.tsx` has a pre-existing TypeScript error (unrelated).
 
 ### Recommended next task
 
-**Phase 2 — UX/API:** Voice Library Preset Voices tab, `/api/v1/presets` endpoints, creation source onboarding for preset voice selection.
+**Provider validation:** Install `kokoro` pip package, run real Kokoro inference E2E, validate audio output quality.
 
 ---
 
@@ -65,3 +61,4 @@
 
 - 2026-06-05 — Kokoro Preset Voice Adapter Phase 1 complete. 81 tests, 339/339 all pass.
 - 2026-06-05 — Documentation Operating System created under `docs/.agents/`; `AGENTS.md` updated. Application code unchanged. Next: stabilize the dirty working tree.
+- 2026-06-05 — Kokoro Preset Voice Phase 2 complete. 8 new tests, 347/347 all pass. Frontend Preset Voices tab added.

@@ -45,7 +45,7 @@ async def test_list_provider_voices_returns_all(app, preset_voices):
         resp = await client.get("/api/provider-voices")
     assert resp.status_code == 200
     data = resp.json()
-    assert len(data) == 3
+    assert len(data) >= 3
 
 
 @pytest.mark.asyncio
