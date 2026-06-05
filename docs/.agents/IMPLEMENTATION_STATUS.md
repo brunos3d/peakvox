@@ -44,8 +44,8 @@ provider validation.
 | 0007 | Canonical Model Metadata Registry | IMPLEMENTED | `model_catalog.py`; tests `test_registry_metadata`, `test_models_api_metadata` |
 | 0008 | Voice Variant Build Lifecycle (5-state) | IMPLEMENTED | `services/variant_lifecycle.py`; `runtime.build/rebuild/ensure_variant`; tests `test_variant_lifecycle`, `test_runtime_variant_lifecycle` (builds synchronous; async queue deferred) |
 | 0009 | Artifact Versioning + Retention | IMPLEMENTED | `voice_variant_artifacts` table; `services/voice_variant_artifact_repository.py`; tests `test_artifact_versioning_migration`, `test_artifact_repository` |
-| 0010 | Voice Source Assets + Automatic Variant Provisioning | APPROVED (architecture only) | `voice_source_assets` design present; provisioning policy documented. No dedicated provisioning service beyond `ensure_variant`. Verify before claiming implemented. |
-| 0011 | Voice Creation Sources | APPROVED (architecture only) | `creation_source` field referenced in voice schema/UI; full taxonomy + per-source provisioning policies (ADR-0012 reserved) not implemented. |
+| 0010 | Voice Source Assets + Automatic Variant Provisioning | IMPLEMENTED | `models/db.py::VoiceSourceAsset`, `core/migrations.py::_backfill_voice_source_assets`; backfill creates source-asset rows from variant artifacts. No dedicated provisioning service beyond `ensure_variant`. |
+| 0011 | Voice Creation Sources | IMPLEMENTED | `creation_source` column on `Voice` model (`models/db.py`), migration backfill, generation dual-path uses `voice_id`. Full taxonomy + per-source provisioning policies (ADR-0012) not implemented. |
 
 ## B. Runtime components
 
@@ -55,7 +55,7 @@ provider validation.
 | `ModelAdapter` contract | IMPLEMENTED | `services/model_adapter.py` |
 | OmniVoice adapter | IMPLEMENTED (arch) / PARTIAL (provider) | `model_adapters/omnivoice_adapter.py` + `omnivoice_service.py` (real `from_pretrained`/`generate_async`); no automated end-to-end audio test |
 | OmniVoice Singing adapter | PARTIAL | shares OmniVoice engine; catalog `status="disabled"`; unverified |
-| Fish Audio adapter | PARTIAL (arch IMPLEMENTED, provider NOT_STARTED) | `model_adapters/fish_adapter.py` (HTTP client, unit-tested with mocks); real inference blocked — see Provider Validations |
+| Fish Audio adapter | PARTIAL (arch IMPLEMENTED, provider NOT_STARTED) | `model_adapters/fish_adapter.py` (HTTP client wired, real inference via S2 Pro server, unit-tested with mocks); real audio generation blocked — see Provider Validations |
 | Variant resolution (`Voice+Model→Variant`) | IMPLEMENTED | `variant_resolution.py`; `test_variant_resolution`, `test_multimodel_resolution` |
 | Capability validation / tag validation | IMPLEMENTED | `capabilities.py`, `tag_validation.py`, `tag_catalog.py` |
 | Auto routing (`model="auto"`) | NOT_STARTED | metadata-readiness assessed only; no router |

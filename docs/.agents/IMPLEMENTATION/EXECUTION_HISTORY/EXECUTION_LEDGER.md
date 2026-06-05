@@ -66,7 +66,11 @@
 - **Validation:** full regression + frontend verification.
 - **Result:** Implemented; architecture suite consistent before Phase 1 implementation.
 
----
-
-> **In flight (not yet a completed entry):** stabilizing the uncommitted Fish-adapter / variant-schema /
-> migration working tree — see [`../../NEXT_TASK.md`](../../NEXT_TASK.md). Add a dated entry here once committed.
+### 2026-06-05 · Stabilise and commit in-flight working tree
+- **Task:** Commit Fish-adapter expansion, variant schema, migrations, voice_id dual-path, VoiceSourceAsset model — everything that had been uncommitted.
+- **Plans:** `superpowers/plans/2026-06-04-voice-library-2.md`, `superpowers/plans/2026-06-04-variant-backfill-ux.md`.
+- **ADRs:** 0008, 0009, 0010, 0011.
+- **Fix:** Missing `creation_source` column in `_backfill_voice_split` INSERT (caused NOT NULL constraint failure).
+- **Commits:** `2732236` (db model + migrations), `fcdfbc9` (schemas + generation API), `e714cb9` (Fish adapter + contract), `cd900f2` (tests).
+- **Validation:** `262 passed in 14.34s` — full backend test suite green.
+- **Result:** Clean `git status`; 4 Conventional Commits; state files updated.

@@ -21,11 +21,9 @@ See [`ROADMAP/CURRENT_PHASE.md`](ROADMAP/CURRENT_PHASE.md) and
 
 ## Current priorities
 
-1. Stabilize the uncommitted working-tree changes (Fish adapter expansion, variant schema,
-   migrations) and verify tests pass before committing.
-2. Close the provider-validation gap: get at least one non-OmniVoice provider generating real
+1. Close the provider-validation gap: get at least one non-OmniVoice provider generating real
    audio end-to-end through the Runtime (see [`OPEN_DECISIONS.md`](OPEN_DECISIONS.md)).
-3. Hold the readiness gate: do not begin Cloud (auth/billing/marketplace) work until a real
+2. Hold the readiness gate: do not begin Cloud (auth/billing/marketplace) work until a real
    foreign provider is validated.
 
 ## Implemented components (architecture-validated; see IMPLEMENTATION_STATUS for evidence)
@@ -76,8 +74,8 @@ See [`ROADMAP/CURRENT_PHASE.md`](ROADMAP/CURRENT_PHASE.md) and
 - **Single-real-provider runtime.** The multi-provider thesis is proven as architecture, not
   as production reality. Risk: undiscovered provider-diversity assumptions (e.g. preset-voice,
   non-cloning providers like Kokoro stress ADR-0008's build-from-reference-audio assumption).
-- **Uncommitted working tree.** Backend changes (Fish adapter, migrations, schemas, tests) are
-  not yet committed or verified in this session; state must be confirmed before further work.
+- **Fish Audio real inference still deferred.** The Fish adapter is now wired as HTTP client
+  and unit-tested, but the S2 Pro server (codec.pth / 24GB+ VRAM) remains blocked.
 - **Premature Cloud investment.** Beginning SaaS/billing work before provider validation would
   build the ecosystem on an unproven runtime.
 

@@ -7,20 +7,16 @@
 
 **As of:** 2026-06-05 · **Branch:** `feat/peakvox-phase-1`
 
+## Not in flight
+
+The previous in-flight work (Fish adapter expansion, variant schema, migrations, tests) has
+been committed. 4 commits landed; 262/262 backend tests passing.
+
 ## In flight
 
-1. **Fish Audio adapter expansion + variant schema.** Uncommitted changes to
-   `services/model_adapters/fish_adapter.py`, `services/model_adapter.py`,
-   `schemas/variant.py` (new), `core/migrations.py`, `models/db.py`,
-   `api/generation.py`, and tests (`test_fish_adapter.py`, `test_variants_api.py`,
-   `test_adapter_realization_surface.py`, `test_universal_voice_asset.py`,
-   `test_runtime_variant_lifecycle.py`).
-   - **State:** code present, not committed; tests must be confirmed green this session.
-   - **Provider validation:** still blocked (see provider blocker report). Architecture-level
-     only.
-
-2. **Provider validation documentation.** `docs/architecture/12-PROVIDER-VALIDATION.md`
-   modified; `docs/fish-audio-blocker-report.md` added (untracked).
+1. **Provider validation.** Get at least one non-OmniVoice provider generating real audio
+   end-to-end through the Runtime. Fish Audio is wired at the adapter level but blocked on
+   inference hardware (codec/VRAM).
 
 ## Not in flight (explicitly paused)
 

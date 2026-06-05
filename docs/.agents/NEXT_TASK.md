@@ -5,31 +5,20 @@
 
 **As of:** 2026-06-05
 
-## Task: Stabilize and commit the in-flight working tree
+## Task: Provider-validation gate — close the gap
 
-- **Priority:** P0 (blocks all other work — the tree is dirty and unverified).
-- **Objective:** Bring the uncommitted Fish-adapter / variant-schema / migration changes to a
-  verified, committed state on `feat/peakvox-phase-1`, with the backend test suite green.
-- **Scope:**
-  1. Run the backend test suite (`docker compose run --rm backend bash -c "python -m pytest tests/ -q"`).
-  2. Resolve any failures introduced by the in-flight changes.
-  3. Confirm the new `schemas/variant.py`, `tests/test_variants_api.py`, and migration are
-     consistent and additive (Constitution Art. VI).
-  4. Commit with Conventional Commit messages; update
-     [`IMPLEMENTATION/EXECUTION_HISTORY/EXECUTION_LEDGER.md`](IMPLEMENTATION/EXECUTION_HISTORY/EXECUTION_LEDGER.md),
-     [`PROJECT_STATE.md`](PROJECT_STATE.md), [`CURRENT_CONTEXT.md`](CURRENT_CONTEXT.md), and
-     [`HANDOFF.md`](HANDOFF.md).
-- **Dependencies:** none (the changes already exist in the tree).
-- **Expected output:** clean `git status`; all backend tests passing; updated agent-OS state
-  files reflecting the commit.
-- **Blocking items:** none for stabilization. Note: this task does **not** require real Fish
-  inference (that remains blocked — see [`OPEN_DECISIONS.md`](OPEN_DECISIONS.md), Decision 1).
-
-## After this task
-
-The next priority is the **provider-validation gate**: get one non-OmniVoice provider
-generating real audio end-to-end. See [`OPEN_DECISIONS.md`](OPEN_DECISIONS.md) Decision 1 and
-[`ROADMAP/BACKLOG.md`](ROADMAP/BACKLOG.md).
+- **Priority:** P0 (blocks all Cloud phases — no SaaS work until at least one foreign
+  provider generates real audio end-to-end through the Runtime).
+- **Objective:** Get one non-OmniVoice provider generating real audio end-to-end.
+  The Fish Audio adapter is wired, unit-tested, and committed, but real inference via
+  S2 Pro HTTP server is blocked on hardware (codec.pth / 24GB+ VRAM).
+- **Options (from [`OPEN_DECISIONS.md`](OPEN_DECISIONS.md) Decision 1):**
+  1. Acquire or rent GPU hardware capable of running the Fish S2 Pro server.
+  2. Switch to a different foreign provider with lighter hardware requirements.
+  3. Partner with a Fish-gated inference provider.
+- **Dependencies:** hardware or provider decision.
+- **Expected output:** at least one end-to-end test that passes through the full
+  Runtime chain with a non-OmniVoice provider, producing real audio.
 
 ---
 
