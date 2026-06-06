@@ -425,9 +425,13 @@ class PeakVoxRuntime:
         else:
             resolved_voice_id = voice_id or voice_profile_id
 
-        # Merge variant params into generate kwargs so adapters can read
-        # provider/preset_name for preset voices.
-        gen_kwargs = {**(variant_params or {}), **(params or {})}
+        # Merge variant params into the params dict (not as top-level kwargs)
+        # so adapters can read provider/preset_name for preset voices without
+        # receiving generation settings (num_step, guidance_scale, etc.) as
+        # unexpected keyword arguments that crash strict-sig adapters.
+        merged_params = params or {}
+        if variant_params:
+            merged_params = {**variant_params, **(params or {})}
 
         return await adapter.generate(
             text=text,
@@ -437,9 +441,8 @@ class PeakVoxRuntime:
             ref_text=ref_text,
             language=language,
             instruct=instruct,
-            params=params,
+            params=merged_params,
             job_id=job_id,
-            **gen_kwargs,
         )
 
 

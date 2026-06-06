@@ -115,5 +115,7 @@ async def test_variant_params_flow_through_to_adapter(session):
         db=session, text="hello", model_id="test-model",
         public_voice_id="voice_ABC123", output_path=Path("/tmp/x.wav"),
     )
-    assert adapter.captured_kwargs.get("provider") == "kokoro"
-    assert adapter.captured_kwargs.get("preset_name") == "af_heart"
+    """Variant params are merged into the params dict, not spread as top-level kwargs."""
+    merged = adapter.captured_kwargs.get("params", {})
+    assert merged.get("provider") == "kokoro"
+    assert merged.get("preset_name") == "af_heart"
