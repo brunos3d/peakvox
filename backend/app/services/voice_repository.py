@@ -6,6 +6,7 @@ both lookups so future API work has a single entry point.
 """
 
 import base64
+from datetime import datetime, timedelta, timezone
 from typing import Literal, Optional
 
 from sqlalchemy import String, func, or_, select
@@ -79,6 +80,7 @@ async def list_voices_page(
     sort_dir: SortDir = "desc",
     creation_source: Optional[str] = None,
     provider: Optional[str] = None,
+    recently_used: Optional[str] = None,
 ) -> tuple[list[VoiceProfile], Optional[str]]:
     """Paginated, filtered, searchable voice listing.
 
@@ -121,6 +123,13 @@ async def list_voices_page(
             stmt = stmt.where(VoiceProfile.is_preset_voice.is_(False))
     if provider:
         stmt = stmt.where(func.json_extract(VoiceProfile.meta, "$.provider") == provider)
+
+    if recently_used:
+        periods = {"7d": 7, "30d": 30, "90d": 90}
+        days = periods.get(recently_used)
+        if days:
+            cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+            stmt = stmt.where(VoiceProfile.last_used_at >= cutoff)
 
     # Search across name/language/code + characteristics & preset_tags (raw JSON LIKE).
     if search and search.strip():

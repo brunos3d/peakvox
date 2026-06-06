@@ -219,6 +219,7 @@ async def list_voices_page_endpoint(
     sort_dir: str = "desc",
     creation_source: Optional[str] = None,
     provider: Optional[str] = None,
+    recently_used: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
     """Paginated, filtered, searchable listing that powers the Voice Library."""
@@ -226,6 +227,8 @@ async def list_voices_page_endpoint(
         raise HTTPException(status_code=422, detail=f"Invalid scope: {scope}")
     if sort_by and sort_by not in VALID_SORT_FIELDS:
         raise HTTPException(status_code=422, detail=f"Invalid sort_by: {sort_by}")
+    if recently_used and recently_used not in ("7d", "30d", "90d"):
+        raise HTTPException(status_code=422, detail="recently_used must be 7d, 30d, or 90d")
     items, next_cursor = await list_voices_page(
         db,
         scope=scope,
@@ -241,6 +244,7 @@ async def list_voices_page_endpoint(
         sort_dir=sort_dir,
         creation_source=creation_source,
         provider=provider,
+        recently_used=recently_used,
     )
     asset_map = await _fetch_source_asset_map(db, [v.id for v in items])
     responses = []

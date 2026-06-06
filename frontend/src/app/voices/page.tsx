@@ -65,13 +65,14 @@ export default function VoiceLibraryPage() {
   const [creationSourceFilter, setCreationSourceFilter] = useState<CreationSource | null>(null)
   const [sortBy, setSortBy] = useState<SortField>("last_used_at")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
+  const [recentlyUsed, setRecentlyUsed] = useState<string | undefined>(undefined)
 
   const [detailsVoice, setDetailsVoice] = useState<VoiceProfile | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [editVoice, setEditVoice] = useState<VoiceProfile | null>(null)
   const [editOpen, setEditOpen] = useState(false)
 
-  const query = useVoicesPage(scope, debouncedSearch, filters, sortBy, sortDir, creationSourceFilter ?? undefined)
+  const query = useVoicesPage(scope, debouncedSearch, filters, sortBy, sortDir, creationSourceFilter ?? undefined, recentlyUsed)
   const voices = useMemo(
     () => query.data?.pages.flatMap((p) => p.items) ?? [],
     [query.data],
@@ -239,6 +240,21 @@ export default function VoiceLibraryPage() {
                   active={!!filters.favorite}
                   onClick={() => setFilter("favorite", !filters.favorite)}
                 />
+                <Chip
+                  label="Last 7 days"
+                  active={recentlyUsed === "7d"}
+                  onClick={() => setRecentlyUsed(recentlyUsed === "7d" ? undefined : "7d")}
+                />
+                <Chip
+                  label="Last 30 days"
+                  active={recentlyUsed === "30d"}
+                  onClick={() => setRecentlyUsed(recentlyUsed === "30d" ? undefined : "30d")}
+                />
+                <Chip
+                  label="Last 90 days"
+                  active={recentlyUsed === "90d"}
+                  onClick={() => setRecentlyUsed(recentlyUsed === "90d" ? undefined : "90d")}
+                />
                 <SortDropdown
                   sortBy={sortBy}
                   sortDir={sortDir}
@@ -260,6 +276,7 @@ export default function VoiceLibraryPage() {
                 chips={[
                   ...(creationSourceFilter ? [{ key: "creation_source", label: `Source: ${creationSourceFilter}` }] : []),
                   ...(filters.favorite ? [{ key: "favorite", label: "Favorites" }] : []),
+                  ...(recentlyUsed ? [{ key: "recently_used", label: `Used: last ${recentlyUsed}` }] : []),
                   ...(filters.language_code ? [{ key: "language_code", label: `Language: ${filters.language_code}` }] : []),
                   ...(filters.gender ? [{ key: "gender", label: `Gender: ${filters.gender}` }] : []),
                   ...(filters.age_group ? [{ key: "age_group", label: `Age: ${filters.age_group}` }] : []),
@@ -268,6 +285,7 @@ export default function VoiceLibraryPage() {
                 onRemove={(key) => {
                   if (key === "creation_source") setCreationSourceFilter(null)
                   else if (key === "favorite") setFilter("favorite", false)
+                  else if (key === "recently_used") setRecentlyUsed(undefined)
                   else if (key === "language_code") setFilter("language_code", undefined)
                   else if (key === "gender") setFilter("gender", undefined)
                   else if (key === "age_group") setFilter("age_group", undefined)
@@ -276,6 +294,7 @@ export default function VoiceLibraryPage() {
                 onClearAll={() => {
                   setCreationSourceFilter(null)
                   setFilters(EMPTY_FILTERS)
+                  setRecentlyUsed(undefined)
                 }}
               />
 

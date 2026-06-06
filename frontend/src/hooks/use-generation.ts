@@ -48,9 +48,10 @@ export function useVoicesPage(
   sort_by?: SortField,
   sort_dir?: "asc" | "desc",
   creation_source?: string,
+  recently_used?: string,
 ) {
   return useInfiniteQuery<VoiceListPage>({
-    queryKey: ["voices-page", scope, search, filters, sort_by, sort_dir, creation_source],
+    queryKey: ["voices-page", scope, search, filters, sort_by, sort_dir, creation_source, recently_used],
     queryFn: ({ pageParam }) =>
       fetchVoicesPage({
         scope,
@@ -60,6 +61,7 @@ export function useVoicesPage(
         sort_by,
         sort_dir,
         creation_source,
+        recently_used,
       }),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.next_cursor,

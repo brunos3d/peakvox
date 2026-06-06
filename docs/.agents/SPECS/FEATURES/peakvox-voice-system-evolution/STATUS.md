@@ -1,10 +1,10 @@
 # STATUS — PeakVox Voice System Evolution
 
-**Status:** PARTIAL — Phases A, B, C, D, E, F, G, J, K implemented
+**Status:** PARTIAL — Phases A, B, C, D, E, F, G, J, K, L implemented
 
 **Last updated:** 2026-06-06
 
-**Context:** Fourth architecture refinement pass complete. Product UX scalability and canonical voice experience added.
+**Context:** Fourth architecture refinement pass complete. Product UX scalability, canonical voice experience, and recently-used tracking added.
 
 ### Changes from v3 (Refined v3 → Refined v4)
 
@@ -54,6 +54,6 @@
 | I | Remaining ADRs and codification | P3 |
 | M | Collections (future reservation only) | P3 |
 
-**Completed:** A (settings schema), B (CompatibilityResolver), C (frontend capability), D (type-aware display), E (VoicePreview multi-preview), F (VariantBuildStrategy + ModelVoiceFeatures), G (VOICE_DOMAIN_MODEL.md), J (library search/sort/paginate), K (VoiceDetailPanel canonical surface).
+**Completed:** A (settings schema), B (CompatibilityResolver), C (frontend capability), D (type-aware display), E (VoicePreview multi-preview), F (VariantBuildStrategy + ModelVoiceFeatures), G (VOICE_DOMAIN_MODEL.md), J (library search/sort/paginate), K (VoiceDetailPanel canonical surface), L (recently used tracking + most used sort).
 
-**Next step:** Phase L (Recently Used Tracking).
+**Next step:** Phase I (ADRs and Documentation) or Phase H (VoiceResource Catalog).

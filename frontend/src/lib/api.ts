@@ -87,6 +87,7 @@ export async function fetchVoicesPage(params: {
   sort_dir?: "asc" | "desc"
   creation_source?: string
   provider?: string
+  recently_used?: string
 }): Promise<VoiceListPage> {
   const qs = new URLSearchParams()
   if (params.scope) qs.set("scope", params.scope)
@@ -97,6 +98,7 @@ export async function fetchVoicesPage(params: {
   if (params.sort_dir) qs.set("sort_dir", params.sort_dir)
   if (params.creation_source) qs.set("creation_source", params.creation_source)
   if (params.provider) qs.set("provider", params.provider)
+  if (params.recently_used) qs.set("recently_used", params.recently_used)
   const f = params.filters ?? {}
   if (f.language_code) qs.set("language_code", f.language_code)
   if (f.gender) qs.set("gender", f.gender)

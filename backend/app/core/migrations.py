@@ -63,6 +63,16 @@ _PUBLIC_ID_INDEX = (
     "ON voice_profiles (public_voice_id)"
 )
 
+_LAST_USED_INDEX = (
+    "CREATE INDEX IF NOT EXISTS ix_voice_profiles_last_used_at "
+    "ON voice_profiles (last_used_at)"
+)
+
+_USAGE_COUNT_INDEX = (
+    "CREATE INDEX IF NOT EXISTS ix_voice_profiles_usage_count "
+    "ON voice_profiles (usage_count)"
+)
+
 
 async def run_migrations(conn: AsyncConnection) -> None:
     """Bring the database up to the current schema. Idempotent and safe to re-run."""
@@ -86,6 +96,10 @@ async def run_migrations(conn: AsyncConnection) -> None:
 
     # 5. Enforce public_voice_id uniqueness (after backfill — order matters).
     await conn.execute(text(_PUBLIC_ID_INDEX))
+
+    # 5b. Performance indexes for usage-based sorting (Phase L).
+    await conn.execute(text(_LAST_USED_INDEX))
+    await conn.execute(text(_USAGE_COUNT_INDEX))
 
     # 6. Upsert the built-in model catalog (never clobbers user/community models).
     await _seed_builtin_models(conn)

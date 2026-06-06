@@ -132,7 +132,7 @@
 - [x] `?provider=` filter returns only PRESET_VOICE voices from that provider
 - [ ] `?compatible_model=` filter returns only voices compatible with that model
 - [x] `?favorites=true` returns only favorited voices
-- [ ] `?recently_used=7d|30d|90d` returns voices used within the period
+- [x] `?recently_used=7d|30d|90d` returns voices used within the period
 - [x] Multiple filters can be combined (e.g., `?creation_source=PRESET_VOICE&provider=kokoro&language=pt`)
 - [x] SearchBar component debounces input at 300ms (200ms existing)
 - [x] SortDropdown shows correct options and direction toggle
@@ -164,14 +164,17 @@
 
 ### Phase L: Recently Used Tracking (P1)
 
-- [ ] `last_used_at` column exists on Voice (nullable, no default)
-- [ ] `last_used_at` is updated after successful generation completion (not in request handler)
-- [ ] `GET /voices` and `GET /voices/{id}` expose `last_used_at` field
+- [x] `last_used_at` column exists on Voice (nullable, no default)
+- [x] `last_used_at` is updated after successful generation completion
+- [x] `GET /voices` and `GET /voices/{id}` expose `last_used_at` field
 - [ ] `PATCH /voices/{id}` allows clearing `last_used_at` to null
-- [ ] `?sort=last_used_at` returns voices ordered by last use date
-- [ ] `?recently_used=7d` returns voices used in the last 7 days
-- [ ] Existing voices have null `last_used_at` (no backfill)
-- [ ] Default library sort is `last_used_at DESC`
+- [x] `?sort=last_used_at` returns voices ordered by last use date (sort_by=usage_count also supported)
+- [x] `?recently_used=7d|30d|90d` returns voices used within the period
+- [x] Existing voices have null `last_used_at` (no backfill)
+- [x] Default library sort is `last_used_at DESC`
+- [x] usage_count is incremented on successful generation
+- [x] recently_used filter exposed in frontend FilterBar chips
+- [x] Indexes created for last_used_at and usage_count columns
 
 ### Phase M: Collections (P3 — Future)
 
