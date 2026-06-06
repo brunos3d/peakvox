@@ -192,8 +192,9 @@ class KokoroAdapter(ModelAdapter, ProviderVoiceCatalog):
         if self._kokoro is None:
             self._kokoro = _self._kokoro_mod
         lang_prefix = voice_id[0] if voice_id else "a"
-        lang_code = _LANG_MAP.get(lang_prefix, "en-us")
-        return self._kokoro.KPipeline(lang_code=lang_code)
+        if lang_prefix not in _LANG_MAP:
+            lang_prefix = "a"
+        return self._kokoro.KPipeline(lang_code=lang_prefix)
 
     async def generate(
         self,

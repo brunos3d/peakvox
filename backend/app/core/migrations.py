@@ -339,8 +339,12 @@ async def _backfill_artifact_versions(conn: AsyncConnection) -> None:
     rows = (
         await conn.execute(
             text(
-                "SELECT id, artifacts, model_version FROM voice_variants "
-                "WHERE active_artifact_id IS NULL AND artifacts IS NOT NULL"
+                "SELECT id, artifacts, model_version FROM voice_variants vv "
+                "WHERE active_artifact_id IS NULL AND artifacts IS NOT NULL "
+                "AND NOT EXISTS ("
+                "  SELECT 1 FROM voice_variant_artifacts a "
+                "  WHERE a.voice_variant_id = vv.id"
+                ")"
             )
         )
     ).mappings().all()

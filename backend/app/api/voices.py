@@ -520,6 +520,7 @@ async def create_voice_from_preset(
         meta={"provider": body.provider, "preset_name": body.preset_name},
     )
     db.add(artifact)
+    variant.active_artifact_id = artifact.id
     await db.commit()
 
     logger.info("Created preset voice %s (%s/%s)", profile_id, body.provider, body.preset_name)
