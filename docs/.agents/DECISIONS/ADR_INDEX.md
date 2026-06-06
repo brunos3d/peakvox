@@ -61,11 +61,18 @@ New ADRs follow the naming convention `adr-NNNN-kebab-case.md`. Template:
 - **0005** — a model's editions are a declared property; CE vs Cloud availability is data, not a
   code branch.
 
+## Domain: Voice Identity & Catalog Separation
+
+| ADR | Title | Status | Impl. |
+|---|---|---|---|
+| [0012](adr-0012-voice-identity-vs-catalog-resources.md) | Voice Identity vs Catalog Resources | Accepted | APPROVED |
+
+- **0012** — Catalog resources (ProviderPreset, MarketplaceListing) are transient descriptors; they become Voices only at user import. Introduces `VoiceResource` (transient API type), `VoicePreview` (first-class preview entity), and `VariantBuildStrategy` (explicit compatibility).
+
 ## Reserved / future ADRs (write when the decision is actually made)
 
 These are tracked as live questions in [`../OPEN_DECISIONS.md`](../OPEN_DECISIONS.md):
 
-- **ADR-0012** — Variant Provisioning Policies (per Creation Source) — reserved by 0011.
 - **ADR-0013** — Model Categories (cloning vs preset vs training) — reserved by 0011.
 - **ADR-0014** — Marketplace Voice Publishing — reserved by 0011.
 - **ADR-0015** — Imported Voice Ecosystem — reserved by 0011.
