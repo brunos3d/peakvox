@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { RotateCcw, Save, CheckCircle } from "lucide-react";
 import { GenerationSettingsFields } from "@/components/GenerationSettingsFields";
 import { useAppStore, SYSTEM_DEFAULTS } from "@/store/use-store";
+import { useActiveModel } from "@/hooks/use-models";
 import {
   saveVoiceGenerationDefaults,
   fetchDeviceSettings,
@@ -32,6 +33,7 @@ function settingsEqual(
 export function GenerationSettings() {
   const generationSettings = useAppStore((s) => s.generationSettings);
   const voiceDesign = useAppStore((s) => s.voiceDesign);
+  const { activeModel } = useActiveModel();
   const useGpu = useAppStore((s) => s.useGpu);
   const updateGenerationSettings = useAppStore(
     (s) => s.updateGenerationSettings,
@@ -141,6 +143,7 @@ export function GenerationSettings() {
         onChange={handleFieldChange}
         cudaAvailable={cudaAvailable}
         gpuLoading={gpuLoading}
+        settingsSchema={activeModel?.settings_schema}
       />
 
       {isDirty && (

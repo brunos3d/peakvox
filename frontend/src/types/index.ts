@@ -160,6 +160,28 @@ export interface ModelCapabilities {
   supports_batch_generation?: boolean
 }
 
+export interface SelectOption {
+  label: string
+  value: string
+}
+
+export interface ParameterSchema {
+  type: "number" | "boolean" | "string" | "select"
+  label: string
+  default: number | boolean | string | null
+  minimum?: number
+  maximum?: number
+  step?: number
+  options?: SelectOption[]
+  description?: string
+}
+
+export interface SettingsSchema {
+  type: string
+  properties: Record<string, ParameterSchema>
+  required?: string[]
+}
+
 export interface ModelRequirements {
   min_vram_gb: number | null
   gpu_required: boolean
@@ -188,6 +210,7 @@ export interface Model {
   capabilities: ModelCapabilities
   requirements?: ModelRequirements
   license?: ModelLicense | null
+  settings_schema?: SettingsSchema | null
   provider_metadata?: Record<string, string | string[]>
   status: "available" | "loading" | "loaded" | "error" | "disabled" | "inactive" | "deprecated"
   is_default: boolean

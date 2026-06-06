@@ -13,6 +13,8 @@ from app.models.registry_types import (
     ModelDescriptor,
     ModelLicense,
     ModelRequirements,
+    ParameterSchema,
+    SettingsSchema,
 )
 
 # Tag sets ---------------------------------------------------------------------
@@ -82,6 +84,40 @@ BUILTIN_MODELS: list[ModelDescriptor] = [
             supports_reference_audio=True,
         ),
         requirements=ModelRequirements(gpu_required=False, runtime="torch"),
+        settings_schema=SettingsSchema(
+            properties={
+                "num_step": ParameterSchema(
+                    type="number", label="Inference Steps",
+                    default=32, minimum=4, maximum=64, step=1,
+                    description="Number of diffusion inference steps. Higher values improve quality at the cost of speed.",
+                ),
+                "guidance_scale": ParameterSchema(
+                    type="number", label="Guidance Scale",
+                    default=2.0, minimum=0, maximum=4, step=0.1,
+                    description="How closely the output follows the conditioning. Higher = more faithful, lower = more creative.",
+                ),
+                "speed": ParameterSchema(
+                    type="number", label="Speed",
+                    default=None, minimum=0.5, maximum=1.5, step=0.05,
+                    description="Speaking speed multiplier. Null = auto.",
+                ),
+                "duration": ParameterSchema(
+                    type="number", label="Duration",
+                    default=None, minimum=1, maximum=120,
+                    description="Maximum audio duration in seconds. Null = auto.",
+                ),
+                "t_shift": ParameterSchema(
+                    type="number", label="Time Shift",
+                    default=0.1, minimum=0, maximum=1, step=0.01,
+                    description="Time shift parameter for the diffusion process.",
+                ),
+                "denoise": ParameterSchema(
+                    type="boolean", label="Denoise",
+                    default=True,
+                    description="Apply denoising to the generated audio.",
+                ),
+            },
+        ),
         license=ModelLicense(
             name="Apache License 2.0",
             code="apache-2.0",
@@ -191,6 +227,15 @@ BUILTIN_MODELS: list[ModelDescriptor] = [
             supports_reference_audio=False,
         ),
         requirements=ModelRequirements(gpu_required=False, runtime="kokoro"),
+        settings_schema=SettingsSchema(
+            properties={
+                "speed": ParameterSchema(
+                    type="number", label="Speed",
+                    default=1.0, minimum=0.5, maximum=2.0, step=0.1,
+                    description="Speaking speed multiplier.",
+                ),
+            },
+        ),
         license=ModelLicense(
             name="Apache License 2.0",
             code="apache-2.0",

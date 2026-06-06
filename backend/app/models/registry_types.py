@@ -52,6 +52,42 @@ class ModelRequirements(BaseModel):
     runtime: Optional[str] = None  # e.g. "torch", free-form
 
 
+class SelectOption(BaseModel):
+    """An option in a select-type parameter."""
+
+    label: str
+    value: str
+
+
+class ParameterSchema(BaseModel):
+    """Describes one generation parameter a model accepts.
+
+    Analogous to a JSON Schema property. The ``type`` determines which UI control
+    to render. ``options`` is used when ``type == "select"``.
+    """
+
+    type: Literal["number", "boolean", "string", "select"]
+    label: str
+    default: int | float | bool | str | None = None
+    minimum: float | None = None
+    maximum: float | None = None
+    step: float | None = None
+    options: list[SelectOption] | None = None
+    description: str | None = None
+
+
+class SettingsSchema(BaseModel):
+    """Code-declared model contract describing the generation parameters a model accepts.
+
+    NOT persisted in the database. Declared on ``ModelDescriptor`` in
+    ``model_catalog.py`` alongside capabilities, languages, and tags.
+    """
+
+    type: str = "object"
+    properties: dict[str, ParameterSchema]
+    required: list[str] = []
+
+
 class ModelLicense(BaseModel):
     """Licensing metadata — relevant to marketplace + commercial-use gating."""
 
@@ -87,6 +123,7 @@ class ModelDescriptor(BaseModel):
     is_default: bool = False
     is_builtin: bool = True
     editions: list[str] = Field(default_factory=lambda: ["community"])
+    settings_schema: Optional[SettingsSchema] = None
 
     # Edition availability, derived from ``editions`` (ADR-0005/0006). Serialized for the API/UI
     # so the Models page can show per-edition availability without recomputing.
