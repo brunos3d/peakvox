@@ -5,20 +5,20 @@
 
 **As of:** 2026-06-05
 
-## Task: Provider-validation gate — close the gap
+## Task: Provider-validation done — unblock Cloud planning
 
-- **Priority:** P0 (blocks all Cloud phases — no SaaS work until at least one foreign
-  provider generates real audio end-to-end through the Runtime).
-- **Objective:** Get one non-OmniVoice provider generating real audio end-to-end.
-  The Fish Audio adapter is wired, unit-tested, and committed, but real inference via
-  S2 Pro HTTP server is blocked on hardware (codec.pth / 24GB+ VRAM).
-- **Options (from [`OPEN_DECISIONS.md`](OPEN_DECISIONS.md) Decision 1):**
-  1. Acquire or rent GPU hardware capable of running the Fish S2 Pro server.
-  2. Switch to a different foreign provider with lighter hardware requirements.
-  3. Partner with a Fish-gated inference provider.
-- **Dependencies:** hardware or provider decision.
-- **Expected output:** at least one end-to-end test that passes through the full
-  Runtime chain with a non-OmniVoice provider, producing real audio.
+- **Priority:** P0 (was blocking Cloud phases — now resolved).
+- **Status:** ✅ **Kokoro G5 confirmed** — real audio generated E2E through the Runtime.
+  The `kokoro` pip package is installed, the adapter produces real WAV output, and
+  347/347 backend tests pass. See `VALIDATION/PROVIDER_VALIDATIONS/kokoro-validation-report.md`.
+- **Decision (OPEN_DECISIONS.md Decision 1):** Option 3 chosen — Kokoro validated as the
+  first non-OmniVoice provider. The Cloud readiness gate is now open.
+- **Remaining provider gaps (not blocking):**
+  - Fish Audio S2 Pro — still blocked on hardware (24GB+ VRAM). Not a P0 concern.
+  - Kokoro G7 (performance) and G8 (error recovery) — not measured; low priority.
+  - OmniVoice Base E2E audio test — would be nice to have; no GPU in CI.
+- **Next:** Cloud architecture planning (ADR work for auth, billing, marketplace), or
+  CE hardening (error recovery tests, performance measurement, Fish server deployment).
 
 ---
 

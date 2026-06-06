@@ -41,19 +41,21 @@
 
 ### Risks (updated)
 
-- **Kokoro real inference still deferred.** Architecture-validated via mock-kokoro tests; real inference requires `kokoro` pip package.
+- ✅ **Kokoro real inference validated.** `kokoro` pip package installed (0.7.16). Real audio generated: 4.05s WAV (24kHz) via `af_heart` voice. First non-OmniVoice provider to pass G5.
 - **Fish Audio real inference still blocked.** S2 Pro server needs 24GB+ VRAM.
 - **Kokoro build_variant creates metadata-only variants.** The runtime's `_run_build()` still calls `append_artifact()` + `set_active()` after `build_variant()`. For Kokoro, this creates empty artifacts. This is correct behavior but untested for the Kokoro-specific path.
+- **Cloud readiness gate is OPEN.** Kokoro validation unblocks Cloud architecture planning.
 
 ### Open issues
 
 - Phase 3 work items (provider voice marketplace / community presets, multi-provider preset merging) not started.
 - `test_voices.py` requires `torch` — not runnable in local venv.
 - `VariantDashboard.tsx` has a pre-existing TypeScript error (unrelated).
+- Kokoro G7 (performance) and G8 (error recovery) not measured.
 
 ### Recommended next task
 
-**Provider validation:** Install `kokoro` pip package, run real Kokoro inference E2E, validate audio output quality.
+**Determine next workstream.** Cloud architecture planning (auth/billing/marketplace ADRs) or CE hardening (error recovery tests, performance measurement, Fish server deployment). Provider-validation gate is no longer blocking.
 
 ---
 
@@ -62,3 +64,4 @@
 - 2026-06-05 — Kokoro Preset Voice Adapter Phase 1 complete. 81 tests, 339/339 all pass.
 - 2026-06-05 — Documentation Operating System created under `docs/.agents/`; `AGENTS.md` updated. Application code unchanged. Next: stabilize the dirty working tree.
 - 2026-06-05 — Kokoro Preset Voice Phase 2 complete. 8 new tests, 347/347 all pass. Frontend Preset Voices tab added.
+- 2026-06-05 — **Kokoro provider validation complete (G5 passed).** Real audio E2E through Runtime. `kokoro` added to requirements.txt. Cloud readiness gate open.

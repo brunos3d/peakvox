@@ -11,18 +11,17 @@
 
 ## Decision 1 — How to achieve first non-OmniVoice provider validation
 
-- **Status:** OPEN (highest priority; gates Cloud work).
-- **Context:** The Universal Voice Runtime thesis is architecture-validated but
-  provider-validated only for OmniVoice. Fish Audio real inference is blocked (codec/VRAM).
-- **Options:**
-  1. Wait for a hosted/SaaS Fish Audio API and validate over HTTP.
-  2. Upgrade hardware (24GB+ VRAM) to run Fish s2-pro locally.
-  3. Validate a different provider that fits 8GB (e.g. Kokoro preset voices).
-- **Impact:** Determines whether the thesis survives real provider diversity, and unblocks the
-  Cloud roadmap. Kokoro additionally stress-tests ADR-0008/0011 (preset voice ≠ reference-audio
-  build).
+- **Status:** ✅ **RESOLVED** (2026-06-05).
+- **Decision:** Option 3 — **Kokoro validated as the first non-OmniVoice provider.**
+  The `kokoro` pip package was installed (82M, Apache-2.0, CPU-capable), and real audio
+  was generated end-to-end through the PeakVox Runtime. All 347 backend tests pass.
+- **Context:** The Universal Voice Runtime thesis was architecture-validated but
+  provider-validated only for OmniVoice. Fish Audio real inference was blocked (codec/VRAM).
+- **Result:** The Cloud readiness gate is now open. The multi-provider thesis is no longer
+  architecture-only — Kokoro proves the runtime works with a real non-OmniVoice provider.
 - **Related ADRs:** ADR-0008, ADR-0010, ADR-0011; reserved ADR-0012 (provisioning policies),
   ADR-0013 (model categories).
+- **See:** `VALIDATION/PROVIDER_VALIDATIONS/kokoro-validation-report.md`
 
 ## Decision 2 — Variant provisioning policies per Creation Source (reserved ADR-0012)
 

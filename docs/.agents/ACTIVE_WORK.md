@@ -7,16 +7,20 @@
 
 **As of:** 2026-06-05 · **Branch:** `feat/peakvox-phase-1`
 
-## Not in flight
-
-The previous in-flight work (Fish adapter expansion, variant schema, migrations, tests) has
-been committed. 4 commits landed; 262/262 backend tests passing.
-
 ## In flight
 
-1. **Provider validation.** Get at least one non-OmniVoice provider generating real audio
-   end-to-end through the Runtime. Fish Audio is wired at the adapter level but blocked on
-   inference hardware (codec/VRAM).
+1. **Validation reports and state cleanup.** Kokoro provider validation complete (G5 passed).
+   Updating state files and committing.
+
+## Not in flight (recently completed)
+
+- ~~**Provider validation (Kokoro).**~~ ✅ **G5 passed** — real audio generated E2E through Runtime.
+  347/347 backend tests green. See `VALIDATION/PROVIDER_VALIDATIONS/kokoro-validation-report.md`.
+- **Kokoro Preset Voice Adapter (Phase 1 + 2).** ✅ Complete. 54 presets, catalog-only registry,
+  metadata-only build_variant, Preset Voices tab.
+- **Fish Audio adapter integration.** Wired at the adapter level; blocked on inference hardware.
+- **Voice Library 2.0 frontend.** ✅ All components implemented (tabs, source asset, artifacts,
+  variant dashboard, preset tab).
 
 ## Not in flight (explicitly paused)
 

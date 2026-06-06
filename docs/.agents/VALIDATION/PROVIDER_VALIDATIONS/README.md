@@ -16,7 +16,7 @@ integration (adapter + contract tests) is necessary but **not sufficient**.
 | OmniVoice Base | Validated | Partial | Real engine; no automated E2E audio test (no GPU/weights in CI) |
 | OmniVoice Singing | Validated | Not validated | Shares engine; catalog `status="disabled"` |
 | Fish Audio S2 Pro | Validated (adapter, HTTP client, mocks) | **Blocked** | v1.4/v1.5 codec checkpoint structurally incomplete for 8GB GPU; full `codec.pth` (s2-pro) needs 24GB+ VRAM; license non-commercial (CE-only) |
-| Kokoro | Research only | Not started | Preset voice packs, no cloning — stresses ADR-0008/0011 |
+| Kokoro | Validated | **Validated** | Real audio E2E through Runtime. First non-OmniVoice provider to pass G5. See [`kokoro-validation-report.md`](kokoro-validation-report.md) |
 
 ## Fish blocker — summary
 

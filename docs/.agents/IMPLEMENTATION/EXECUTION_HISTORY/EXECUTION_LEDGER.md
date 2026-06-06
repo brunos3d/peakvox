@@ -108,3 +108,23 @@
   - `POST /voices/from-preset` (not `/from-preset/use`) — client orchestrates create→generate
 - **Validation:** 347/347 backend tests pass (8 new + 339 baseline). Frontend: 0 new TS errors (only pre-existing `VariantDashboard.tsx` error). Full suite: `pytest tests/ --ignore=tests/test_voices.py` all green.
 - **Result:** Phase 2 implemented and validated. All commits on `feat/peakvox-phase-1`. State files updated.
+
+### 2026-06-05 · Kokoro Provider Validation (G5 passed)
+- **Task:** Validate Kokoro as the first non-OmniVoice provider — install kokoro, generate real audio E2E through Runtime, record results.
+- **Spec/Plan:** P0 from `NEXT_TASK.md`; `OPEN_DECISIONS.md` Decision 1 Option 3.
+- **ADRs:** 0008 (build lifecycle), 0010 (variant provisioning), 0011 (onboarding), 0012/0013 (reserved).
+- **Files:**
+  - `backend/requirements.txt` — added `kokoro`
+  - `docs/.agents/VALIDATION/PROVIDER_VALIDATIONS/kokoro-validation-report.md` — NEW; 8-gate assessment
+  - `docs/.agents/VALIDATION/PROVIDER_VALIDATIONS/provider-validation.md` — updated Kokoro scorecard (G5 ✅), section 4, Go/no-go, status
+  - `docs/.agents/VALIDATION/PROVIDER_VALIDATIONS/README.md` — Kokoro → Validated
+  - `docs/.agents/ACTIVE_WORK.md` — Kokoro validation moved from "In flight" to "Completed"
+  - `docs/.agents/NEXT_TASK.md` — rewritten: gate is open
+  - `docs/.agents/OPEN_DECISIONS.md` — Decision 1 → RESOLVED
+  - `docs/.agents/PROJECT_STATE.md` — priorities, risks, readiness gate updated
+  - `docs/.agents/HANDOFF.md` — risks, next task, handoff log updated
+  - `docs/.agents/IMPLEMENTATION_STATUS.md` — Kokoro row updated
+  - `docs/.agents/IMPLEMENTATION/EXECUTION_HISTORY/EXECUTION_LEDGER.md` — this entry
+- **Validation:** 347/347 backend tests pass (with real kokoro installed). Real audio generated: 4.05s WAV (24kHz, 194KB) via `af_heart`.
+- **State change:** OPEN_DECISIONS Decision 1 → RESOLVED. Cloud readiness gate → OPEN.
+- **Branch:** `feat/peakvox-phase-1`. All changes committed.

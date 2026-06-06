@@ -6,6 +6,7 @@
 **Last update:** 2026-06-05
 **Branch:** `feat/peakvox-phase-1`
 **Edition target:** Community Edition (CE). Cloud is schema-ready, not implemented.
+**Cloud readiness gate:** ✅ OPEN — Kokoro validated as first non-OmniVoice provider (G5 passed).
 
 ---
 
@@ -13,19 +14,18 @@
 
 PeakVox Phase 1 (Platform Foundations) through Phase 3.11 are built. The CE spine
 (Phases 1–3 plus sub-phases 3.5–3.11) is implemented and covered by automated tests.
-Active work is post-Phase-3 CE hardening: Kokoro Preset Voice Adapter (Phase 1 complete),
-Voice Library 2.0 UI, variant backfill UX, and Fish Audio provider wiring. Cloud phases
-(4–10) are not started.
+Active work: validation report cleanup and state file updates. Phase 1+2 of Kokoro Preset Voice
+Adapter is complete. Cloud phases (4–10) are now eligible for planning (readiness gate open).
 
 See [`ROADMAP/CURRENT_PHASE.md`](ROADMAP/CURRENT_PHASE.md) and
 [`ROADMAP/ROADMAP.md`](ROADMAP/ROADMAP.md).
 
 ## Current priorities
 
-1. Close the provider-validation gap: get at least one non-OmniVoice provider generating real
-   audio end-to-end through the Runtime (see [`OPEN_DECISIONS.md`](OPEN_DECISIONS.md)).
-2. Hold the readiness gate: do not begin Cloud (auth/billing/marketplace) work until a real
-   foreign provider is validated.
+1. ✅ **Provider-validation gap closed.** Kokoro generates real audio E2E through the Runtime.
+   Cloud readiness gate is open.
+2. **Determine next workstream:** Cloud architecture planning (ADR work for auth/billing/
+   marketplace) or CE hardening (performance measurement, error recovery tests, Fish server).
 
 ## Implemented components (architecture-validated; see IMPLEMENTATION_STATUS for evidence)
 
@@ -75,16 +75,15 @@ See [`ROADMAP/CURRENT_PHASE.md`](ROADMAP/CURRENT_PHASE.md) and
 
 ## Current risks
 
-- **Single-real-provider runtime.** The multi-provider thesis is proven as architecture, not
-  as production reality. Kokoro has de-risked the preset-voice, non-cloning provider pattern
-  (ProviderVoice, 54 presets, `build_variant`→NotImplementedError) — but still no real audio
-  E2E for any non-OmniVoice provider.
-- **Kokoro real inference deferred.** Architecture-validated; real inference requires `kokoro`
-  pip package (not in local venv).
-- **Fish Audio real inference still deferred.** The Fish adapter is now wired as HTTP client
+- ✅ **Kokoro provider validation done.** Real audio generated E2E through the Runtime. The
+  multi-provider thesis is no longer architecture-only — Kokoro proves real inference works.
+- **Fish Audio real inference still deferred.** The Fish adapter is wired as HTTP client
   and unit-tested, but the S2 Pro server (codec.pth / 24GB+ VRAM) remains blocked.
-- **Premature Cloud investment.** Beginning SaaS/billing work before provider validation would
-  build the ecosystem on an unproven runtime.
+- **Cloud readiness gate is open.** Provider validation (Kokoro G5) unblocks Cloud architecture
+  planning. However, Cloud implementation should be deliberate — premature investment in
+  auth/billing/marketplace before product-market fit is still a risk.
+- **Kokoro performance not measured.** G7 (RTF, VRAM, load time) and G8 (error recovery)
+  not systematically tested. Low priority for now.
 
 ## Current blockers
 
