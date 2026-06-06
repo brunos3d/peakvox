@@ -93,14 +93,14 @@
 
 ### Phase G: VOICE_DOMAIN_MODEL.md
 
-- [ ] `docs/.agents/ARCHITECTURE/VOICE_DOMAIN_MODEL.md` exists
-- [ ] Entity hierarchy diagram included
-- [ ] Entity definitions with ADR references
-- [ ] Creation paths for each creation_source
-- [ ] Model contract summary
-- [ ] Common mistakes case studies (six bug classes)
-- [ ] Decision flowcharts: compatibility, preview, rendering
-- [ ] Referenced in AGENTS.md as mandatory reading
+- [x] `docs/.agents/ARCHITECTURE/VOICE_DOMAIN_MODEL.md` exists
+- [x] Entity hierarchy diagram included (Mermaid)
+- [x] Entity definitions with ADR references (all 12 ADRs cross-referenced)
+- [x] Creation paths for each creation_source (6 types with provisioning strategies)
+- [x] Model contract summary (VariantBuildStrategy, ModelVoiceFeatures, SettingsSchema)
+- [x] Common mistakes case studies (six bug classes documented)
+- [x] Decision flowcharts: compatibility, preview, TTS, library (Mermaid diagrams)
+- [x] Referenced in AGENTS.md as mandatory reading (README.md updated)
 
 ### Phase H: VoiceResource Catalog (P3 — Future)
 

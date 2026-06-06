@@ -107,8 +107,9 @@ Code                      → backend/, frontend/
 ```
 
 Before opening code, also read [`AGENT_WORKFLOW.md`](AGENT_WORKFLOW.md) (the rules every
-agent follows) and [`CONSTITUTION.md`](CONSTITUTION.md) (the invariants you must never
-violate).
+agent follows), [`ARCHITECTURE/VOICE_DOMAIN_MODEL.md`](ARCHITECTURE/VOICE_DOMAIN_MODEL.md)
+(the canonical voice domain document), and [`CONSTITUTION.md`](CONSTITUTION.md) (the
+invariants you must never violate).
 
 ## Directory map
 
