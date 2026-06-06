@@ -19,7 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.db import Voice, VoiceVariant
-from app.services.model_adapter import ModelAdapter
+from app.services.model_adapter import ModelAdapter, VariantBuildStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +48,17 @@ class OmniVoiceFamilyAdapter(ModelAdapter):
         from app.services.omnivoice_service import omnivoice_service
 
         return bool(omnivoice_service.is_loaded)
+
+    @staticmethod
+    def get_build_strategies() -> list[VariantBuildStrategy]:
+        return [
+            VariantBuildStrategy(
+                creation_source="SOURCE_ASSET",
+                can_build=True,
+                requires=["source_asset"],
+                description="OmniVoice clones a voice from reference audio.",
+            ),
+        ]
 
     async def generate(
         self,

@@ -88,6 +88,7 @@ class VoiceProfileResponse(BaseModel):
     status: VoiceStatus = "ready"
     usage_count: int = 0
     creation_source: str = "SOURCE_ASSET"
+    compatible_models: list[str] = []
     source_asset: Optional[VoiceSourceAssetResponse] = None
     created_at: datetime
     updated_at: Optional[datetime] = None

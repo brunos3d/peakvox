@@ -5,7 +5,7 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-from app.services.model_adapter import ModelAdapter
+from app.services.model_adapter import ModelAdapter, VariantBuildStrategy
 from app.services.provider_voice import (
     ProviderVoice,
     ProviderVoiceCatalog,
@@ -156,6 +156,17 @@ class KokoroAdapter(ModelAdapter, ProviderVoiceCatalog):
     @property
     def supported_realization_types(self) -> list[str]:
         return ["voice_pack"]
+
+    @staticmethod
+    def get_build_strategies() -> list[VariantBuildStrategy]:
+        return [
+            VariantBuildStrategy(
+                creation_source="PRESET_VOICE",
+                can_build=True,
+                requires=["preset_name", "provider"],
+                description="Kokoro presets are realized by selecting the preset voice pack.",
+            ),
+        ]
 
     # --- Lifecycle --------------------------------------------------------------
 

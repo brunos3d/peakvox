@@ -35,12 +35,28 @@ from app.services.audio_preprocessing_service import (
     write_metadata_json,
     MAX_REFERENCE_DURATION,
 )
+from app.services.compatibility_resolver import CompatibilityResolver
 from app.services.omnivoice_service import omnivoice_service
+from app.services.runtime import runtime
 from app.services.storage import storage
 from app.utils.streaming import stream_object
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+async def _enrich_compatibility(
+    db: AsyncSession,
+    responses: list[VoiceProfileResponse],
+) -> None:
+    """Set ``compatible_models`` on each response in-place using the resolver."""
+    resolver = CompatibilityResolver(runtime)
+    for resp in responses:
+        resp.compatible_models = await resolver.get_compatible_models(
+            db,
+            voice_id=resp.id,
+            creation_source=resp.creation_source,
+        )
 
 
 async def resolve_voice_audio_key(profile_id: str) -> Optional[str]:
@@ -164,6 +180,7 @@ async def list_voices(db: AsyncSession = Depends(get_db)):
         if sa:
             resp.source_asset = VoiceSourceAssetResponse.model_validate(sa)
         responses.append(resp)
+    await _enrich_compatibility(db, responses)
     return responses
 
 
@@ -203,6 +220,7 @@ async def list_voices_page_endpoint(
         if sa:
             resp.source_asset = VoiceSourceAssetResponse.model_validate(sa)
         responses.append(resp)
+    await _enrich_compatibility(db, responses)
     return VoiceListPage(
         items=responses,
         next_cursor=next_cursor,
@@ -221,6 +239,7 @@ async def get_voice(profile_id: str, db: AsyncSession = Depends(get_db)):
     resp = VoiceProfileResponse.model_validate(profile)
     if source_asset:
         resp.source_asset = VoiceSourceAssetResponse.model_validate(source_asset)
+    await _enrich_compatibility(db, [resp])
     return resp
 
 

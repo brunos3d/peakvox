@@ -1,0 +1,93 @@
+"""CompatibilityResolver — single source of truth for voice-model compatibility.
+
+Determines which models can generate for a given voice, and which voices can be
+used with a given model. Used by API endpoints to expose ``compatible_models``
+as a derived field (no new endpoints, no DB column).
+
+Compatibility rule (ADR-0002 §3.4 / SPEC §3.4):
+  A voice V is compatible with model M IF:
+    (a) a ready ``VoiceVariant`` exists for ``(V, M)``, OR
+    (b) M's adapter declares a ``VariantBuildStrategy`` for
+        ``V.creation_source`` with ``can_build=True``.
+"""
+
+from __future__ import annotations
+
+from typing import Optional
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.db import VoiceVariant
+from app.services.model_adapter import ModelAdapter
+from app.services.runtime import PeakVoxRuntime
+
+
+class CompatibilityResolver:
+    """Stateless resolver — instantiate once per request or use as a singleton."""
+
+    def __init__(self, runtime: PeakVoxRuntime) -> None:
+        self.runtime = runtime
+
+    async def get_compatible_models(
+        self,
+        db: AsyncSession,
+        voice_id: str,
+        creation_source: str,
+        *,
+        _adapters: Optional[list[ModelAdapter]] = None,
+    ) -> list[str]:
+        """Return model IDs compatible with the given voice.
+
+        Args:
+            db: Database session.
+            voice_id: The voice's ``id`` (matches ``VoiceProfile.id``).
+            creation_source: The voice's ``creation_source`` (e.g. ``SOURCE_ASSET``,
+                ``PRESET_VOICE``).
+            _adapters: Override for testing. If omitted, reads from runtime.
+
+        Returns:
+            Sorted list of compatible ``model_id`` strings.
+        """
+        adapters = _adapters if _adapters is not None else self.runtime.list_adapters()
+        if not adapters:
+            return []
+
+        # Single query for all variants of this voice
+        result = await db.execute(
+            select(VoiceVariant).where(VoiceVariant.voice_id == voice_id)
+        )
+        variants: list[VoiceVariant] = list(result.scalars().all())
+        ready_models: set[str] = {v.model_id for v in variants if v.status == "ready"}
+
+        compatible: list[str] = []
+        for adapter in adapters:
+            mid = adapter.model_id
+
+            # Rule (a): ready variant exists
+            if mid in ready_models:
+                compatible.append(mid)
+                continue
+
+            # Rule (b): adapter declares build strategy for this creation_source
+            for strategy in adapter.get_build_strategies():
+                if strategy.creation_source == creation_source and strategy.can_build:
+                    compatible.append(mid)
+                    break
+
+        return compatible
+
+    async def get_compatible_voices(
+        self,
+        db: AsyncSession,
+        model_id: str,
+        *,
+        _adapters: Optional[list[ModelAdapter]] = None,
+    ) -> list[str]:
+        """Return voice IDs compatible with the given model.
+
+        Note: This is a best-effort inverse. For server-side filtering in large
+        voice libraries, prefer a dedicated query path rather than iterating all
+        voices + all adapters per voice.
+        """
+        return []  # Reserved for future use — Phase E may implement this.

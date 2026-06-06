@@ -12,6 +12,7 @@ adapters import heavy runtimes lazily so this module stays import-safe without a
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
@@ -22,6 +23,21 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from app.models.db import Voice, VoiceVariant
+
+
+@dataclass(frozen=True)
+class VariantBuildStrategy:
+    """Declares that an adapter can build variants for voices of a given creation source.
+
+    Used by :class:`CompatibilityResolver` — a voice is compatible with a model when
+    an existing ready variant exists *or* the model's adapter declares a matching
+    build strategy with ``can_build=True`` and all ``requires`` satisfied.
+    """
+
+    creation_source: str
+    can_build: bool = True
+    requires: list[str] = field(default_factory=list)
+    description: str = ""
 
 
 class ModelAdapter(ABC):
@@ -52,6 +68,18 @@ class ModelAdapter(ABC):
         interprets build strategy itself. Defaults to ``reference_sample``; providers with a
         different format (embeddings, checkpoints, LoRAs, …) override."""
         return [DEFAULT_REALIZATION]
+
+    def get_build_strategies(self) -> list[VariantBuildStrategy]:
+        """Declare which creation sources this adapter can build variants for.
+
+        Used by :class:`CompatibilityResolver` to determine voice-model compatibility
+        without checking the database. Each strategy asserts that when a voice has the
+        given ``creation_source``, this adapter can produce a variant for it (assuming
+        the listed prerequisites are met).
+
+        Override on concrete adapters. Default = empty (no build-from-scratch support).
+        """
+        return []
 
     # --- Lifecycle ----------------------------------------------------------------
 

@@ -61,6 +61,7 @@ export interface VoiceProfile {
   is_preset_voice: boolean
   is_favorite: boolean
   creation_source: CreationSource
+  compatible_models: string[]
   source_asset: VoiceSourceAsset | null
   status: VoiceStatus
   usage_count: number
