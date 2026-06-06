@@ -146,6 +146,7 @@ class OmniVoiceService:
                 self._model.to("cuda")
         except StopIteration:
             pass
+        self._move_voice_prompts_to("cuda")
 
     def _offload_to_cpu(self) -> None:
         """Move model to CPU and free the VRAM allocator cache."""
@@ -157,9 +158,28 @@ class OmniVoiceService:
                 self._model.to("cpu")
         except StopIteration:
             pass
+        # Offload cached voice prompts before emptying cache so their
+        # GPU memory is reclaimed by empty_cache.
+        self._move_voice_prompts_to("cpu")
         # Always run empty_cache regardless of where the model was.
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
+
+    def _move_voice_prompts_to(self, device: str) -> None:
+        """Move cached voice prompts to *device* (best-effort).
+
+        Voice prompts are created on the GPU while the model is resident there.
+        Without moving them to CPU before ``torch.cuda.empty_cache()`` they
+        pin VRAM indefinitely, causing a silent memory leak.
+        """
+        for voice_id, prompt in list(self._voice_prompt_cache.items()):
+            try:
+                if hasattr(prompt, "to"):
+                    self._voice_prompt_cache[voice_id] = prompt.to(device)
+            except Exception:
+                logger.warning(
+                    "Failed to move voice prompt '%s' to %s", voice_id, device,
+                )
 
     # ------------------------------------------------------------------
     # Properties
