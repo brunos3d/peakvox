@@ -16,7 +16,7 @@ Identity: ``voice_{provider_id}_{external_id}`` — deterministic, stable across
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional, Protocol, runtime_checkable
+from typing import Any, Optional, Protocol, runtime_checkable
 
 
 # ── Identifier helper ──────────────────────────────────────────────────────
@@ -37,6 +37,10 @@ def build_provider_voice_id(provider_id: str, external_id: str) -> str:
 class ProviderVoice:
     """A model-native preset voice — ephemeral, in-memory, no DB row.
 
+    Implements the ``VoiceResource`` catalog contract for ``resource_type="preset"``.
+    ``resource_origin`` identifies the provider (e.g. ``"kokoro"``, ``"piper"``).
+    ``catalog_source`` carries provenance metadata (adapter version, sync info, etc.).
+
     Frozen (immutable) by design: presets are fixed at compile time.
     No owner_id, no creator_id — presets are model-native, not user-owned.
     """
@@ -50,6 +54,12 @@ class ProviderVoice:
     gender: Optional[str] = None
     tags: tuple[str, ...] = ()
     is_default: bool = False
+    resource_origin: str = ""   # catalog contract field; defaults to provider_id
+    catalog_source: Optional[dict[str, Any]] = None  # provenance metadata
+
+    def __post_init__(self) -> None:
+        if not self.resource_origin:
+            object.__setattr__(self, "resource_origin", self.provider_id)
 
 
 # ── Optional adapter protocol ──────────────────────────────────────────────

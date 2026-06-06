@@ -91,3 +91,23 @@ class CompatibilityResolver:
         voices + all adapters per voice.
         """
         return []  # Reserved for future use — Phase E may implement this.
+
+    def get_models_for_creation_source(
+        self, creation_source: str, *, _adapters: Optional[list[ModelAdapter]] = None
+    ) -> list[str]:
+        """Return model IDs that can build a variant for the given creation source.
+
+        Unlike ``get_compatible_models``, this does NOT check for existing ready
+        variants — it only checks adapter build strategies.  Useful for catalog
+        resources (``VoiceResource``) that don't have a persisted Voice yet.
+        """
+        adapters = _adapters if _adapters is not None else self.runtime.list_adapters()
+        if not adapters:
+            return []
+        compatible: list[str] = []
+        for adapter in adapters:
+            for strategy in adapter.get_build_strategies():
+                if strategy.creation_source == creation_source and strategy.can_build:
+                    compatible.append(adapter.model_id)
+                    break
+        return compatible
