@@ -22,9 +22,9 @@ interface PresetVoicesTabProps {
 }
 
 export function PresetVoicesTab({ onScopeChange }: PresetVoicesTabProps) {
-  const [provider, setProvider] = useState<string>("")
-  const [language, setLanguage] = useState<string>("")
-  const [gender, setGender] = useState<string>("")
+  const [provider, setProvider] = useState<string>("all")
+  const [language, setLanguage] = useState<string>("all")
+  const [gender, setGender] = useState<string>("all")
   const [search, setSearch] = useState<string>("")
   const [debouncedSearch, setDebouncedSearch] = useState<string>("")
   const [addError, setAddError] = useState<string | null>(null)
@@ -81,7 +81,7 @@ export function PresetVoicesTab({ onScopeChange }: PresetVoicesTabProps) {
             <SelectValue placeholder="All Providers" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Providers</SelectItem>
+            <SelectItem value="all">All Providers</SelectItem>
             {providers.map((p) => (
               <SelectItem key={p} value={p}>{p}</SelectItem>
             ))}
@@ -92,7 +92,7 @@ export function PresetVoicesTab({ onScopeChange }: PresetVoicesTabProps) {
             <SelectValue placeholder="All Languages" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Languages</SelectItem>
+            <SelectItem value="all">All Languages</SelectItem>
             {languages.map((l) => (
               <SelectItem key={l} value={l}>{l}</SelectItem>
             ))}
@@ -103,7 +103,7 @@ export function PresetVoicesTab({ onScopeChange }: PresetVoicesTabProps) {
             <SelectValue placeholder="All Genders" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Genders</SelectItem>
+            <SelectItem value="all">All Genders</SelectItem>
             {genders.map((g) => (
               <SelectItem key={g} value={g}>{g}</SelectItem>
             ))}

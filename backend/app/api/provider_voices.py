@@ -29,11 +29,15 @@ async def list_provider_voices(
     gender: Optional[str] = None,
     search: Optional[str] = None,
 ):
+    # "all" is the frontend sentinel for "show all" — treat as None
+    provider_id = provider if provider and provider != "all" else None
+    lang = language if language and language != "all" else None
+    gen = gender if gender and gender != "all" else None
     voices = runtime._provider_voice_registry.search(
         query=search or "",
-        provider_id=provider,
-        language=language,
-        gender=gender,
+        provider_id=provider_id,
+        language=lang,
+        gender=gen,
     )
     return [_to_response(v) for v in voices]
 
