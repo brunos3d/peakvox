@@ -98,6 +98,49 @@ class ModelLicense(BaseModel):
     url: Optional[str] = None
 
 
+class ModelVoiceFeatures(BaseModel):
+    """Derived view of what voice types a model can work with.
+
+    Computed server-side from the adapter's declared ``VariantBuildStrategy``
+    objects and the model's ``ModelCapabilities``. Frontend renders this instead
+    of hardcoding per-model assumptions.
+    """
+
+    voice_types: list[str] = []
+
+
+def derive_voice_features(
+    capabilities: ModelCapabilities,
+    build_strategies: list[tuple[str, bool]],  # (creation_source, can_build)
+) -> ModelVoiceFeatures:
+    """Derive ModelVoiceFeatures from capabilities + build strategies.
+
+    Derivation rules (DESIGN.md D6):
+
+        | voice_types entry | Condition |
+        |-------------------|-----------|
+        | ``"cloned"``      | SOURCE_ASSET → can_build=True |
+        | ``"preset"``      | PRESET_VOICE → can_build=True |
+        | ``"trained"``     | supports_custom_training == True |
+        | ``"converted"``   | supports_voice_conversion == True |
+    """
+    types: list[str] = []
+
+    for source, can_build in build_strategies:
+        if can_build:
+            if source == "SOURCE_ASSET" and "cloned" not in types:
+                types.append("cloned")
+            elif source == "PRESET_VOICE" and "preset" not in types:
+                types.append("preset")
+
+    if capabilities.supports_custom_training and "trained" not in types:
+        types.append("trained")
+    if capabilities.supports_voice_conversion and "converted" not in types:
+        types.append("converted")
+
+    return ModelVoiceFeatures(voice_types=types)
+
+
 class ModelDescriptor(BaseModel):
     """Everything the platform needs to know about a model, independent of how it loads.
 

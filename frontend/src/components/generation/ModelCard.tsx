@@ -25,6 +25,13 @@ function CapabilityChip({ label, supported }: { label: string; supported: boolea
   );
 }
 
+const VOICE_TYPE_LABELS: Record<string, string> = {
+  cloned: "Cloned",
+  preset: "Preset",
+  trained: "Trained",
+  converted: "Converted",
+}
+
 const statusClasses: Record<Model["status"], string> = {
   available: "bg-success/15 text-success",
   loaded: "bg-primary/15 text-primary",
@@ -77,6 +84,18 @@ export function ModelCard({ model, selected, onSelect }: ModelCardProps) {
             <CapabilityChip label="Design" supported={caps.supports_voice_design ?? false} />
             <CapabilityChip label="Singing" supported={caps.supports_singing} />
           </div>
+          {model.voice_features && model.voice_features.voice_types.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {model.voice_features.voice_types.map((vt) => (
+                <span
+                  key={vt}
+                  className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
+                >
+                  {VOICE_TYPE_LABELS[vt] ?? vt}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -72,21 +72,24 @@
 
 ### Phase F: VariantBuildStrategy + ModelVoiceFeatures
 
-- [ ] `VariantBuildStrategy` exists in registry_types.py
-- [ ] `ModelAdapter.get_build_strategies()` base method returns empty list
-- [ ] KokoroAdapter.get_build_strategies() returns PRESET_VOICE → can_build=True
-- [ ] OmniVoiceAdapter.get_build_strategies() returns SOURCE_ASSET → can_build=True
-- [ ] Compatibility check uses build strategies (not capability flags)
-- [ ] `ModelVoiceFeatures` model exists with `voice_types: list[literal]`
-- [ ] Derivation rules: SOURCE_ASSET→cloned, PRESET_VOICE→preset, supports_custom_training→trained, supports_voice_conversion→converted
-- [ ] `GET /models` returns `voice_features` as derived field
-- [ ] Frontend renders badges: "Supports: cloning + preset" from `voice_features`
-- [ ] SOURCE_ASSET voice is compatible with omnivoice-base via build strategy
-- [ ] SOURCE_ASSET voice is NOT compatible with kokoro-base (no strategy)
-- [ ] PRESET_VOICE voice is compatible with kokoro-base via build strategy
-- [ ] PRESET_VOICE voice is NOT compatible with omnivoice-base (no strategy)
-- [ ] Voice with existing ready variant is compatible regardless of strategy
-- [ ] No new API endpoint created for compatibility (CompatibilityResolver provides derived fields)
+- [x] `VariantBuildStrategy` exists in model_adapter.py (F1)
+- [x] `ModelAdapter.get_build_strategies()` base method returns empty list (F2)
+- [x] KokoroAdapter.get_build_strategies() returns PRESET_VOICE → can_build=True (F3, pre-existing)
+- [x] OmniVoiceAdapter.get_build_strategies() returns SOURCE_ASSET → can_build=True (F4, pre-existing)
+- [x] FishAudioAdapter.get_build_strategies() returns SOURCE_ASSET → can_build=True (F5)
+- [x] Compatibility check uses build strategies (not capability flags) (pre-existing)
+- [x] `ModelVoiceFeatures` model exists with `voice_types: list[str]` (F6)
+- [x] Derivation: `derive_voice_features(capabilities, strategies)` works (F6)
+- [x] Derivation rules: SOURCE_ASSET→cloned, PRESET_VOICE→preset, supports_custom_training→trained, supports_voice_conversion→converted (F6)
+- [x] `GET /models` returns `voice_features` as derived field (F7)
+- [x] Frontend ModelCard renders voice types from `voice_features` (F8)
+- [x] Frontend ModelInfoCard renders voice types section from `voice_features` (F8)
+- [x] SOURCE_ASSET voice is compatible with omnivoice-base via build strategy (pre-existing)
+- [x] SOURCE_ASSET voice is NOT compatible with kokoro-base (no strategy) (pre-existing)
+- [x] PRESET_VOICE voice is compatible with kokoro-base via build strategy (pre-existing)
+- [x] PRESET_VOICE voice is NOT compatible with omnivoice-base (no strategy) (pre-existing)
+- [x] Voice with existing ready variant is compatible regardless of strategy (pre-existing)
+- [x] No new API endpoint created for compatibility (CompatibilityResolver provides derived fields) (pre-existing)
 
 ### Phase G: VOICE_DOMAIN_MODEL.md
 

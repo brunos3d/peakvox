@@ -74,6 +74,24 @@ export function ModelInfoCard() {
         <CapabilityRow icon={Globe} label="Public API" supported={caps.supports_api} />
       </div>
 
+      {activeModel.voice_features && activeModel.voice_features.voice_types.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            Voice types
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {activeModel.voice_features.voice_types.map((vt) => (
+              <span
+                key={vt}
+                className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary capitalize"
+              >
+                {vt}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {tags.length > 0 && (
         <div className="space-y-1.5">
           <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">

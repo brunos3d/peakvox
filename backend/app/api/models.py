@@ -31,6 +31,21 @@ def _descriptor_payload(descriptor) -> dict:
     # model_dump() already serialises requirements/license/provider_metadata (nested models to dicts).
     data = descriptor.model_dump()
     data.update(model_registry.status(descriptor.id))
+
+    # Derive voice_features from adapter build strategies + capabilities
+    from app.models.registry_types import derive_voice_features
+    from app.services.runtime import runtime
+
+    try:
+        adapter = runtime.get_adapter(descriptor.id)
+        build_strategies = [
+            (s.creation_source, s.can_build) for s in adapter.get_build_strategies()
+        ]
+        features = derive_voice_features(descriptor.capabilities, build_strategies)
+        data["voice_features"] = features.model_dump()
+    except Exception:
+        data["voice_features"] = {"voice_types": []}
+
     return data
 
 

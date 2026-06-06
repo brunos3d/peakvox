@@ -221,6 +221,10 @@ export interface ModelLicense {
   url: string | null
 }
 
+export interface ModelVoiceFeatures {
+  voice_types: string[]
+}
+
 export interface Model {
   id: string
   name: string
@@ -237,6 +241,7 @@ export interface Model {
   license?: ModelLicense | null
   settings_schema?: SettingsSchema | null
   provider_metadata?: Record<string, string | string[]>
+  voice_features?: ModelVoiceFeatures
   status: "available" | "loading" | "loaded" | "error" | "disabled" | "inactive" | "deprecated"
   is_default: boolean
   is_builtin: boolean

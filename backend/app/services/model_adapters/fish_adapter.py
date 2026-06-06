@@ -28,7 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.db import Voice, VoiceVariant
-from app.services.model_adapter import ModelAdapter
+from app.services.model_adapter import ModelAdapter, VariantBuildStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +48,17 @@ class FishAudioAdapter(ModelAdapter):
     @property
     def supported_realization_types(self) -> list[str]:
         return ["reference_sample"]
+
+    @staticmethod
+    def get_build_strategies() -> list[VariantBuildStrategy]:
+        return [
+            VariantBuildStrategy(
+                creation_source="SOURCE_ASSET",
+                can_build=True,
+                requires=["source_asset"],
+                description="Fish Audio clones a voice from reference audio.",
+            ),
+        ]
 
     @property
     def _server_url(self) -> str:
