@@ -24,7 +24,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LanguageCombobox } from "@/components/common/LanguageCombobox"
 import { useVoicesPage, useToggleFavorite } from "@/hooks/use-generation"
 import { useAppStore, useActiveVoice } from "@/store/use-store"
-import { useActiveModel } from "@/hooks/use-models"
+import { useActiveModel, useRecommendedModelId } from "@/hooks/use-models"
 import { deleteVoice } from "@/lib/api"
 import type { VoiceProfile, VoiceScope, VoiceQueryFilters, CreationSource, SortField } from "@/types"
 
@@ -84,6 +84,8 @@ export default function VoiceLibraryPage() {
   )
 
   const { activeModel } = useActiveModel()
+  const recommendedModelId = useRecommendedModelId(activeVoice)
+  const selectedModelId = useAppStore((s) => s.selectedModelId)
   const filteredVoices = useMemo(
     () => {
       let result = voices
@@ -147,6 +149,8 @@ export default function VoiceLibraryPage() {
   const contextPanel = (
     <SelectedVoicePanel
       voice={activeVoice}
+      primaryModelId={selectedModelId}
+      recommendedModelId={recommendedModelId}
       onUseInTts={(voice) => {
         setSelectedProfile(voice)
       }}
