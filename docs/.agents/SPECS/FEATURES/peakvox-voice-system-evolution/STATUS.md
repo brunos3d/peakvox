@@ -1,10 +1,16 @@
 # STATUS — PeakVox Voice System Evolution
 
-**Status:** PARTIAL — Phases A, B, C, D, E, F, G, H, J, K, L implemented
+**Status:** PAUSED — BLOCKED BY FRONTEND ALIGNMENT
 
 **Last updated:** 2026-06-07
 
-**Context:** Fourth architecture refinement pass complete. Product UX scalability, canonical voice experience, and recently-used tracking added.
+**Context:** Backend architecture substantially complete. Frontend behavior not aligned with architecture. Further implementation paused pending frontend alignment effort.
+
+**Freeze reason:** Real-world product validation revealed that the frontend implementation does not behave according to the Voice-First architecture defined by ADR-0004, ADR-0011, ADR-0012, and the refined v4 specification. Multiple tasks were marked completed while expected user-facing behavior was never achieved. See `docs/.agents/VALIDATION/audits/frontend-architecture-compliance-report.md` for full audit.
+
+**Preserved:** All architecture documents, ADRs, backend implementation, completed phases, and implementation history are preserved. No content deleted. No ADRs rewritten. No backend work invalidated.
+
+**Resumption:** When the frontend alignment feature (`peakvox-voice-first-frontend-alignment`) is complete and validated, this feature may resume to complete any remaining backend phases (I, M).
 
 ### Changes from v3 (Refined v3 → Refined v4)
 
