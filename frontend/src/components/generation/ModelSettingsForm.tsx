@@ -2,7 +2,8 @@
 
 import { useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { RotateCcw } from "lucide-react";
+import { EmptyState } from "@/components/common/EmptyState";
+import { RotateCcw, SlidersHorizontal } from "lucide-react";
 import { DynamicSettingsForm } from "@/components/DynamicSettingsForm";
 import { useAppStore } from "@/store/use-store";
 import { useActiveModel } from "@/hooks/use-models";
@@ -42,9 +43,16 @@ export function ModelSettingsForm() {
 
   if (!schema) {
     return (
-      <p className="text-xs text-muted-foreground py-2">
-        No configurable settings for this model.
-      </p>
+      <EmptyState
+        icon={SlidersHorizontal}
+        title="No configurable settings"
+        description={
+          activeModel
+            ? `${activeModel.name} uses built-in defaults — no knobs to turn.`
+            : "This model uses built-in defaults — no knobs to turn."
+        }
+        className="py-4"
+      />
     )
   }
 
