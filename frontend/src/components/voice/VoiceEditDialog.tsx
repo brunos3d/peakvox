@@ -23,6 +23,17 @@ interface VoiceEditDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
+const SOURCE_AUDIO_CREATIONS = new Set(["SOURCE_ASSET", "TRAINED_VOICE"])
+const REFERENCE_AUDIO_CREATIONS = new Set(["SOURCE_ASSET", "TRAINED_VOICE", "MARKETPLACE_VOICE", "IMPORTED_VOICE"])
+
+function hasSourceAudio(voice: VoiceProfile): boolean {
+  return SOURCE_AUDIO_CREATIONS.has(voice.creation_source)
+}
+
+function hasReferenceAudio(voice: VoiceProfile): boolean {
+  return REFERENCE_AUDIO_CREATIONS.has(voice.creation_source)
+}
+
 export function VoiceEditDialog({ voice, open, onOpenChange }: VoiceEditDialogProps) {
   const queryClient = useQueryClient()
   const selectedProfile = useAppStore((s) => s.selectedProfile)
@@ -30,20 +41,16 @@ export function VoiceEditDialog({ voice, open, onOpenChange }: VoiceEditDialogPr
 
   const [name, setName] = useState("")
   const [transcript, setTranscript] = useState("")
-  // OmniVoice language id, or null for "Auto".
   const [languageId, setLanguageId] = useState<string | null>(null)
   const [settings, setSettings] = useState<VoiceGenerationDefaults>(SYSTEM_DEFAULTS)
   const [audio, setAudio] = useState<AudioInputResult | null>(null)
 
-  // Re-seed the form whenever a different voice is opened — adjusting state
-  // during render (React-recommended) rather than from an effect.
   const [prevVoice, setPrevVoice] = useState<VoiceProfile | null>(voice)
   if (voice !== prevVoice) {
     setPrevVoice(voice)
     if (voice) {
       setName(voice.name)
       setTranscript(voice.transcript || "")
-      // Prefer the stored OmniVoice id; fall back to resolving a legacy display name.
       const resolved =
         getLanguageById(voice.language_code) ?? getLanguageByName(voice.language)
       setLanguageId(resolved?.id ?? null)
@@ -61,6 +68,8 @@ export function VoiceEditDialog({ voice, open, onOpenChange }: VoiceEditDialogPr
     },
   })
 
+  const canReplaceAudio = voice ? hasSourceAudio(voice) : true
+  const canEditTranscript = voice ? hasReferenceAudio(voice) : true
   const isValid = !!name && (audio === null || audio.isValid)
 
   const handleSave = () => {
@@ -68,11 +77,11 @@ export function VoiceEditDialog({ voice, open, onOpenChange }: VoiceEditDialogPr
     const lang = getLanguageById(languageId)
     const fd = new FormData()
     fd.append("name", name)
-    fd.append("transcript", transcript)
+    fd.append("transcript", canEditTranscript ? transcript : "")
     fd.append("language", lang?.name ?? "")
     fd.append("language_code", lang?.id ?? "")
     fd.append("generation_defaults", JSON.stringify(settings))
-    if (audio) {
+    if (audio && canReplaceAudio) {
       fd.append("file", audio.file)
       fd.append("crop_start", String(audio.cropStart))
       fd.append("crop_end", String(audio.cropEnd))
@@ -85,17 +94,25 @@ export function VoiceEditDialog({ voice, open, onOpenChange }: VoiceEditDialogPr
       <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit voice</DialogTitle>
-          <DialogDescription>Update details, defaults, or replace the audio sample.</DialogDescription>
+          <DialogDescription>
+            {canReplaceAudio
+              ? "Update details, defaults, or replace the audio sample."
+              : "Update name, language, or generation defaults."}
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Name</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Voice name" />
           </div>
-          <div className="space-y-2">
-            <Label>Reference transcript <span className="font-normal text-muted-foreground">(optional)</span></Label>
-            <Textarea value={transcript} onChange={(e) => setTranscript(e.target.value)} rows={2} placeholder="Transcript of the reference audio — improves cloning accuracy." />
-          </div>
+
+          {canEditTranscript && (
+            <div className="space-y-2">
+              <Label>Reference transcript <span className="font-normal text-muted-foreground">(optional)</span></Label>
+              <Textarea value={transcript} onChange={(e) => setTranscript(e.target.value)} rows={2} placeholder="Transcript of the reference audio — improves cloning accuracy." />
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label>Language</Label>
             <LanguageCombobox value={languageId} onChange={(l) => setLanguageId(l?.id ?? null)} />
@@ -119,10 +136,12 @@ export function VoiceEditDialog({ voice, open, onOpenChange }: VoiceEditDialogPr
             </AccordionItem>
           </Accordion>
 
-          <div className="space-y-2">
-            <Label>Replace audio <span className="font-normal text-muted-foreground">(optional)</span></Label>
-            <VoiceProfileAudioInput onChange={setAudio} />
-          </div>
+          {canReplaceAudio && (
+            <div className="space-y-2">
+              <Label>Replace audio <span className="font-normal text-muted-foreground">(optional)</span></Label>
+              <VoiceProfileAudioInput onChange={setAudio} />
+            </div>
+          )}
 
           {mutation.isError && (
             <p className="text-xs text-error">{(mutation.error as Error)?.message ?? "Failed to save changes"}</p>

@@ -23,6 +23,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LanguageCombobox } from "@/components/common/LanguageCombobox"
 import { useVoicesPage, useToggleFavorite } from "@/hooks/use-generation"
 import { useAppStore, useActiveVoice } from "@/store/use-store"
+import { useActiveModel } from "@/hooks/use-models"
 import { deleteVoice, getVoiceAudioUrl } from "@/lib/api"
 import { formatDuration } from "@/lib/utils"
 import { isVoiceProfile } from "@/types"
@@ -66,6 +67,8 @@ export default function VoiceLibraryPage() {
   const [filters, setFilters] = useState<VoiceQueryFilters>(EMPTY_FILTERS)
   const [showFilters, setShowFilters] = useState(false)
   const [creationSourceFilter, setCreationSourceFilter] = useState<CreationSource | null>(null)
+  const [providerFilter, setProviderFilter] = useState<string | null>(null)
+  const [compatibleWithModelFilter, setCompatibleWithModelFilter] = useState(false)
   const [sortBy, setSortBy] = useState<SortField>("last_used_at")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
   const [recentlyUsed, setRecentlyUsed] = useState<string | undefined>(undefined)
@@ -81,12 +84,22 @@ export default function VoiceLibraryPage() {
     [query.data],
   )
 
+  const { activeModel } = useActiveModel()
   const filteredVoices = useMemo(
-    () =>
-      creationSourceFilter
-        ? voices.filter((v) => v.creation_source === creationSourceFilter)
-        : voices,
-    [voices, creationSourceFilter],
+    () => {
+      let result = voices
+      if (creationSourceFilter) {
+        result = result.filter((v) => v.creation_source === creationSourceFilter)
+      }
+      if (providerFilter) {
+        result = result.filter((v) => String(v.meta?.provider ?? "") === providerFilter)
+      }
+      if (compatibleWithModelFilter && activeModel) {
+        result = result.filter((v) => v.compatible_models.includes(activeModel.id))
+      }
+      return result
+    },
+    [voices, creationSourceFilter, providerFilter, compatibleWithModelFilter, activeModel],
   )
 
   const creationSourceCounts = useMemo(() => {
@@ -95,6 +108,15 @@ export default function VoiceLibraryPage() {
       counts[v.creation_source] = (counts[v.creation_source] ?? 0) + 1
     }
     return counts
+  }, [voices])
+
+  const providers = useMemo(() => {
+    const set = new Set<string>()
+    for (const v of voices) {
+      const p = v.meta?.provider
+      if (p != null) set.add(String(p))
+    }
+    return [...set].sort()
   }, [voices])
 
   const toggleFavorite = useToggleFavorite()
@@ -269,6 +291,25 @@ export default function VoiceLibraryPage() {
                   active={recentlyUsed === "90d"}
                   onClick={() => setRecentlyUsed(recentlyUsed === "90d" ? undefined : "90d")}
                 />
+                {providers.length > 0 && (
+                  <select
+                    value={providerFilter ?? ""}
+                    onChange={(e) => setProviderFilter(e.target.value || null)}
+                    className="h-8 rounded-lg border border-border bg-surface px-2 text-xs text-muted-foreground"
+                  >
+                    <option value="">All providers</option>
+                    {providers.map((p) => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                )}
+                {activeModel && (
+                  <Chip
+                    label={`Compatible with ${activeModel.name}`}
+                    active={compatibleWithModelFilter}
+                    onClick={() => setCompatibleWithModelFilter(!compatibleWithModelFilter)}
+                  />
+                )}
                 <SortDropdown
                   sortBy={sortBy}
                   sortDir={sortDir}
@@ -289,6 +330,8 @@ export default function VoiceLibraryPage() {
               <FilterChips
                 chips={[
                   ...(creationSourceFilter ? [{ key: "creation_source", label: `Source: ${creationSourceFilter}` }] : []),
+                  ...(providerFilter ? [{ key: "provider", label: `Provider: ${providerFilter}` }] : []),
+                  ...(compatibleWithModelFilter && activeModel ? [{ key: "compatible", label: `Compatible: ${activeModel.name}` }] : []),
                   ...(filters.favorite ? [{ key: "favorite", label: "Favorites" }] : []),
                   ...(recentlyUsed ? [{ key: "recently_used", label: `Used: last ${recentlyUsed}` }] : []),
                   ...(filters.language_code ? [{ key: "language_code", label: `Language: ${filters.language_code}` }] : []),
@@ -298,6 +341,8 @@ export default function VoiceLibraryPage() {
                 ]}
                 onRemove={(key) => {
                   if (key === "creation_source") setCreationSourceFilter(null)
+                  else if (key === "provider") setProviderFilter(null)
+                  else if (key === "compatible") setCompatibleWithModelFilter(false)
                   else if (key === "favorite") setFilter("favorite", false)
                   else if (key === "recently_used") setRecentlyUsed(undefined)
                   else if (key === "language_code") setFilter("language_code", undefined)
@@ -307,6 +352,8 @@ export default function VoiceLibraryPage() {
                 }}
                 onClearAll={() => {
                   setCreationSourceFilter(null)
+                  setProviderFilter(null)
+                  setCompatibleWithModelFilter(false)
                   setFilters(EMPTY_FILTERS)
                   setRecentlyUsed(undefined)
                 }}
@@ -356,13 +403,23 @@ export default function VoiceLibraryPage() {
               {!query.isLoading && filteredVoices.length === 0 ? (
                 <EmptyState
                   icon={Library}
-                  title={creationSourceFilter ? `No ${creationSourceFilter.toLowerCase().replace("_", " ")} voices` : scope === "recent" ? "No recently used voices" : "No matching voices"}
+                  title={
+                    compatibleWithModelFilter && activeModel
+                      ? `No voices compatible with ${activeModel.name}`
+                      : creationSourceFilter
+                        ? `No ${creationSourceFilter.toLowerCase().replace("_", " ")} voices`
+                        : scope === "recent"
+                          ? "No recently used voices"
+                          : "No matching voices"
+                  }
                   description={
-                    creationSourceFilter
-                      ? "Try switching filters or create a new voice."
-                      : scope === "recent"
-                        ? "Voices you generate with will appear here."
-                        : "Try adjusting your search or filters, or create a new voice."
+                    compatibleWithModelFilter && activeModel
+                      ? "Try switching to a different model or clear the compatibility filter."
+                      : creationSourceFilter
+                        ? "Try switching filters or create a new voice."
+                        : scope === "recent"
+                          ? "Voices you generate with will appear here."
+                          : "Try adjusting your search or filters, or create a new voice."
                   }
                   action={
                     <Button asChild className="gap-2"><Link href="/clone"><Plus className="h-4 w-4" /> Create voice</Link></Button>

@@ -61,15 +61,38 @@ export function GenerationPanel() {
 
   useEffect(() => {
     if (!activeVoice || !activeVoice.compatible_models?.length) return;
-    if (!recommendedModelId) return;
+    if (!selectedModelId) return;
 
-    // Don't override if current model is ready or buildable with the voice
-    const cur = selectedModelId ? getModelState(selectedModelId) : null;
+    // If current model is already compatible, no action needed
+    const cur = getModelState(selectedModelId);
     if (cur === "ready" || cur === "buildable") return;
-    if (selectedModelId === recommendedModelId) return;
 
-    setSelectedModelId(recommendedModelId);
-  }, [activeVoice?.id, recommendedModelId, selectedModelId, getModelState]);
+    // Current model is incompatible — find a better match:
+    // ready > buildable > recommended > first compatible
+    const compatModels = allModels?.filter(
+      (m) => activeVoice.compatible_models.includes(m.id),
+    ) ?? [];
+
+    for (const m of compatModels) {
+      const state = getModelState(m.id);
+      if (state === "ready") {
+        setSelectedModelId(m.id);
+        return;
+      }
+    }
+
+    for (const m of compatModels) {
+      const state = getModelState(m.id);
+      if (state === "buildable") {
+        setSelectedModelId(m.id);
+        return;
+      }
+    }
+
+    if (recommendedModelId && recommendedModelId !== selectedModelId) {
+      setSelectedModelId(recommendedModelId);
+    }
+  }, [activeVoice?.id, selectedModelId, getModelState, allModels, recommendedModelId]);
 
   const tagIssues = activeModel
     ? validateTags(text, activeModel.supported_tags)
