@@ -9,13 +9,17 @@ a **first-class architectural component**, not an implementation detail.
 > Voice*. See also [Domain](domain-architecture.md), [ADR-0002](../DECISIONS/adr-0002-model-as-first-class-entity.md),
 > [ADR-0003](../DECISIONS/adr-0003-model-capability-contract.md), [Cloud](cloud-architecture.md).
 >
-> **Status — implemented (Phases 3.5–3.7).** The runtime core exists in code: the
+> **Status — implemented (Phases 3.5–3.7) + Runtime-Service architecture accepted (ADR-0016, 2026-06-07).**
+> The runtime core exists in code: the
 > `ModelAdapter` contract (`backend/app/services/model_adapter.py`), `PeakVoxRuntime`
 > (`backend/app/services/runtime.py`), the capability contract
 > (`backend/app/services/capabilities.py`), and the OmniVoice/OmniVoiceSinging adapters
 > (`backend/app/services/model_adapters/`). The single Voice ID → many variants → one runtime
 > property is validated by `backend/tests/test_multimodel_resolution.py`. Distributed/cloud
-> execution (§9.2) remains future.
+> execution (§9.2) is **formalized** by [ADR-0016 — Models as Runtime Services](../DECISIONS/adr-0016-models-as-runtime-services.md);
+> see also [`../SPECS/FEATURES/models-as-runtime-services/`](../SPECS/FEATURES/models-as-runtime-services/).
+> Existing in-process model execution continues unchanged; the 7-phase migration in ADR-0016
+> replaces it across Phases 2–7.
 
 ---
 

@@ -3,10 +3,14 @@
 > Single source of truth for overall project state. Objective facts only. No emojis, no
 > subjective language. Update this file whenever phase, priorities, risks, or blockers change.
 
-**Last update:** 2026-06-05
+**Last update:** 2026-06-07 (refinement pass: Kokoro validation language normalized; Phase 2 guardrail added to NEXT_TASK / CURRENT_PHASE; OPEN_DECISIONS Decision 10 enriched with implementation direction notes; Runtime Manager responsibilities normalized across ADR-0016 / SPEC / DESIGN)
 **Branch:** `feat/peakvox-phase-1`
 **Edition target:** Community Edition (CE). Cloud is schema-ready, not implemented.
 **Cloud readiness gate:** ✅ OPEN — Kokoro validated as first non-OmniVoice provider (G5 passed).
+**Architecture direction (new):** ADR-0016 (Models as Runtime Services) accepted 2026-06-07.
+The Runtime-Service architecture is the agreed target; migration is sequenced across
+7 phases. Phase 1 (ADR + design) is complete; Phase 2 (Runtime Manager skeleton +
+`DockerRuntimeDriver`) is the next workstream.
 
 ---
 
@@ -14,18 +18,26 @@
 
 PeakVox Phase 1 (Platform Foundations) through Phase 3.11 are built. The CE spine
 (Phases 1–3 plus sub-phases 3.5–3.11) is implemented and covered by automated tests.
-Active work: validation report cleanup and state file updates. Phase 1+2 of Kokoro Preset Voice
-Adapter is complete. Cloud phases (4–10) are now eligible for planning (readiness gate open).
-
-See [`ROADMAP/CURRENT_PHASE.md`](ROADMAP/CURRENT_PHASE.md) and
+Kokoro provider validation is complete (G5 passed — real audio generated E2E through
+the Runtime; see `VALIDATION/PROVIDER_VALIDATIONS/kokoro-validation-report.md`).
+Active focus: the Runtime-Service architecture (ADR-0016, accepted 2026-06-07);
+Phase 1 (ADR + design) is complete, Phase 2 implementation is gated on a Phase 2
+implementation ADR. See [`ROADMAP/CURRENT_PHASE.md`](ROADMAP/CURRENT_PHASE.md) and
 [`ROADMAP/ROADMAP.md`](ROADMAP/ROADMAP.md).
 
 ## Current priorities
 
 1. ✅ **Provider-validation gap closed.** Kokoro generates real audio E2E through the Runtime.
    Cloud readiness gate is open.
-2. **Determine next workstream:** Cloud architecture planning (ADR work for auth/billing/
-   marketplace) or CE hardening (performance measurement, error recovery tests, Fish server).
+2. ✅ **Runtime-Service architecture designed.** ADR-0016 (Models as Runtime Services) is
+   accepted. PeakVox will evolve to a Runtime-Service architecture (Runtime Registry +
+   Runtime Manager + Runtime Driver + Runtime Service). See
+   `docs/.agents/SPECS/FEATURES/models-as-runtime-services/`. 7-phase migration plan; Phase 1
+   (this) is documentation only.
+3. **Next workstream:** begin **Phase 2** of the Runtime-Service migration — implement
+   the Runtime Manager skeleton + `DockerRuntimeDriver` (no model migrated yet). This
+   preempts Cloud work; the Runtime-Service target is the same for CE and Cloud
+   (Article V §14), so investing in Phase 2 unblocks both editions.
 
 ## Implemented components (architecture-validated; see IMPLEMENTATION_STATUS for evidence)
 
@@ -54,6 +66,10 @@ See [`ROADMAP/CURRENT_PHASE.md`](ROADMAP/CURRENT_PHASE.md) and
   mocked.
 - **HF community install:** `snapshot_download` real, mocked in tests; `_KNOWN_PROVIDERS`
   limited to OmniVoice variants (Fish/Kokoro rejected by the installer).
+- **Runtime-Service architecture (ADR-0016):** Phase 1 (ADR + design) **complete**;
+  Phases 2–7 (Runtime Manager, Kokoro/F5/Fish/OmniVoice migrations, in-process path
+  removal) are planned, not started. Existing in-process model execution continues
+  throughout.
 
 ## Planned components (schema/seams only; no implementation)
 
@@ -68,32 +84,41 @@ See [`ROADMAP/CURRENT_PHASE.md`](ROADMAP/CURRENT_PHASE.md) and
 
 - **Architecture validated:** broad. ~237+ backend tests across 57 test files prove the
   contracts, data model, and orchestration. See [`VALIDATION/RETROSPECTIVES/`](VALIDATION/RETROSPECTIVES/).
-- **Provider validated:** narrow. Only OmniVoice has a real engine. Fish Audio is integrated
-  at the contract level; real inference is blocked on hardware/codec issues. Kokoro is
-  architecture-validated (54 presets, mock-kokoro tests); real inference requires `kokoro`
-  pip package. See [`VALIDATION/PROVIDER_VALIDATIONS/`](VALIDATION/PROVIDER_VALIDATIONS/).
+- **Provider validated:** OmniVoice and Kokoro. Real audio generated end-to-end through the
+  PeakVox Runtime for both providers:
+  - **OmniVoice:** real `from_pretrained` + `generate_async`; no automated end-to-end
+    audio test in CI (no GPU/weights in CI lane), but provider-validated manually.
+  - **Kokoro:** G5 passed (2026-06-05). Real audio generated E2E through the Runtime
+    using the `kokoro` pip package (82M params, CPU-capable). See
+    `VALIDATION/PROVIDER_VALIDATIONS/kokoro-validation-report.md`.
+  - **Fish Audio:** integrated at the contract level (HTTP client wired, unit-tested
+    with mocks). Real inference blocked on hardware (24GB+ VRAM required for the full
+    S2 Pro `codec.pth`; see Fish blocker report). Architecture-validated only.
+  - **F5-TTS / XTTS / others:** future providers; will integrate through the
+    Runtime-Service architecture (ADR-0016).
 
 ## Current risks
 
-- ✅ **Kokoro provider validation done.** Real audio generated E2E through the Runtime. The
-  multi-provider thesis is no longer architecture-only — Kokoro proves real inference works.
 - **Fish Audio real inference still deferred.** The Fish adapter is wired as HTTP client
   and unit-tested, but the S2 Pro server (codec.pth / 24GB+ VRAM) remains blocked.
-- **Cloud readiness gate is open.** Provider validation (Kokoro G5) unblocks Cloud architecture
-  planning. However, Cloud implementation should be deliberate — premature investment in
-  auth/billing/marketplace before product-market fit is still a risk.
+- **Cloud readiness gate is open.** Provider validation (Kokoro G5) unblocks Cloud
+  architecture planning, but Cloud implementation should be deliberate — premature
+  investment in auth/billing/marketplace before the Runtime-Service architecture lands
+  would re-couple backend to model execution. Phase 2 of the Runtime-Service migration
+  is the deliberate precursor.
 - **Kokoro performance not measured.** G7 (RTF, VRAM, load time) and G8 (error recovery)
-  not systematically tested. Low priority for now.
+  are not systematically tested. Low priority; not a provider-validation blocker.
 
 ## Current blockers
 
 - **Fish Audio real inference** is deferred. Root cause: v1.4/v1.5 codec checkpoint is
   structurally incomplete for an 8GB GPU; full `codec.pth` (s2-pro) needs 24GB+ VRAM. See
   [`VALIDATION/PROVIDER_VALIDATIONS/`](VALIDATION/PROVIDER_VALIDATIONS/) (Fish blocker report).
-- **Kokoro real inference** is deferred (not blocked). Requires `kokoro` pip package; no GPU or
-  large model download needed — Kokoro is CPU-capable at 82M params.
-- No GPU in CI, so end-to-end audio generation cannot be automated in the test suite.
+- No GPU in CI, so end-to-end audio generation cannot be fully automated in the test suite.
 - `test_voices.py` requires `torch` — excluded from local test suite; only runs in Docker.
+- **Phase 2 implementation ADR not yet written.** Phase 2 of the Runtime-Service migration
+  (Runtime Manager skeleton + `DockerRuntimeDriver`) is gated on a Phase 2 implementation
+  ADR that addresses the five open questions tracked in `OPEN_DECISIONS.md` Decision 10.
 
 ---
 

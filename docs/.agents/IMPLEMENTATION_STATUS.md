@@ -46,6 +46,7 @@ provider validation.
 | 0009 | Artifact Versioning + Retention | IMPLEMENTED | `voice_variant_artifacts` table; `services/voice_variant_artifact_repository.py`; tests `test_artifact_versioning_migration`, `test_artifact_repository` |
 | 0010 | Voice Source Assets + Automatic Variant Provisioning | IMPLEMENTED | `models/db.py::VoiceSourceAsset`, `core/migrations.py::_backfill_voice_source_assets`; backfill creates source-asset rows from variant artifacts. No dedicated provisioning service beyond `ensure_variant`. |
 | 0011 | Voice Creation Sources | IMPLEMENTED | `creation_source` column on `Voice` model (`models/db.py`), migration backfill, generation dual-path uses `voice_id`. Full taxonomy + per-source provisioning policies (ADR-0012) not implemented. |
+| 0016 | Models as Runtime Services | APPROVED | ADR accepted 2026-06-07. **No code in this phase** (architecture only). See `docs/.agents/SPECS/FEATURES/models-as-runtime-services/`. Introduces RuntimeRegistry, RuntimeManager, RuntimeDriver (with `DockerRuntimeDriver` as the first implementation); runtime infrastructure is *not* a domain concept. 7-phase migration: Phase 1 (this) → Phase 2 (Manager skeleton) → Phase 3 (Kokoro) → Phase 4 (F5-TTS reference) → Phase 5 (Fish) → Phase 6 (OmniVoice) → Phase 7 (remove in-process path). |
 
 ## B. Runtime components
 

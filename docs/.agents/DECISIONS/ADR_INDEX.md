@@ -69,6 +69,14 @@ New ADRs follow the naming convention `adr-NNNN-kebab-case.md`. Template:
 
 - **0012** — Catalog resources (ProviderPreset, MarketplaceListing) are transient descriptors; they become Voices only at user import. Introduces `VoiceResource` (transient API type), `VoicePreview` (first-class preview entity), and `VariantBuildStrategy` (explicit compatibility).
 
+## Domain: Runtime Infrastructure
+
+| ADR | Title | Status | Impl. |
+|---|---|---|---|
+| [0016](adr-0016-models-as-runtime-services.md) | Models as Runtime Services | Accepted | APPROVED |
+
+- **0016** — Models evolve from "Python package in the backend process" to "Runtime Service reachable over a stable contract." Introduces Runtime Registry (declarative catalog of `runtime.yaml` descriptors), Runtime Manager (orchestration-only; never executes inference), and Runtime Driver (substrate abstraction with `DockerRuntimeDriver` as the first implementation; Kubernetes, Podman, LocalProcess drivers are future). Adapters become protocol translators. **Critical distinction:** PeakVox installs *runtimes*, not models. One Model → many Runtimes (CUDA / CPU / local / cloud). The Active Artifact resolution step (ADR-0009) is preserved and may not be bypassed. Runtime infrastructure is *not* a domain concept; forbidden future patterns include `RuntimeServiceEntity`, `RuntimeServiceRepository`, `RuntimeVariant`, `RuntimeArtifact`. 7-phase migration: ADR + design (this) → Runtime Manager skeleton (P2) → Kokoro (P3) → F5-TTS reference (P4) → Fish (P5) → OmniVoice (P6) → remove in-process path (P7). See [`../SPECS/FEATURES/models-as-runtime-services/`](../SPECS/FEATURES/models-as-runtime-services/).
+
 ## Reserved / future ADRs (write when the decision is actually made)
 
 These are tracked as live questions in [`../OPEN_DECISIONS.md`](../OPEN_DECISIONS.md):
@@ -81,6 +89,8 @@ These are tracked as live questions in [`../OPEN_DECISIONS.md`](../OPEN_DECISION
 - SQLite→Postgres cut-over + Alembic adoption.
 - pgvector reconsideration (current verdict: NO).
 - Marketplace search backend (Postgres FTS vs external index).
+- Runtime endpoint discovery + GPU allocation + runtime health contract + backend-to-runtime auth (deferred open questions from ADR-0016 Phase 1; addressed by the Phase 2 implementation ADR).
+- `KubernetesRuntimeDriver` / `PodmanRuntimeDriver` / `LocalProcessDriver` (deferred; will land as separate ADRs when their respective editions begin).
 
 ## Supersession map
 
