@@ -4,7 +4,7 @@
 
 `Brainstorm → Specification → Design → Tasks → Implementation → Validation → Review → Merge`
 
-**Implementation status:** N1+N2+N3 IMPLEMENTED (code complete; awaiting validation)
+**Implementation status:** N1+N2+N3+N8 IMPLEMENTED (code complete; awaiting validation)
 
 **Owner / last update:** 2026-06-07
 
@@ -23,7 +23,7 @@
 | N5 — PaginationControls Component | NOT_STARTED |
 | N6 — Virtual Scrolling | NOT_STARTED |
 | N7 — Library Filters | NOT_STARTED |
-| N8 — VariantDashboard Compatibility | NOT_STARTED |
+| N8 — VariantDashboard Compatibility | IMPLEMENTED |
 | N9 — Per-Model Settings Persistence | NOT_STARTED |
 | O1 — STATUS.md Cleanup | NOT_STARTED |
 | O2 — VALIDATION.md Cleanup | NOT_STARTED |
