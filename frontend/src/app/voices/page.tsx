@@ -3,20 +3,21 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { Plus, Library, Wand2, Pencil, Trash2, SlidersHorizontal } from "lucide-react"
+import { Plus, Library, SlidersHorizontal } from "lucide-react"
 import { PageLayout } from "@/components/shell/PageLayout"
 import { PageHeader } from "@/components/shell/PageHeader"
 import { FilterBar } from "@/components/common/FilterBar"
 import { FilterChips } from "@/components/common/FilterChips"
-import { SortDropdown } from "@/components/common/SortDropdown"
+import { PaginationControls } from "@/components/common/PaginationControls"
 import { Chip } from "@/components/common/Chip"
+import { SortDropdown } from "@/components/common/SortDropdown"
 import { VariantDashboard } from "@/components/voice/VariantDashboard"
 import { PresetVoicesTab } from "@/components/voice/PresetVoicesTab"
 import { VoiceGrid } from "@/components/voice/VoiceGrid"
 import { VoiceDetailPanel } from "@/components/voice/VoiceDetailPanel"
 import { VoiceEditDialog } from "@/components/voice/VoiceEditDialog"
+import { SelectedVoicePanel } from "@/components/voice/SelectedVoicePanel"
 import { EmptyState } from "@/components/common/EmptyState"
-import { AudioPlayer } from "@/components/AudioPlayer"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -24,9 +25,7 @@ import { LanguageCombobox } from "@/components/common/LanguageCombobox"
 import { useVoicesPage, useToggleFavorite } from "@/hooks/use-generation"
 import { useAppStore, useActiveVoice } from "@/store/use-store"
 import { useActiveModel } from "@/hooks/use-models"
-import { deleteVoice, getVoiceAudioUrl } from "@/lib/api"
-import { formatDuration } from "@/lib/utils"
-import { isVoiceProfile } from "@/types"
+import { deleteVoice } from "@/lib/api"
 import type { VoiceProfile, VoiceScope, VoiceQueryFilters, CreationSource, SortField } from "@/types"
 
 const GENDERS = ["male", "female"]
@@ -146,47 +145,15 @@ export default function VoiceLibraryPage() {
   }
 
   const contextPanel = (
-    <div className="flex flex-col gap-5 p-6">
-      <div>
-        <h2 className="text-section-title">Selected voice</h2>
-        <p className="text-caption mt-0.5">Single-click a card to select, double-click for details.</p>
-      </div>
-      {activeVoice ? (
-        <div className="space-y-4">
-          <div>
-            <p className="text-card-title">{activeVoice.name}</p>
-            <p className="text-caption">
-              {[activeVoice.language, isVoiceProfile(activeVoice) ? formatDuration(activeVoice.audio_duration) : "Preset"].filter(Boolean).join(" · ")}
-            </p>
-          </div>
-          {isVoiceProfile(activeVoice) && (
-            <AudioPlayer audioUrl={getVoiceAudioUrl(activeVoice.id)} title="Reference audio" duration={activeVoice.audio_duration} />
-          )}
-          <div className="flex gap-2">
-            <Button asChild className="flex-1 gap-2">
-              <Link href="/"><Wand2 className="h-4 w-4" /> Use in TTS</Link>
-            </Button>
-            {isVoiceProfile(activeVoice) && (
-              <>
-                <Button variant="outline" size="icon" onClick={() => openEdit(activeVoice)} title="Edit">
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="icon" className="text-error hover:text-error" onClick={() => deleteMutation.mutate(activeVoice.id)} title="Delete">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </>
-            )}
-            {!isVoiceProfile(activeVoice) && (
-              <Button variant="outline" size="sm" onClick={discardTemporaryVoice}>
-                Clear
-              </Button>
-            )}
-          </div>
-        </div>
-      ) : (
-        <p className="text-sm text-muted-foreground">No voice selected.</p>
-      )}
-    </div>
+    <SelectedVoicePanel
+      voice={activeVoice}
+      onUseInTts={(voice) => {
+        setSelectedProfile(voice)
+      }}
+      onEdit={openEdit}
+      onDelete={(voice) => deleteMutation.mutate(voice.id)}
+      onDiscardTemporary={discardTemporaryVoice}
+    />
   )
 
   return (
@@ -437,17 +404,12 @@ export default function VoiceLibraryPage() {
                     onDelete={(v) => deleteMutation.mutate(v.id)}
                     onToggleFavorite={(v) => toggleFavorite.mutate({ id: v.id, value: !v.is_favorite })}
                   />
-                  {query.hasNextPage && (
-                    <div className="flex justify-center pt-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => query.fetchNextPage()}
-                        disabled={query.isFetchingNextPage}
-                      >
-                        {query.isFetchingNextPage ? "Loading…" : "Load more"}
-                      </Button>
-                    </div>
-                  )}
+                  <PaginationControls
+                    currentCount={filteredVoices.length}
+                    hasNextPage={query.hasNextPage}
+                    isFetchingNextPage={query.isFetchingNextPage}
+                    onLoadMore={() => query.fetchNextPage()}
+                  />
                 </>
               )}
             </>
