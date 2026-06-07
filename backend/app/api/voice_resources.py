@@ -1,7 +1,8 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -14,6 +15,10 @@ from app.services.voice_resource_service import VoiceResourceService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+class ImportVoiceResourceRequest(BaseModel):
+    model_id: Optional[str] = None
 
 
 def _build_service() -> VoiceResourceService:
@@ -68,7 +73,7 @@ async def get_voice_resource(
 )
 async def import_voice_resource(
     resource_id: str,
-    model_id: Optional[str] = None,
+    body: ImportVoiceResourceRequest = Body(...),
     db: AsyncSession = Depends(get_db),
 ):
     svc = _build_service()
@@ -80,7 +85,7 @@ async def import_voice_resource(
 
     resolver = ImportResolver()
     try:
-        profile = await resolver.resolve(db, resource, model_id=model_id)
+        profile = await resolver.resolve(db, resource, model_id=body.model_id)
     except ImportAlreadyExistsError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
 

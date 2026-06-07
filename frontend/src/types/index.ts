@@ -382,3 +382,22 @@ export interface CreateFromPresetRequest {
   name: string
   model_id: string
 }
+
+export interface VoiceResourceResponse {
+  id: string
+  resource_type: string
+  resource_origin: string
+  name: string
+  description: string
+  language: string | null
+  preview_audio_url: string | null
+  catalog_source: Record<string, unknown> | null
+  provider_id: string | null
+  external_id: string | null
+  gender: string | null
+  is_default: boolean
+  is_in_library: boolean
+  library_voice_id: string | null
+  compatible_models: string[]
+  recommended_model_id: string | null
+}

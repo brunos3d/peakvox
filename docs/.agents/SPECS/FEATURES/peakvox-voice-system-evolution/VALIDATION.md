@@ -104,24 +104,24 @@
 
 ### Phase H: VoiceResource Catalog (P3 — Foundation Pass)
 
-- [ ] `ProviderVoice` domain type gains `resource_origin` and `catalog_source` fields
-- [ ] `VoiceResource` is defined as a catalog contract (not a DB entity, not a single class)
-- [ ] `VoiceResourceResponse` Pydantic schema exists with derived fields
-- [ ] `is_in_library` and `library_voice_id` are query-time derived, never stored
-- [ ] `VoiceResourceService` aggregates `ProviderVoiceRegistry` into catalog view
-- [ ] `GET /voice-resources` returns unified catalog with `is_in_library` enrichment
-- [ ] `GET /voice-resources?resource_type=preset` returns only preset-type resources
-- [ ] `POST /voice-resources/{id}/import` imports any resource type (not just presets)
-- [ ] `ImportResolver` branches on model's `VariantBuildStrategy`, not on `resource_type`
-- [ ] Imported preset has `creation_source = PRESET_VOICE`
+- [x] `ProviderVoice` domain type gains `resource_origin` and `catalog_source` fields
+- [x] `VoiceResource` is defined as a catalog contract (not a DB entity, not a single class)
+- [x] `VoiceResourceResponse` Pydantic schema exists with derived fields
+- [x] `is_in_library` and `library_voice_id` are query-time derived, never stored
+- [x] `VoiceResourceService` aggregates `ProviderVoiceRegistry` into catalog view
+- [x] `GET /voice-resources` returns unified catalog with `is_in_library` enrichment
+- [x] `GET /voice-resources?resource_type=preset` returns only preset-type resources
+- [x] `POST /voice-resources/{id}/import` imports any resource type (not just presets)
+- [x] `ImportResolver` branches on model's `VariantBuildStrategy`, not on `resource_type`
+- [x] Imported preset has `creation_source = PRESET_VOICE`
 - [ ] Double-import returns HTTP 409 Conflict
-- [ ] `POST /voices/from-preset` delegates to `ImportResolver` (backward-compatible)
-- [ ] `GET /api/provider-voices` delegates to `VoiceResourceService` (backward-compatible)
+- [x] `POST /voices/from-preset` delegates to `ImportResolver` (backward-compatible)
+- [x] `GET /api/provider-voices` delegates to `VoiceResourceService` (backward-compatible)
 - [ ] `VoiceDetailPanel` accepts `VoiceProfile | VoiceResourceResponse | null`
 - [ ] `VoiceDetailPanel` shows "Import to Library" action for unimported resources
 - [ ] `VoiceDetailPanel` does not branch layout on type — only on action availability
 - [ ] `PresetVoicesTab` uses `fetchVoiceResources()` + `importVoiceResource()`
-- [ ] No new DB tables created for VoiceResource (transient only)
+- [x] No new DB tables created for VoiceResource (transient only)
 - [ ] Frontend `VoiceResourceResponse` type exists with all fields
 
 ### Phase I: ADRs and Documentation (P3)
@@ -214,6 +214,8 @@
 | VOICE_DOMAIN_MODEL.md structure verified | Documentation | G |
 | VoiceResource transient type (not persisted) | Backend (data) | H |
 | Import flow creates correct Voice | Backend (integration) | H |
+| VoiceResourceResponse constructed from ProviderVoice | Backend (unit) | H |
+| is_in_library derived from DB cross-reference | Backend (integration) | H |
 | No new compatibility endpoints exist | Backend (API) | B, F |
 | Search ILIKE returns correct voice matches | Backend (unit) | J |
 | Pagination returns correct total/pages | Backend (unit) | J |

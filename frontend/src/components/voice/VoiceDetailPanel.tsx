@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Heart, Pencil, Trash2, Wand2, Copy, Check, Code2, Play, ChevronDown, ChevronRight } from "lucide-react"
+import { Heart, Pencil, Trash2, Wand2, Copy, Check, Code2, Play, ChevronDown, ChevronRight, Loader2, Plus } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -11,12 +11,17 @@ import { VariantManager } from "@/components/voice/VariantManager"
 import { ModelCompatibilitySection } from "@/components/voice/ModelCompatibilitySection"
 import { getVoiceAudioUrl } from "@/lib/api"
 import { cn, formatDuration } from "@/lib/utils"
-import type { VoiceProfile } from "@/types"
+import type { VoiceProfile, VoiceResourceResponse } from "@/types"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { setVoiceFavorite } from "@/lib/api"
+import { setVoiceFavorite, importVoiceResource } from "@/lib/api"
+import { useRouter } from "next/navigation"
+
+function isVoiceProfile(voice: VoiceProfile | VoiceResourceResponse): voice is VoiceProfile {
+  return "public_voice_id" in voice
+}
 
 interface VoiceDetailPanelProps {
-  voice: VoiceProfile | null
+  voice: VoiceProfile | VoiceResourceResponse | null
   open: boolean
   onOpenChange: (open: boolean) => void
   onUse?: (voice: VoiceProfile) => void
@@ -71,7 +76,9 @@ function Section({
 export function VoiceDetailPanel({ voice, open, onOpenChange, onUse, onEdit, onDelete }: VoiceDetailPanelProps) {
   const [copied, setCopied] = useState(false)
   const [apiOpen, setApiOpen] = useState(false)
+  const [importing, setImporting] = useState(false)
   const queryClient = useQueryClient()
+  const router = useRouter()
 
   const toggleFav = useMutation({
     mutationFn: ({ id, value }: { id: string; value: boolean }) => setVoiceFavorite(id, value),
@@ -83,13 +90,37 @@ export function VoiceDetailPanel({ voice, open, onOpenChange, onUse, onEdit, onD
 
   if (!voice) return null
 
-  const previewable = voice.preview_summary
-    ? voice.preview_summary.origin !== "none"
-    : (voice.audio_duration ?? 0) > 0
+  const profile = isVoiceProfile(voice) ? voice : null
+  const resource = isVoiceProfile(voice) ? null : voice
 
-  const badge = voice.creation_source
-    ? CREATION_SOURCE_LABELS[voice.creation_source] ?? { label: voice.creation_source, className: "" }
-    : null
+  const previewable = profile
+    ? profile.preview_summary
+      ? profile.preview_summary.origin !== "none"
+      : (profile.audio_duration ?? 0) > 0
+    : !!resource!.preview_audio_url
+
+  const badge = profile
+    ? profile.creation_source
+      ? CREATION_SOURCE_LABELS[profile.creation_source] ?? { label: profile.creation_source, className: "" }
+      : null
+    : { label: "Preset", className: "bg-purple-500/10 text-purple-600 border-purple-500/20" }
+
+  const handleImport = async () => {
+    if (!resource) return
+    setImporting(true)
+    try {
+      await importVoiceResource(resource.id)
+      queryClient.invalidateQueries({ queryKey: ["voices-page"] })
+      queryClient.invalidateQueries({ queryKey: ["voices"] })
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  const handleOpenInLibrary = () => {
+    if (!resource || !resource.library_voice_id) return
+    router.push(`/?voice=${resource.library_voice_id}`)
+  }
 
   return (
     <>
@@ -106,6 +137,11 @@ export function VoiceDetailPanel({ voice, open, onOpenChange, onUse, onEdit, onD
                       {badge.label}
                     </Badge>
                   )}
+                  {resource?.is_in_library && (
+                    <Badge variant="outline" className="px-2 py-0.5 bg-success/10 text-success border-success/20">
+                      Imported
+                    </Badge>
+                  )}
                   {voice.language && (
                     <span className="text-sm text-muted-foreground">
                       {voice.language}
@@ -113,19 +149,21 @@ export function VoiceDetailPanel({ voice, open, onOpenChange, onUse, onEdit, onD
                   )}
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  "shrink-0",
-                  voice.is_favorite && "text-red-500 hover:text-red-600"
-                )}
-                onClick={() => toggleFav.mutate({ id: voice.id, value: !voice.is_favorite })}
-                disabled={toggleFav.isPending}
-                title={voice.is_favorite ? "Remove from favorites" : "Add to favorites"}
-              >
-                <Heart className={cn("h-5 w-5", voice.is_favorite && "fill-current")} />
-              </Button>
+              {profile && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "shrink-0",
+                    profile.is_favorite && "text-red-500 hover:text-red-600"
+                  )}
+                  onClick={() => toggleFav.mutate({ id: profile.id, value: !profile.is_favorite })}
+                  disabled={toggleFav.isPending}
+                  title={profile.is_favorite ? "Remove from favorites" : "Add to favorites"}
+                >
+                  <Heart className={cn("h-5 w-5", profile.is_favorite && "fill-current")} />
+                </Button>
+              )}
             </div>
           </SheetHeader>
 
@@ -138,11 +176,20 @@ export function VoiceDetailPanel({ voice, open, onOpenChange, onUse, onEdit, onD
                   <p className="text-sm text-foreground/90 leading-relaxed">{voice.description}</p>
                 )}
 
-                {voice.meta?.provider != null && (
+                {profile?.meta?.provider != null && (
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground">Provider:</span>
                     <Badge variant="secondary" className="gap-1 text-xs">
-                      {String(voice.meta.provider)}
+                      {String(profile.meta.provider)}
+                    </Badge>
+                  </div>
+                )}
+
+                {resource?.provider_id && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Provider:</span>
+                    <Badge variant="secondary" className="gap-1 text-xs">
+                      {resource.provider_id}
                     </Badge>
                   </div>
                 )}
@@ -150,26 +197,31 @@ export function VoiceDetailPanel({ voice, open, onOpenChange, onUse, onEdit, onD
                 <div className="rounded-lg border border-border bg-surface px-3 divide-y divide-border">
                   <MetaRow
                     label="Language"
-                    value={[voice.language, voice.language_code ? `(${voice.language_code})` : null].filter(Boolean).join(" ") || "Auto"}
+                    value={[voice.language, profile?.language_code ? `(${profile.language_code})` : null].filter(Boolean).join(" ") || "Auto"}
                   />
-                  <MetaRow label="Usage count" value={String(voice.usage_count)} />
-                  <MetaRow label="Created" value={new Date(voice.created_at).toLocaleString()} />
-                  <MetaRow label="Last used" value={voice.last_used_at ? new Date(voice.last_used_at).toLocaleString() : "Never"} />
-                  {previewable && <MetaRow label="Duration" value={formatDuration(voice.audio_duration)} />}
+                  {profile && <MetaRow label="Usage count" value={String(profile.usage_count)} />}
+                  {profile && <MetaRow label="Created" value={new Date(profile.created_at).toLocaleString()} />}
+                  {profile && <MetaRow label="Last used" value={profile.last_used_at ? new Date(profile.last_used_at).toLocaleString() : "Never"} />}
+                  {previewable && (
+                <MetaRow
+                  label="Duration"
+                  value={profile ? formatDuration(profile.audio_duration) : "\u2014"}
+                />
+              )}
                 </div>
 
-                {voice.transcript && (
+                {profile?.transcript && (
                   <div className="space-y-1">
                     <p className="text-caption uppercase tracking-wide">Transcript</p>
-                    <p className="text-sm text-foreground/90 leading-relaxed">{voice.transcript}</p>
+                    <p className="text-sm text-foreground/90 leading-relaxed">{profile.transcript}</p>
                   </div>
                 )}
 
-                {voice.preset_tags && voice.preset_tags.length > 0 && (
+                {profile?.preset_tags && profile.preset_tags.length > 0 && (
                   <div className="space-y-1">
                     <p className="text-caption uppercase tracking-wide">Tags</p>
                     <div className="flex flex-wrap gap-1.5">
-                      {voice.preset_tags.map((tag) => (
+                      {profile.preset_tags.map((tag) => (
                         <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
                       ))}
                     </div>
@@ -182,9 +234,9 @@ export function VoiceDetailPanel({ voice, open, onOpenChange, onUse, onEdit, onD
             <Section title="Previews" open={previewable}>
               {previewable ? (
                 <AudioPlayer
-                  audioUrl={getVoiceAudioUrl(voice.id)}
+                  audioUrl={profile ? getVoiceAudioUrl(profile.id) : resource!.preview_audio_url!}
                   title="Preview audio"
-                  duration={voice.audio_duration}
+                  duration={profile?.audio_duration ?? undefined}
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center py-6 text-center">
@@ -199,48 +251,75 @@ export function VoiceDetailPanel({ voice, open, onOpenChange, onUse, onEdit, onD
 
             {/* Compatible Models */}
             <Section title="Compatible Models">
-              <ModelCompatibilitySection publicVoiceId={voice.public_voice_id} />
+              {profile ? (
+                <ModelCompatibilitySection publicVoiceId={profile.public_voice_id} />
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {resource!.compatible_models.length > 0 ? (
+                    resource!.compatible_models.map((modelId) => (
+                      <Badge key={modelId} variant="outline" className="text-xs">{modelId}</Badge>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No compatibility info available</p>
+                  )}
+                </div>
+              )}
             </Section>
 
             {/* Variants */}
-            <Section title="Variants" open={false}>
-              <VariantManager publicVoiceId={voice.public_voice_id} />
-            </Section>
+            {profile && (
+              <Section title="Variants" open={false}>
+                <VariantManager publicVoiceId={profile.public_voice_id} />
+              </Section>
+            )}
           </div>
 
           {/* Actions bar */}
           <div className="border-t border-border p-4 flex items-center gap-2">
-            {onUse && (
-              <Button className="flex-1 gap-2" onClick={() => onUse(voice)}>
-                <Wand2 className="h-4 w-4" /> Use voice
+            {profile ? (
+              <>
+                {onUse && (
+                  <Button className="flex-1 gap-2" onClick={() => onUse(profile)}>
+                    <Wand2 className="h-4 w-4" /> Use voice
+                  </Button>
+                )}
+                <Button variant="outline" size="icon" onClick={() => setApiOpen(true)} title="Use in API">
+                  <Code2 className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" onClick={() => {
+                  navigator.clipboard?.writeText(profile.public_voice_id).then(() => {
+                    setCopied(true)
+                    setTimeout(() => setCopied(false), 1500)
+                  })
+                }} title="Copy voice ID">
+                  {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+                </Button>
+                {onEdit && (
+                  <Button variant="outline" size="icon" onClick={() => onEdit(profile)} title="Edit">
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                )}
+                {onDelete && (
+                  <Button variant="outline" size="icon" className="text-error hover:text-error" onClick={() => onDelete(profile)} title="Delete">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </>
+            ) : resource!.is_in_library ? (
+              <Button variant="outline" className="flex-1 gap-2" onClick={handleOpenInLibrary}>
+                Open in Library
               </Button>
-            )}
-            <Button variant="outline" size="icon" onClick={() => setApiOpen(true)} title="Use in API">
-              <Code2 className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="icon" onClick={() => {
-              navigator.clipboard?.writeText(voice.public_voice_id).then(() => {
-                setCopied(true)
-                setTimeout(() => setCopied(false), 1500)
-              })
-            }} title="Copy voice ID">
-              {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
-            </Button>
-            {onEdit && (
-              <Button variant="outline" size="icon" onClick={() => onEdit(voice)} title="Edit">
-                <Pencil className="h-4 w-4" />
-              </Button>
-            )}
-            {onDelete && (
-              <Button variant="outline" size="icon" className="text-error hover:text-error" onClick={() => onDelete(voice)} title="Delete">
-                <Trash2 className="h-4 w-4" />
+            ) : (
+              <Button className="flex-1 gap-2" onClick={handleImport} disabled={importing}>
+                {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                Import to Library
               </Button>
             )}
           </div>
         </SheetContent>
       </Sheet>
-      {voice && (
-        <UseInApiDialog voiceId={voice.public_voice_id} open={apiOpen} onOpenChange={setApiOpen} />
+      {profile && (
+        <UseInApiDialog voiceId={profile.public_voice_id} open={apiOpen} onOpenChange={setApiOpen} />
       )}
     </>
   )

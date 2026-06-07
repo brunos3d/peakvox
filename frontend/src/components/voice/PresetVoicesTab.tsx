@@ -2,8 +2,8 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { fetchProviderVoices, createVoiceFromPreset } from "@/lib/api"
-import type { ProviderVoiceResponse } from "@/types"
+import { fetchVoiceResources, importVoiceResource } from "@/lib/api"
+import type { VoiceResourceResponse } from "@/types"
 import { useAppStore } from "@/store/use-store"
 import { Input } from "@/components/ui/input"
 import {
@@ -35,13 +35,19 @@ export function PresetVoicesTab({ onScopeChange }: PresetVoicesTabProps) {
   }, [search])
 
   const { data: voices, isLoading, isError } = useQuery({
-    queryKey: ["provider-voices", provider, language, gender, debouncedSearch],
-    queryFn: () => fetchProviderVoices({ provider, language, gender, search: debouncedSearch }),
+    queryKey: ["voice-resources", "preset", provider, language, gender, debouncedSearch],
+    queryFn: () => fetchVoiceResources({
+      resource_type: "preset",
+      resource_origin: provider !== "all" ? provider : undefined,
+      language: language !== "all" ? language : undefined,
+      gender: gender !== "all" ? gender : undefined,
+      search: debouncedSearch || undefined,
+    }),
   })
 
   const providers = useMemo(() => {
     if (!voices) return []
-    return [...new Set(voices.map((v) => v.provider_id))].sort()
+    return [...new Set(voices.map((v) => v.provider_id).filter((p): p is string => !!p))].sort()
   }, [voices])
 
   const languages = useMemo(() => {
@@ -124,7 +130,7 @@ export function PresetVoicesTab({ onScopeChange }: PresetVoicesTabProps) {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {voices.map((voice) => (
-            <div key={voice.provider_voice_id}>
+            <div key={voice.id}>
               <PresetVoiceCard voice={voice} onScopeChange={onScopeChange} onError={setAddError} />
             </div>
           ))}
@@ -134,7 +140,7 @@ export function PresetVoicesTab({ onScopeChange }: PresetVoicesTabProps) {
   )
 }
 
-function PresetVoiceCard({ voice, onScopeChange, onError }: { voice: ProviderVoiceResponse; onScopeChange?: (scope: string) => void; onError?: (msg: string | null) => void }) {
+function PresetVoiceCard({ voice, onScopeChange, onError }: { voice: VoiceResourceResponse; onScopeChange?: (scope: string) => void; onError?: (msg: string | null) => void }) {
   const queryClient = useQueryClient()
   const router = useRouter()
   const setSelectedProfile = useAppStore((s) => s.setSelectedProfile)
@@ -144,12 +150,7 @@ function PresetVoiceCard({ voice, onScopeChange, onError }: { voice: ProviderVoi
     setIsAdding(true)
     onError?.(null)
     try {
-      const profile = await createVoiceFromPreset({
-        provider: voice.provider_id,
-        preset_name: voice.external_id,
-        name: `${voice.name} (${voice.provider_id})`,
-        model_id: `${voice.provider_id}-base`,
-      })
+      const profile = await importVoiceResource(voice.id)
       queryClient.invalidateQueries({ queryKey: ["voices-page"] })
       if (useNow) {
         setSelectedProfile(profile)
@@ -169,7 +170,7 @@ function PresetVoiceCard({ voice, onScopeChange, onError }: { voice: ProviderVoi
     <div className="border border-border rounded-lg p-4 hover:border-primary/50 transition-colors">
       <div className="font-semibold text-sm truncate">{voice.name}</div>
       <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
-        <div>{voice.provider_id} · {voice.language ?? "unknown"} · {voice.gender ?? "unknown"}</div>
+        <div>{voice.provider_id ?? "unknown"} · {voice.language ?? "unknown"} · {voice.gender ?? "unknown"}</div>
         {voice.description && <div className="truncate">{voice.description}</div>}
       </div>
       <div className="flex gap-2 mt-3">
@@ -178,7 +179,7 @@ function PresetVoiceCard({ voice, onScopeChange, onError }: { voice: ProviderVoi
           variant="default"
           className="flex-1 gap-1"
           onClick={() => addToLibrary(true)}
-          disabled={isAdding}
+          disabled={isAdding || voice.is_in_library}
         >
           {isAdding ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
           Use Now
@@ -188,10 +189,10 @@ function PresetVoiceCard({ voice, onScopeChange, onError }: { voice: ProviderVoi
           variant="outline"
           className="flex-1 gap-1"
           onClick={() => addToLibrary(false)}
-          disabled={isAdding}
+          disabled={isAdding || voice.is_in_library}
         >
           {isAdding ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
-          Library
+          {voice.is_in_library ? "In Library" : "Library"}
         </Button>
       </div>
     </div>

@@ -22,6 +22,7 @@ import type {
   BackfillResponse,
   ProviderVoiceResponse,
   CreateFromPresetRequest,
+  VoiceResourceResponse,
 } from "@/types"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
@@ -344,5 +345,36 @@ export async function createVoiceFromPreset(data: CreateFromPresetRequest): Prom
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
+  })
+}
+
+export interface FetchVoiceResourcesParams {
+  resource_type?: string
+  resource_origin?: string
+  search?: string
+  language?: string
+  gender?: string
+}
+
+export async function fetchVoiceResources(params?: FetchVoiceResourcesParams): Promise<VoiceResourceResponse[]> {
+  const qs = new URLSearchParams()
+  if (params?.resource_type) qs.set("resource_type", params.resource_type)
+  if (params?.resource_origin) qs.set("resource_origin", params.resource_origin)
+  if (params?.search) qs.set("search", params.search)
+  if (params?.language) qs.set("language", params.language)
+  if (params?.gender) qs.set("gender", params.gender)
+  const query = qs.toString()
+  return request<VoiceResourceResponse[]>(`/api/voice-resources${query ? `?${query}` : ""}`)
+}
+
+export async function fetchVoiceResource(id: string): Promise<VoiceResourceResponse> {
+  return request<VoiceResourceResponse>(`/api/voice-resources/${id}`)
+}
+
+export async function importVoiceResource(resourceId: string, modelId?: string): Promise<VoiceProfile> {
+  return request<VoiceProfile>(`/api/voice-resources/${resourceId}/import`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model_id: modelId ?? null }),
   })
 }

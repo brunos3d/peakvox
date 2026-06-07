@@ -23,6 +23,7 @@ from app.schemas.voice import (
     VoiceSourceAssetResponse,
 )
 from app.schemas.voice_preview import VoicePreviewList, VoicePreviewResponse
+from app.schemas.voice_resource import VoiceResourceResponse
 from app.services.voice_metadata import characteristics_from_defaults
 from app.services.voice_onboarding import delete_voice_split, mirror_profile_to_split
 from app.services.voice_preview_repository import get_preview_summary, list_previews
@@ -533,6 +534,7 @@ async def create_voice_from_preset(
 ):
     from app.services.provider_voice import build_provider_voice_id
     from app.services.runtime import runtime as rt
+    from app.services.import_resolver import ImportResolver
 
     provider_voice_id = build_provider_voice_id(body.provider, body.preset_name)
     provider_voice = rt._provider_voice_registry.get(provider_voice_id)
@@ -542,60 +544,24 @@ async def create_voice_from_preset(
             detail=f"Preset '{body.preset_name}' not found for provider '{body.provider}'",
         )
 
-    profile_id = str(uuid.uuid4())
-    public_id = f"voice_{uuid.uuid4().hex[:10].upper()}"
-
-    profile = VoiceProfile(
-        id=profile_id,
-        public_voice_id=public_id,
+    resource = VoiceResourceResponse(
+        id=provider_voice_id,
+        resource_type="preset",
+        resource_origin=provider_voice.resource_origin,
         name=body.name,
         description=f"{body.provider} preset: {provider_voice.name} ({provider_voice.language or ''})",
         language=provider_voice.language,
-        language_code=provider_voice.language,
-        transcript="",
-        audio_filename="",
-        audio_duration=0.0,
-        is_preset_voice=True,
-        owner_id=settings.LOCAL_OWNER_ID,
-        meta={"provider": body.provider, "preset_name": body.preset_name},
+        catalog_source=provider_voice.catalog_source,
+        provider_id=body.provider,
+        external_id=body.preset_name,
+        gender=provider_voice.gender,
+        is_default=provider_voice.is_default,
     )
-    db.add(profile)
-    await db.commit()
-    await db.refresh(profile)
 
-    await mirror_profile_to_split(db, profile)
+    resolver = ImportResolver()
+    profile = await resolver.resolve(db, resource, model_id=body.model_id)
 
-    # Create VoiceVariant
-    voice = (await db.execute(
-        select(Voice).where(Voice.id == profile_id)
-    )).scalars().first()
-
-    variant = VoiceVariant(
-        id=str(uuid.uuid4()),
-        voice_id=voice.id,
-        model_id=body.model_id,
-        artifact_type="voice_pack",
-        params={"provider": body.provider, "preset_name": body.preset_name},
-        artifacts={},
-        source="preset",
-        status="ready",
-    )
-    db.add(variant)
-    await db.commit()
-    await db.refresh(variant)
-
-    artifact = VoiceVariantArtifact(
-        id=str(uuid.uuid4()),
-        voice_variant_id=variant.id,
-        version=1,
-        storage_keys={},
-        meta={"provider": body.provider, "preset_name": body.preset_name},
-    )
-    db.add(artifact)
-    variant.active_artifact_id = artifact.id
-    await db.commit()
-
-    logger.info("Created preset voice %s (%s/%s)", profile_id, body.provider, body.preset_name)
+    logger.info("Created preset voice %s (%s/%s)", profile.id, body.provider, body.preset_name)
     resp = VoiceProfileResponse.model_validate(profile)
     resp.creation_source = "PRESET_VOICE"
     return resp

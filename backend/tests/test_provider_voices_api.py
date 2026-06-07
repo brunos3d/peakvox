@@ -1,13 +1,41 @@
+"""Tests for the legacy ``GET /api/provider-voices`` endpoint.
+
+All business logic now lives in ``VoiceResourceService``; this endpoint is a
+backward-compatible thin wrapper.  The ``db`` dependency is overridden here to
+provide a real SQLite in-memory engine so the ``VoiceResourceService._enrich``
+path exercises the ``is_in_library`` derivation.
+"""
+
 import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient, ASGITransport
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from app.api.provider_voices import router as provider_voices_router
+from app.core.database import get_db
+from app.core.migrations import run_migrations
 from app.services.provider_voice import ProviderVoice, build_provider_voice_id
 
 
 @pytest.fixture
-def app():
+async def db_session(tmp_path):
+    eng = create_async_engine(f"sqlite+aiosqlite:///{tmp_path}/provider_voices.db", future=True)
+    async with eng.begin() as conn:
+        await run_migrations(conn)
+    maker = async_sessionmaker(eng, class_=AsyncSession, expire_on_commit=False)
+    async with maker() as session:
+        yield session
+    await eng.dispose()
+
+
+@pytest.fixture
+def app(db_session):
     _app = FastAPI()
+
+    async def _override_get_db():
+        yield db_session
+
+    _app.dependency_overrides[get_db] = _override_get_db
     _app.include_router(provider_voices_router)
     return _app
 

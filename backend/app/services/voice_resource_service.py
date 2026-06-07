@@ -13,6 +13,7 @@ from typing import Optional
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import get_db
 from app.models.db import VoiceProfile
 from app.schemas.voice_resource import VoiceResourceResponse
 from app.services.compatibility_resolver import CompatibilityResolver
