@@ -162,6 +162,17 @@ export function isVoiceProfile(voice: VoiceProfile | TemporaryVoice | null): voi
   return voice !== null && !("isTemporary" in voice)
 }
 
+export type RealizationState = "ready" | "buildable" | "incompatible"
+
+/** Canonical three-state compatibility for a voice+model pair.
+ *  Computed by merging compatible_models (declarative) with variant status (runtime).
+ *  Single source of truth — all components consume this, never raw compatible_models. */
+export interface VoiceModelCompatibility {
+  modelId: string
+  state: RealizationState
+  variantStatus?: string
+}
+
 export interface GenerationRequest {
   text: string
   /** Optional model selector. null/undefined falls back to the platform default. */
