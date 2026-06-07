@@ -28,8 +28,8 @@ const CELL_ICONS: Record<RealizationState, typeof CheckCircle2> = {
 
 const CELL_COLORS: Record<RealizationState, string> = {
   ready: "text-success",
-  buildable: "text-muted-foreground",
-  incompatible: "text-muted-foreground",
+  buildable: "text-warning",
+  incompatible: "text-destructive",
 }
 
 interface CellState {
@@ -128,7 +128,7 @@ export function VariantDashboard({ onSelectVoice }: VariantDashboardProps) {
             <p className="text-xs text-muted-foreground">Buildable</p>
           </div>
           <div className="rounded-lg border border-border bg-surface p-4 text-center">
-            <p className="text-2xl font-bold text-muted-foreground">
+            <p className="text-2xl font-bold text-destructive">
               {totalIncompatible}
             </p>
             <p className="text-xs text-muted-foreground">Incompatible</p>
