@@ -211,7 +211,14 @@ export default function VoiceLibraryPage() {
               }}
             />
           ) : scope === "preset" ? (
-            <PresetVoicesTab onScopeChange={(v) => setScope(v as VoiceScope)} />
+            <PresetVoicesTab
+              onScopeChange={(v) => setScope(v as VoiceScope)}
+              onOpenLibraryVoice={(v) => {
+                setScope("mine")
+                setSelectedProfile(v)
+                openDetails(v)
+              }}
+            />
           ) : (
             <>
               <FilterBar search={search} onSearchChange={setSearch} placeholder="Search voices…">

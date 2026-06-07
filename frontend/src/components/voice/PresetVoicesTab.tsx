@@ -19,9 +19,10 @@ import { useRouter } from "next/navigation"
 
 interface PresetVoicesTabProps {
   onScopeChange?: (scope: string) => void
+  onOpenLibraryVoice?: (voice: VoiceProfile) => void
 }
 
-export function PresetVoicesTab({ onScopeChange }: PresetVoicesTabProps) {
+export function PresetVoicesTab({ onScopeChange, onOpenLibraryVoice }: PresetVoicesTabProps) {
   const [provider, setProvider] = useState<string>("all")
   const [language, setLanguage] = useState<string>("all")
   const [gender, setGender] = useState<string>("all")
@@ -131,7 +132,12 @@ export function PresetVoicesTab({ onScopeChange }: PresetVoicesTabProps) {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {voices.map((voice) => (
             <div key={voice.id}>
-              <PresetVoiceCard voice={voice} onScopeChange={onScopeChange} onError={setAddError} />
+              <PresetVoiceCard
+                voice={voice}
+                onScopeChange={onScopeChange}
+                onOpenLibraryVoice={onOpenLibraryVoice}
+                onError={setAddError}
+              />
             </div>
           ))}
         </div>
@@ -140,7 +146,17 @@ export function PresetVoicesTab({ onScopeChange }: PresetVoicesTabProps) {
   )
 }
 
-function PresetVoiceCard({ voice, onScopeChange, onError }: { voice: VoiceResourceResponse; onScopeChange?: (scope: string) => void; onError?: (msg: string | null) => void }) {
+function PresetVoiceCard({
+  voice,
+  onScopeChange,
+  onOpenLibraryVoice,
+  onError,
+}: {
+  voice: VoiceResourceResponse
+  onScopeChange?: (scope: string) => void
+  onOpenLibraryVoice?: (voice: VoiceProfile) => void
+  onError?: (msg: string | null) => void
+}) {
   const queryClient = useQueryClient()
   const router = useRouter()
   const selectTemporaryVoice = useAppStore((s) => s.selectTemporaryVoice)
@@ -149,10 +165,10 @@ function PresetVoiceCard({ voice, onScopeChange, onError }: { voice: VoiceResour
 
   const useInTts = () => {
     if (voice.is_in_library && voice.library_voice_id) {
-      // Resolve the existing library voice from the voices-page query cache so
-      // we don't depend on the store being hydrated yet. Fall back to the store
-      // for warmth. If neither yields a profile, fall through to the temporary
-      // selection rather than failing silently.
+      // Already imported — open the corresponding library voice in the library
+      // context (switch to My Voices tab, select it, open its detail panel)
+      // rather than navigating to TTS. This matches the button label
+      // "Open Library Voice".
       const cached = queryClient.getQueryData<{ pages: { items: VoiceProfile[] }[] }>(
         ["voices-page", "mine", "", {}, "last_used_at", "desc", undefined, undefined],
       )
@@ -161,13 +177,13 @@ function PresetVoiceCard({ voice, onScopeChange, onError }: { voice: VoiceResour
         allVoices.find((v) => v.id === voice.library_voice_id) ??
         useAppStore.getState().voices.find((v) => v.id === voice.library_voice_id)
 
-      if (existing) {
-        setSelectedProfile(existing)
-        router.push("/")
+      if (existing && onOpenLibraryVoice) {
+        onOpenLibraryVoice(existing)
         return
       }
     }
-    // Not imported (or cache not yet hydrated) — use a temporary selection.
+    // Not imported (or cache not yet hydrated) — send the user to TTS with a
+    // temporary selection so they can try the voice before importing.
     selectTemporaryVoice(voice)
     router.push("/")
   }
