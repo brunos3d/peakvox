@@ -99,12 +99,14 @@ BUILTIN_MODELS: list[ModelDescriptor] = [
                 "speed": ParameterSchema(
                     type="number", label="Speed",
                     default=None, minimum=0.5, maximum=1.5, step=0.05,
-                    description="Speaking speed multiplier. Null = auto.",
+                    nullable=True, ui_widget="slider", auto_value=1.0,
+                    description="Controls how fast the voice speaks. Auto uses the model's recommended speed.",
                 ),
                 "duration": ParameterSchema(
-                    type="number", label="Duration",
+                    type="number", label="Duration (seconds)",
                     default=None, minimum=1, maximum=120,
-                    description="Maximum audio duration in seconds. Null = auto.",
+                    nullable=True, ui_widget="input",
+                    description="Leave empty to let the model determine the appropriate duration automatically.",
                 ),
                 "t_shift": ParameterSchema(
                     type="number", label="Time Shift",

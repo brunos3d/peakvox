@@ -64,6 +64,12 @@ class ParameterSchema(BaseModel):
 
     Analogous to a JSON Schema property. The ``type`` determines which UI control
     to render. ``options`` is used when ``type == "select"``.
+
+    Nullable parameters (``nullable=True``) accept ``None`` to mean "use the model's
+    default". ``ui_widget`` selects between a slider and a numeric input for
+    nullable numbers. ``auto_value`` is the slider position that maps to ``None``;
+    when unset, the geometric center of ``minimum``/``maximum`` is used (or
+    ``default`` if it lies within the range).
     """
 
     type: Literal["number", "boolean", "string", "select"]
@@ -74,6 +80,9 @@ class ParameterSchema(BaseModel):
     step: float | None = None
     options: list[SelectOption] | None = None
     description: str | None = None
+    nullable: bool = False
+    ui_widget: Optional[Literal["slider", "input"]] = None
+    auto_value: Optional[float] = None
 
 
 class SettingsSchema(BaseModel):

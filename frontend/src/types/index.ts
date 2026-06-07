@@ -248,6 +248,24 @@ export interface ParameterSchema {
   step?: number
   options?: SelectOption[]
   description?: string
+  /**
+   * If true, the parameter accepts `null` to mean "use the model's default".
+   * Nullable numbers render as a slider (centered on `auto_value`) or a numeric
+   * input depending on `ui_widget`. Nullable booleans/selects ignore this flag
+   * unless explicitly extended.
+   */
+  nullable?: boolean
+  /**
+   * For nullable numbers: which UI control to render. "slider" centers on
+   * `auto_value`; "input" treats empty field as null.
+   */
+  ui_widget?: "slider" | "input" | null
+  /**
+   * The slider position that maps to `null` (the "Auto" position). Defaults
+   * to the geometric center of `minimum`/`maximum`, or to `default` if it
+   * lies within the range.
+   */
+  auto_value?: number | null
 }
 
 export interface SettingsSchema {
