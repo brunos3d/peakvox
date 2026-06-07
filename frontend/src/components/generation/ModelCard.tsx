@@ -10,6 +10,7 @@ interface ModelCardProps {
   onSelect: (model: Model) => void;
   isPrimary?: boolean;
   isRecommended?: boolean;
+  state?: "ready" | "buildable" | "incompatible";
 }
 
 function CapabilityChip({ label, supported }: { label: string; supported: boolean }) {
@@ -44,7 +45,7 @@ const statusClasses: Record<Model["status"], string> = {
   deprecated: "bg-warning/15 text-warning",
 };
 
-export function ModelCard({ model, selected, onSelect, isPrimary, isRecommended }: ModelCardProps) {
+export function ModelCard({ model, selected, onSelect, isPrimary, isRecommended, state }: ModelCardProps) {
   const caps = model.capabilities;
 
   return (
@@ -77,6 +78,16 @@ export function ModelCard({ model, selected, onSelect, isPrimary, isRecommended 
             {isRecommended && !isPrimary && (
               <span className="shrink-0 rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 border border-blue-500/20">
                 Recommended
+              </span>
+            )}
+            {state === "ready" && !isPrimary && !isRecommended && (
+              <span className="shrink-0 rounded bg-green-500/10 px-1.5 py-0.5 text-[10px] font-medium text-green-600 border border-green-500/20">
+                Ready
+              </span>
+            )}
+            {state === "buildable" && !isPrimary && !isRecommended && (
+              <span className="shrink-0 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 border border-amber-500/20">
+                Build
               </span>
             )}
             <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium capitalize", statusClasses[model.status])}>

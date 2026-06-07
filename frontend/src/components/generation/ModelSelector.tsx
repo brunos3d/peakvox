@@ -13,17 +13,20 @@ import {
 import { ModelCard } from "@/components/generation/ModelCard";
 import { useAppStore, useActiveVoice } from "@/store/use-store";
 import { useModels } from "@/hooks/use-models";
+import { useVoiceModelCompatibility } from "@/hooks/use-voice-model-compatibility";
 
 interface ModelSelectorProps {
-  /** When set, only show models whose id is in this list. */
+  /** When set, only show models whose id is in this list.
+   *  @deprecated Use three-state compatibility from useVoiceModelCompatibility instead. */
   compatibleModelIds?: string[];
 }
 
-export function ModelSelector({ compatibleModelIds }: ModelSelectorProps) {
+export function ModelSelector({ compatibleModelIds: _deprecated }: ModelSelectorProps) {
   const selectedModelId = useAppStore((s) => s.selectedModelId);
   const setSelectedModelId = useAppStore((s) => s.setSelectedModelId);
   const activeVoice = useActiveVoice();
   const { data: models, isLoading } = useModels();
+  const { compat, loading: compatLoading } = useVoiceModelCompatibility(activeVoice);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -35,19 +38,27 @@ export function ModelSelector({ compatibleModelIds }: ModelSelectorProps) {
     (m) => m.activation_status === "active",
   );
 
-  const showFiltered =
-    compatibleModelIds && compatibleModelIds.length > 0;
+  // Use three-state compatibility for filtering
+  const compatMap = new Map(compat.map((c) => [c.modelId, c]));
+
+  const hasFilter = activeVoice && compat.length > 0;
 
   const filtered = activeModels.filter((m) => {
-    if (showFiltered && !compatibleModelIds.includes(m.id)) return false;
+    if (hasFilter) {
+      const c = compatMap.get(m.id)
+      if (!c || c.state === "incompatible") return false
+    }
     return (
       m.name.toLowerCase().includes(query.toLowerCase()) ||
       m.description.toLowerCase().includes(query.toLowerCase())
     );
   });
 
-  const hiddenCount = showFiltered
-    ? activeModels.filter((m) => !compatibleModelIds.includes(m.id)).length
+  const hiddenCount = hasFilter
+    ? activeModels.filter((m) => {
+        const c = compatMap.get(m.id)
+        return !c || c.state === "incompatible"
+      }).length
     : 0;
 
   const statusLabel = active?.status === "loaded" || active?.status === "available"
@@ -98,10 +109,13 @@ export function ModelSelector({ compatibleModelIds }: ModelSelectorProps) {
                 className="pl-9"
               />
             </div>
-            {showFiltered && (
+            {hasFilter && (
               <p className="mt-2 text-[11px] text-muted-foreground">
                 {filtered.length} compatible
                 {hiddenCount > 0 && ` · ${hiddenCount} incompatible (hidden)`}
+                {!compatLoading && compat.some(c => c.state === "buildable") && (
+                  <span> · some need build</span>
+                )}
               </p>
             )}
           </div>
@@ -112,11 +126,14 @@ export function ModelSelector({ compatibleModelIds }: ModelSelectorProps) {
                 Loading models…
               </div>
             ) : filtered.length > 0 ? (
-              filtered.map((model) => (
+              filtered.map((model) => {
+                const ms = compatMap.get(model.id)
+                return (
                 <ModelCard
                   key={model.id}
                   model={model}
                   selected={model.id === active?.id}
+                  state={ms?.state}
                   isPrimary={model.id === activeVoice?.primary_model_id}
                   isRecommended={model.id === activeVoice?.recommended_model_id && model.id !== activeVoice?.primary_model_id}
                   onSelect={(m) => {
@@ -125,8 +142,8 @@ export function ModelSelector({ compatibleModelIds }: ModelSelectorProps) {
                     setQuery("");
                   }}
                 />
-              ))
-            ) : showFiltered ? (
+              )})
+            ) : hasFilter ? (
               <div className="py-8 text-center text-sm text-muted-foreground">
                 <AlertCircle className="mx-auto mb-2 h-5 w-5" />
                 No compatible models for the selected voice.

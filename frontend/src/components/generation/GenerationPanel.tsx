@@ -20,6 +20,7 @@ import { useAppStore, useActiveVoice } from "@/store/use-store";
 import { useSubmitGeneration, useModelStatus } from "@/hooks/use-generation";
 import { useActiveModel, useRecommendedModelId, useModels } from "@/hooks/use-models";
 import { filterSettingsForModel } from "@/hooks/use-generation";
+import { useVoiceModelCompatibility } from "@/hooks/use-voice-model-compatibility";
 import { useQueryClient } from "@tanstack/react-query";
 import { buildInstruct } from "@/config/voice-design";
 import { validateTags } from "@/editor/validate";
@@ -51,12 +52,10 @@ export function GenerationPanel() {
   const modelReady = !!model?.loaded;
   const isGenerating = generate.isPending || !!activeJobId;
 
-  const selectedVoiceCompatibleModels = activeVoice?.compatible_models ?? null;
-  const selectedModelIncompatible =
-    activeVoice &&
-    activeModel &&
-    selectedVoiceCompatibleModels &&
-    !selectedVoiceCompatibleModels.includes(activeModel.id);
+  const { getState: getModelState } = useVoiceModelCompatibility(activeVoice);
+  const modelState = selectedModelId && activeModel ? getModelState(selectedModelId) : null;
+  const selectedModelIncompatible = modelState === "incompatible";
+  const selectedModelBuildable = modelState === "buildable";
 
   const recommendedModelId = useRecommendedModelId(activeVoice);
 
@@ -64,12 +63,13 @@ export function GenerationPanel() {
     if (!activeVoice || !activeVoice.compatible_models?.length) return;
     if (!recommendedModelId) return;
 
-    // Don't override if current model is compatible with the voice
-    if (selectedModelId && activeVoice.compatible_models.includes(selectedModelId)) return;
+    // Don't override if current model is ready or buildable with the voice
+    const cur = selectedModelId ? getModelState(selectedModelId) : null;
+    if (cur === "ready" || cur === "buildable") return;
     if (selectedModelId === recommendedModelId) return;
 
     setSelectedModelId(recommendedModelId);
-  }, [activeVoice?.id, recommendedModelId, selectedModelId]);
+  }, [activeVoice?.id, recommendedModelId, selectedModelId, getModelState]);
 
   const tagIssues = activeModel
     ? validateTags(text, activeModel.supported_tags)
@@ -82,7 +82,7 @@ export function GenerationPanel() {
     !isGenerating &&
     !isImporting &&
     !hasTagIssues &&
-    !selectedModelIncompatible;
+    !selectedModelIncompatible && !selectedModelBuildable;
 
   const handleImportToLibrary = useCallback(async () => {
     if (!temporaryVoice) return;
@@ -181,11 +181,7 @@ export function GenerationPanel() {
               </span>
             </AccordionTrigger>
             <AccordionContent className="px-5 py-1 mb-4">
-              <ModelSelector
-                compatibleModelIds={
-                  selectedVoiceCompatibleModels ?? undefined
-                }
-              />
+              <ModelSelector />
             </AccordionContent>
           </AccordionItem>
 
@@ -314,6 +310,15 @@ export function GenerationPanel() {
             This voice is not compatible with{" "}
             <span className="font-medium">{activeModel?.name}</span>.
             Select a different model or voice.
+          </p>
+        )}
+
+        {selectedModelBuildable && !selectedModelIncompatible && (
+          <p className="flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            Build a variant for{" "}
+            <span className="font-medium">{activeModel?.name}</span>{" "}
+            before generating. Use Model Compatibility section.
           </p>
         )}
 
