@@ -461,9 +461,6 @@ export default function VoiceLibraryPage() {
         voice={detailsVoice}
         open={detailsOpen}
         onOpenChange={setDetailsOpen}
-        onUse={(v) => { setSelectedProfile(v); setDetailsOpen(false) }}
-        onEdit={(v) => { setDetailsOpen(false); openEdit(v) }}
-        onDelete={(v) => deleteMutation.mutate(v.id)}
       />
       <VoiceEditDialog voice={editVoice} open={editOpen} onOpenChange={setEditOpen} />
     </>
