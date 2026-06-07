@@ -1,12 +1,14 @@
 "use client"
 
 import { useRef, useState } from "react"
-import { Play, Pause, Pencil, Trash2, Sparkles, Star, Copy, Check } from "lucide-react"
+import { Play, Pause, Pencil, Trash2, Sparkles, Star, Copy, Check, CheckCircle2, XCircle, Hammer } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { getVoiceAudioUrl } from "@/lib/api"
 import { formatDuration, cn } from "@/lib/utils"
-import type { VoiceProfile } from "@/types"
+import { useActiveModel } from "@/hooks/use-models"
+import { useVoiceModelCompatibility } from "@/hooks/use-voice-model-compatibility"
+import type { VoiceProfile, RealizationState } from "@/types"
 
 const SOURCE_LABELS: Record<string, { label: string; className: string; accent: string; avatarClass: string }> = {
   SOURCE_ASSET: { label: "Cloned", className: "bg-blue-500/10 text-blue-600 border-blue-500/20", accent: "border-l-blue-500", avatarClass: "bg-blue-500/15 text-blue-600" },
@@ -15,6 +17,12 @@ const SOURCE_LABELS: Record<string, { label: string; className: string; accent: 
   TRAINED_VOICE: { label: "Trained", className: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20", accent: "border-l-emerald-500", avatarClass: "bg-emerald-500/15 text-emerald-600" },
   IMPORTED_VOICE: { label: "Imported", className: "bg-violet-500/10 text-violet-600 border-violet-500/20", accent: "border-l-violet-500", avatarClass: "bg-violet-500/15 text-violet-600" },
   SYSTEM_VOICE: { label: "System", className: "bg-muted text-muted-foreground border-border", accent: "border-l-muted-foreground", avatarClass: "bg-muted text-muted-foreground" },
+}
+
+const COMPAT_BADGES: Record<RealizationState, { icon: typeof CheckCircle2; className: string; label: string }> = {
+  ready: { icon: CheckCircle2, className: "bg-success/10 text-success border-success/20", label: "Compatible" },
+  buildable: { icon: Hammer, className: "bg-amber-500/10 text-amber-600 border-amber-500/20", label: "Build needed" },
+  incompatible: { icon: XCircle, className: "bg-muted text-muted-foreground border-border", label: "Not compatible" },
 }
 
 function usePreviewable(voice: VoiceProfile): boolean {
@@ -45,6 +53,14 @@ export function VoiceCard({
   const [playing, setPlaying] = useState(false)
   const [copied, setCopied] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const { activeModel } = useActiveModel()
+  const { getState: getCompatState } = useVoiceModelCompatibility(voice)
+
+  const compatState: RealizationState | null = activeModel
+    ? getCompatState(activeModel.id)
+    : null
+  const compatBadge = compatState ? COMPAT_BADGES[compatState] : null
+  const CompatIcon = compatBadge?.icon
 
   const togglePreview = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -112,6 +128,16 @@ export function VoiceCard({
             {voice.generation_defaults && (
               <Badge className="gap-1 bg-primary/15 px-1.5 py-0 text-[10px] text-primary hover:bg-primary/20">
                 <Sparkles className="h-2.5 w-2.5" /> defaults
+              </Badge>
+            )}
+            {compatBadge && CompatIcon && (
+              <Badge
+                variant="outline"
+                title={`${compatBadge.label} with ${activeModel?.name ?? "active model"}`}
+                className={cn("gap-1 px-1.5 py-0 text-[10px]", compatBadge.className)}
+              >
+                <CompatIcon className="h-2.5 w-2.5" />
+                {compatBadge.label}
               </Badge>
             )}
             {chips.map((c) => (
