@@ -41,6 +41,11 @@ from app.services.voice_variant_repository import (
     resolve_variant,
 )
 
+# Phase 2A bridge: RuntimeManager is imported lazily inside
+# ``attach_runtime_manager`` to avoid an import cycle (the manager
+# module is allowed to import the runtime types, but the runtime
+# should not pull in the manager unless explicitly wired).
+
 
 class ModelNotRegistered(Exception):
     pass
@@ -140,6 +145,29 @@ class PeakVoxRuntime:
     def __init__(self) -> None:
         self._adapters: dict[str, ModelAdapter] = {}
         self._provider_voice_registry: ProviderVoiceRegistry = ProviderVoiceRegistry()
+        # Phase 2A bridge: a RuntimeManager may be attached as a
+        # pass-through orchestration boundary. In 2A the field is
+        # None by default; in 2A the manager's resolve() returns
+        # None, so the existing in-process path is preserved. The
+        # field is typed as ``object`` to avoid a static import
+        # cycle; the actual class is resolved lazily.
+        self._runtime_manager: object | None = None
+
+    # --- Phase 2A bridge: optional RuntimeManager attachment ----------------
+
+    def attach_runtime_manager(self, manager) -> None:
+        """Attach a RuntimeManager as a pass-through orchestration boundary.
+
+        Phase 2A is infrastructure foundation work. The manager is
+        consult-only: ``generate()`` calls ``manager.resolve(model_id)``
+        between Active Artifact resolution and the adapter call. In
+        2A the manager's driver is None, ``resolve()`` returns None,
+        and the existing in-process path is taken unchanged.
+
+        In 2C+, a non-None resolution would route to a runtime
+        service. That branch is unreachable in 2A.
+        """
+        self._runtime_manager = manager
 
     # --- Adapter registry ---------------------------------------------------------
 
@@ -432,6 +460,30 @@ class PeakVoxRuntime:
         merged_params = params or {}
         if variant_params:
             merged_params = {**variant_params, **(params or {})}
+
+        # === Phase 2A bridge: RuntimeManager (skeleton) ====================
+        # ADR-0017 §3.1 + architecture review guardrail: the manager is a
+        # pass-through orchestration boundary. In 2A its driver is None;
+        # ``resolve()`` returns ``None`` and the existing in-process path
+        # is taken unchanged. In 2C+, a non-None resolution would route
+        # to a runtime service — that branch is unreachable in 2A.
+        #
+        # The bridge sits between Active Artifact resolution and the
+        # adapter call. It does not perturb the adapter's kwargs; it
+        # does not execute inference; it does not communicate with
+        # Docker or with any runtime service in 2A.
+        if self._runtime_manager is not None:
+            _resolution = self._runtime_manager.resolve(descriptor.id)
+            # ``_resolution`` is None in 2A (no driver wired). When the
+            # driver is wired in sub-phase 2B+, a non-None resolution
+            # would carry the runtime endpoint and instance; the
+            # 2C+ branch routes through it. For 2A, the no-op
+            # assignment documents the seam.
+            if _resolution is not None:
+                # 2C+ runtime-service path. Unreachable in 2A; reserved
+                # for the future shape per ADR-0017 §7. Do NOT activate
+                # in 2A. The literal pass-through below is intentional.
+                pass
 
         return await adapter.generate(
             text=text,
