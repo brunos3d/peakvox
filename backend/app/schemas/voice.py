@@ -114,8 +114,15 @@ class VoiceProfileResponse(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _derive_creation_source(cls, data: Any) -> Any:
-        if isinstance(data, dict) and "creation_source" not in data:
-            data["creation_source"] = "PRESET_VOICE" if data.get("is_preset_voice") else "SOURCE_ASSET"
+        if isinstance(data, dict):
+            if "creation_source" not in data:
+                data["creation_source"] = "PRESET_VOICE" if data.get("is_preset_voice") else "SOURCE_ASSET"
+        elif hasattr(data, "is_preset_voice") and not getattr(data, "creation_source", None):
+            # SQLAlchemy ORM path — ``VoiceProfile`` has no ``creation_source`` column,
+            # so we derive it from ``is_preset_voice`` here too. Without this branch
+            # every voice would fall back to the default ``SOURCE_ASSET`` and the
+            # compat resolver would never match PRESET_VOICE-only adapters like Kokoro.
+            data.creation_source = "PRESET_VOICE" if data.is_preset_voice else "SOURCE_ASSET"
         return data
 
     @model_validator(mode="after")

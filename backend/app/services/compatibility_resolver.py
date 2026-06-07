@@ -60,20 +60,31 @@ class CompatibilityResolver:
         variants: list[VoiceVariant] = list(result.scalars().all())
         ready_models: set[str] = {v.model_id for v in variants if v.status == "ready"}
 
+        # Pre-compute which adapters can build for this creation_source. A model is only
+        # *actually* compatible if it can build (or already has a built variant) for
+        # this voice's creation_source. Rule (a) without this check is too permissive:
+        # a stray ready VoiceVariant row in the DB can mark a model compatible even when
+        # the model has no build strategy for this voice type (e.g. a kokoro variant on
+        # a SOURCE_ASSET voice).
+        can_build_for_source: dict[str, bool] = {}
+        for adapter in adapters:
+            can_build_for_source[adapter.model_id] = any(
+                s.creation_source == creation_source and s.can_build
+                for s in adapter.get_build_strategies()
+            )
+
         compatible: list[str] = []
         for adapter in adapters:
             mid = adapter.model_id
 
-            # Rule (a): ready variant exists
-            if mid in ready_models:
+            # Rule (a): ready variant exists AND the model can build for this source
+            if mid in ready_models and can_build_for_source.get(mid, False):
                 compatible.append(mid)
                 continue
 
             # Rule (b): adapter declares build strategy for this creation_source
-            for strategy in adapter.get_build_strategies():
-                if strategy.creation_source == creation_source and strategy.can_build:
-                    compatible.append(mid)
-                    break
+            if can_build_for_source.get(mid, False):
+                compatible.append(mid)
 
         return compatible
 
