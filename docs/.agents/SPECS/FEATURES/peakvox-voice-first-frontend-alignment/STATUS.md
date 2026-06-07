@@ -4,7 +4,7 @@
 
 `Brainstorm → Specification → Design → Tasks → Implementation → Validation → Review → Merge`
 
-**Implementation status:** N1+N2 IMPLEMENTED (code complete; awaiting validation)
+**Implementation status:** N1+N2+N3 IMPLEMENTED (code complete; awaiting validation)
 
 **Owner / last update:** 2026-06-07
 
@@ -18,7 +18,7 @@
 |-------|--------|
 | N1 — Temporary Preset Selection | IMPLEMENTED |
 | N2 — primary_model_id Support | IMPLEMENTED |
-| N3 — Model-Scoped Settings | NOT_STARTED |
+| N3 — Model-Scoped Settings | IMPLEMENTED |
 | N4 — VoiceDetailPanel Type Leaks | NOT_STARTED |
 | N5 — PaginationControls Component | NOT_STARTED |
 | N6 — Virtual Scrolling | NOT_STARTED |
