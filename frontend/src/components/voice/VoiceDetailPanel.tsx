@@ -253,7 +253,7 @@ export function VoiceDetailPanel({ voice, open, onOpenChange, onUse, onEdit, onD
             <Section title="Compatible Models">
               {profile ? (
                 <ModelCompatibilitySection
-                  publicVoiceId={profile.public_voice_id}
+                  voice={profile}
                   primaryModelId={profile.primary_model_id}
                   recommendedModelId={profile.recommended_model_id}
                 />
