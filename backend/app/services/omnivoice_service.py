@@ -146,7 +146,6 @@ class OmniVoiceService:
                 self._model.to("cuda")
         except StopIteration:
             pass
-        self._move_voice_prompts_to("cuda")
 
     def _offload_to_cpu(self) -> None:
         """Move model to CPU and free the VRAM allocator cache."""
@@ -173,13 +172,17 @@ class OmniVoiceService:
         pin VRAM indefinitely, causing a silent memory leak.
         """
         for voice_id, prompt in list(self._voice_prompt_cache.items()):
-            try:
-                if hasattr(prompt, "to"):
-                    self._voice_prompt_cache[voice_id] = prompt.to(device)
-            except Exception:
-                logger.warning(
-                    "Failed to move voice prompt '%s' to %s", voice_id, device,
-                )
+            self._move_prompt_to(prompt, device)
+            if hasattr(prompt, "to"):
+                self._voice_prompt_cache[voice_id] = prompt
+
+    def _move_prompt_to(self, prompt, device: str) -> None:
+        """Move a single cached voice prompt to *device* (best-effort)."""
+        try:
+            if hasattr(prompt, "to"):
+                prompt.to(device)
+        except Exception as exc:
+            logger.warning("Failed to move voice prompt to %s: %s", device, exc)
 
     # ------------------------------------------------------------------
     # Properties
@@ -220,7 +223,13 @@ class OmniVoiceService:
     ):
         if voice_id in self._voice_prompt_cache:
             logger.debug("Voice prompt cache hit | voice_id=%s", voice_id)
-            return self._voice_prompt_cache[voice_id]
+            prompt = self._voice_prompt_cache[voice_id]
+            # Move only THIS prompt to GPU — other cached prompts stay on CPU so
+            # the generation peak holds at most one prompt in VRAM regardless of
+            # how many voices are in the library.
+            self._move_prompt_to(prompt, "cuda")
+            self._voice_prompt_cache[voice_id] = prompt
+            return prompt
 
         logger.debug("Extracting voice clone prompt | voice_id=%s ref=%s", voice_id, ref_audio_path)
         self._ensure_on_gpu()

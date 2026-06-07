@@ -149,6 +149,7 @@ async def create_generation_job(
     job_voice_id: str | None = None
     job_variant_id: str | None = None
     resolved_profile_name: str | None = None
+    variant_params_extra: dict = {}
 
     # Resolve the voice identity: prefer voice_id (post-split canonical), fall back to legacy
     # voice_profile_id for backward compatibility with older clients.
