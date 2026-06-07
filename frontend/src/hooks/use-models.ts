@@ -10,7 +10,7 @@ import {
   removeModel,
   updateModel,
 } from "@/lib/api";
-import type { ModelTagMetadata } from "@/types";
+import type { ModelTagMetadata, TemporaryVoice, VoiceProfile } from "@/types";
 import { FALLBACK_TAGS } from "@/editor/tags";
 
 export type ModelLifecycleAction = "install" | "update" | "remove" | "activate" | "deactivate";
@@ -68,6 +68,29 @@ export function useModelLifecycleAction() {
       queryClient.invalidateQueries({ queryKey: ["model-status"] });
     },
   });
+}
+
+/** Returns the recommended model ID for a given voice following the selection
+ *  priority: primary_model_id → recommended_model_id → first compatible_models → null.
+ *  Only returns IDs that exist in the registry. */
+export function useRecommendedModelId(voice: VoiceProfile | TemporaryVoice | null): string | null {
+  const { data: models } = useModels();
+
+  if (!voice || !models) return null;
+
+  if (voice.primary_model_id && models.some((m) => m.id === voice.primary_model_id)) {
+    return voice.primary_model_id;
+  }
+  if (voice.recommended_model_id && models.some((m) => m.id === voice.recommended_model_id)) {
+    return voice.recommended_model_id;
+  }
+  if (voice.compatible_models && voice.compatible_models.length > 0) {
+    const first = voice.compatible_models[0];
+    if (models.some((m) => m.id === first)) {
+      return first;
+    }
+  }
+  return null;
 }
 
 export function useActiveModel() {

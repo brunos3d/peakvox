@@ -11,7 +11,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { ModelCard } from "@/components/generation/ModelCard";
-import { useAppStore } from "@/store/use-store";
+import { useAppStore, useActiveVoice } from "@/store/use-store";
 import { useModels } from "@/hooks/use-models";
 
 interface ModelSelectorProps {
@@ -22,6 +22,7 @@ interface ModelSelectorProps {
 export function ModelSelector({ compatibleModelIds }: ModelSelectorProps) {
   const selectedModelId = useAppStore((s) => s.selectedModelId);
   const setSelectedModelId = useAppStore((s) => s.setSelectedModelId);
+  const activeVoice = useActiveVoice();
   const { data: models, isLoading } = useModels();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -116,6 +117,8 @@ export function ModelSelector({ compatibleModelIds }: ModelSelectorProps) {
                   key={model.id}
                   model={model}
                   selected={model.id === active?.id}
+                  isPrimary={model.id === activeVoice?.primary_model_id}
+                  isRecommended={model.id === activeVoice?.recommended_model_id && model.id !== activeVoice?.primary_model_id}
                   onSelect={(m) => {
                     setSelectedModelId(m.is_default ? null : m.id);
                     setOpen(false);

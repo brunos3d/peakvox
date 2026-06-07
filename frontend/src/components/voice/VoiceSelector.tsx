@@ -9,7 +9,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { VoiceCard } from "@/components/voice/VoiceCard"
 import { EmptyState } from "@/components/common/EmptyState"
 import { useAppStore, useActiveVoice } from "@/store/use-store"
-import { useActiveModel } from "@/hooks/use-models"
+import { useActiveModel, useModels } from "@/hooks/use-models"
 import { isTemporaryVoice } from "@/types"
 import type { VoiceProfile } from "@/types"
 
@@ -28,6 +28,7 @@ export function VoiceSelector() {
   const discardTemporaryVoice = useAppStore((s) => s.discardTemporaryVoice)
   const activeVoice = useActiveVoice()
   const { activeModel } = useActiveModel()
+  const { data: allModels } = useModels()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
 
@@ -60,14 +61,20 @@ export function VoiceSelector() {
     setOpen(false)
   }
 
+  const primaryModelName = activeVoice?.primary_model_id
+    ? allModels?.find((m) => m.id === activeVoice.primary_model_id)?.name ?? null
+    : null
   const creationSourceLabel = activeVoice && !isTemporaryVoice(activeVoice)
     ? CREATION_SOURCE_LABELS[activeVoice.creation_source] ?? activeVoice.creation_source
     : "Preset"
-  const subtitle = activeVoice && !isTemporaryVoice(activeVoice)
-    ? [activeVoice.language, creationSourceLabel].filter(Boolean).join(" · ")
-    : activeVoice
-      ? [activeVoice.language, "Preset"].filter(Boolean).join(" · ")
-      : null
+  const subtitleParts = activeVoice
+    ? [activeVoice.language, creationSourceLabel, primaryModelName].filter(Boolean)
+    : []
+  const subtitle = activeVoice
+    ? subtitleParts.join(" · ")
+    : activeModel
+      ? `${compatible.length} compatible · ${voices.length} total`
+      : `${voices.length} voice${voices.length !== 1 ? "s" : ""}`
 
   return (
     <div className="space-y-2">

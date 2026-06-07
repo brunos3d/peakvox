@@ -252,7 +252,11 @@ export function VoiceDetailPanel({ voice, open, onOpenChange, onUse, onEdit, onD
             {/* Compatible Models */}
             <Section title="Compatible Models">
               {profile ? (
-                <ModelCompatibilitySection publicVoiceId={profile.public_voice_id} />
+                <ModelCompatibilitySection
+                  publicVoiceId={profile.public_voice_id}
+                  primaryModelId={profile.primary_model_id}
+                  recommendedModelId={profile.recommended_model_id}
+                />
               ) : (
                 <div className="flex flex-wrap gap-1.5">
                   {resource!.compatible_models.length > 0 ? (

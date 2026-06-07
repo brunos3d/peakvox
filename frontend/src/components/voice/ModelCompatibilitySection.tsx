@@ -14,6 +14,8 @@ import { fetchModels, fetchVoiceVariants, ensureVariant } from "@/lib/api"
 
 interface ModelCompatibilitySectionProps {
   publicVoiceId: string
+  primaryModelId?: string | null
+  recommendedModelId?: string | null
 }
 
 const STATUS_ICONS: Record<string, typeof CheckCircle2> = {
@@ -40,7 +42,7 @@ const STATUS_LABELS: Record<string, string> = {
   missing: "Create Variant",
 }
 
-export function ModelCompatibilitySection({ publicVoiceId }: ModelCompatibilitySectionProps) {
+export function ModelCompatibilitySection({ publicVoiceId, primaryModelId, recommendedModelId }: ModelCompatibilitySectionProps) {
   const queryClient = useQueryClient()
 
   const modelsQ = useQuery({
@@ -84,6 +86,16 @@ export function ModelCompatibilitySection({ publicVoiceId }: ModelCompatibilityS
               <div className="flex items-center gap-2.5 min-w-0">
                 <Icon className={`h-4 w-4 shrink-0 ${color} ${status === "building" ? "animate-spin" : ""}`} />
                 <span className="text-sm font-medium truncate">{model.name}</span>
+                {model.id === primaryModelId && (
+                  <span className="shrink-0 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 border border-emerald-500/20">
+                    Primary
+                  </span>
+                )}
+                {model.id === recommendedModelId && model.id !== primaryModelId && (
+                  <span className="shrink-0 rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 border border-blue-500/20">
+                    Recommended
+                  </span>
+                )}
               </div>
 
               {(!variant || status === "missing") && (

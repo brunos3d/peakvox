@@ -197,6 +197,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         languages: resource.language ? [resource.language] : [],
       },
       creation_source: "PRESET_VOICE",
+      primary_model_id: null,
+      recommended_model_id: resource.recommended_model_id,
       meta: {
         provider: resource.provider_id,
         external_id: resource.external_id,

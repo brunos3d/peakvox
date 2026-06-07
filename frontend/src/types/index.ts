@@ -67,6 +67,8 @@ export interface VoiceProfile {
   is_preset_voice: boolean
   is_favorite: boolean
   creation_source: CreationSource
+  primary_model_id: string | null
+  recommended_model_id: string | null
   compatible_models: string[]
   preview_summary: PreviewSummary
   source_asset: VoiceSourceAsset | null
@@ -132,6 +134,8 @@ export interface TemporaryVoice {
   compatible_models: string[]
   preview_summary: PreviewSummary
   creation_source: CreationSource
+  primary_model_id: null
+  recommended_model_id: string | null
   meta: Record<string, unknown> | null
   isTemporary: true
   transcript: null

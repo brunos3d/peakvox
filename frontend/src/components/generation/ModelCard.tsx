@@ -8,6 +8,8 @@ interface ModelCardProps {
   model: Model;
   selected?: boolean;
   onSelect: (model: Model) => void;
+  isPrimary?: boolean;
+  isRecommended?: boolean;
 }
 
 function CapabilityChip({ label, supported }: { label: string; supported: boolean }) {
@@ -42,7 +44,7 @@ const statusClasses: Record<Model["status"], string> = {
   deprecated: "bg-warning/15 text-warning",
 };
 
-export function ModelCard({ model, selected, onSelect }: ModelCardProps) {
+export function ModelCard({ model, selected, onSelect, isPrimary, isRecommended }: ModelCardProps) {
   const caps = model.capabilities;
 
   return (
@@ -65,6 +67,16 @@ export function ModelCard({ model, selected, onSelect }: ModelCardProps) {
             {model.is_default && (
               <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
                 Default
+              </span>
+            )}
+            {isPrimary && (
+              <span className="shrink-0 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 border border-emerald-500/20">
+                Primary
+              </span>
+            )}
+            {isRecommended && !isPrimary && (
+              <span className="shrink-0 rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 border border-blue-500/20">
+                Recommended
               </span>
             )}
             <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium capitalize", statusClasses[model.status])}>

@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/accordion";
 import { useAppStore, useActiveVoice } from "@/store/use-store";
 import { useSubmitGeneration, useModelStatus } from "@/hooks/use-generation";
-import { useActiveModel } from "@/hooks/use-models";
+import { useActiveModel, useRecommendedModelId } from "@/hooks/use-models";
 import { useQueryClient } from "@tanstack/react-query";
 import { buildInstruct } from "@/config/voice-design";
 import { validateTags } from "@/editor/validate";
@@ -56,18 +56,18 @@ export function GenerationPanel() {
     selectedVoiceCompatibleModels &&
     !selectedVoiceCompatibleModels.includes(activeModel.id);
 
+  const recommendedModelId = useRecommendedModelId(activeVoice);
+
   useEffect(() => {
-    if (
-      !activeVoice ||
-      !selectedVoiceCompatibleModels ||
-      !selectedModelId
-    ) return;
-    if (selectedVoiceCompatibleModels.includes(selectedModelId)) return;
-    const firstCompatible = selectedVoiceCompatibleModels[0];
-    if (firstCompatible) {
-      setSelectedModelId(firstCompatible);
-    }
-  }, [activeVoice?.id]);
+    if (!activeVoice || !activeVoice.compatible_models?.length) return;
+    if (!recommendedModelId) return;
+
+    // Don't override if current model is compatible with the voice
+    if (selectedModelId && activeVoice.compatible_models.includes(selectedModelId)) return;
+    if (selectedModelId === recommendedModelId) return;
+
+    setSelectedModelId(recommendedModelId);
+  }, [activeVoice?.id, recommendedModelId, selectedModelId]);
 
   const tagIssues = activeModel
     ? validateTags(text, activeModel.supported_tags)
