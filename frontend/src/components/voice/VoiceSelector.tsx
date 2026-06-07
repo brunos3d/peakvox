@@ -32,28 +32,31 @@ export function VoiceSelector() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
 
-  const { compatible, notCompatible } = useMemo(() => {
-    if (!activeModel) {
-      return { compatible: voices, notCompatible: [] as typeof voices }
-    }
-    const comp: typeof voices = []
-    const not: typeof voices = []
+  const nameFilter = (v: VoiceProfile) => v.name.toLowerCase().includes(query.toLowerCase())
+
+  // Group by declarative compat with the active model. We intentionally use the
+  // flat `compatible_models` list here — fetching the full three-state variant
+  // map for every voice in the picker would be impractical. Three-state
+  // compatibility is computed only for the *active* voice and surfaced in the
+  // model auto-switch logic in `GenerationPanel`.
+  const grouped = useMemo(() => {
+    const compatible: VoiceProfile[] = []
+    const incompatible: VoiceProfile[] = []
     for (const v of voices) {
-      if (v.compatible_models.includes(activeModel.id)) {
-        comp.push(v)
+      if (!nameFilter(v)) continue
+      if (activeModel && !v.compatible_models.includes(activeModel.id)) {
+        incompatible.push(v)
       } else {
-        not.push(v)
+        compatible.push(v)
       }
     }
-    return { compatible: comp, notCompatible: not }
-  }, [voices, activeModel])
+    return { compatible, incompatible }
+  }, [voices, activeModel, query])
 
-  const nameFilter = (v: typeof voices[0]) => v.name.toLowerCase().includes(query.toLowerCase())
-  const filteredCompatible = compatible.filter(nameFilter)
-  const filteredNotCompatible = notCompatible.filter(nameFilter)
+  const flatFiltered = grouped.compatible
+  const hiddenCount = activeModel ? grouped.incompatible.length : 0
 
   const handleSelectLibraryVoice = (voice: VoiceProfile) => {
-    // Selecting a library voice discards any temporary selection
     if (isTemporaryVoice(activeVoice)) {
       discardTemporaryVoice()
     }
@@ -73,7 +76,7 @@ export function VoiceSelector() {
   const subtitle = activeVoice
     ? subtitleParts.join(" · ")
     : activeModel
-      ? `${compatible.length} compatible · ${voices.length} total`
+      ? `${grouped.compatible.length} compatible · ${voices.length} total`
       : `${voices.length} voice${voices.length !== 1 ? "s" : ""}`
 
   return (
@@ -89,7 +92,7 @@ export function VoiceSelector() {
               <p className="text-card-title truncate">{activeVoice ? activeVoice.name : "Select a voice"}</p>
               <p className="text-caption truncate">
                 {subtitle ?? (activeModel
-                  ? `${compatible.length} compatible · ${voices.length} total`
+                  ? `${grouped.compatible.length} compatible · ${voices.length} total`
                   : `${voices.length} voice${voices.length !== 1 ? "s" : ""}`)}
               </p>
             </div>
@@ -112,17 +115,17 @@ export function VoiceSelector() {
             </div>
             {activeModel && (
               <p className="mt-2 text-[11px] text-muted-foreground">
-                Showing {filteredCompatible.length} compatible with{" "}
+                Showing {flatFiltered.length} compatible with{" "}
                 <span className="font-medium text-foreground">{activeModel.name}</span>
-                {filteredNotCompatible.length > 0 && (
-                  <span> · {filteredNotCompatible.length} hidden</span>
+                {hiddenCount > 0 && (
+                  <span> · {hiddenCount} hidden</span>
                 )}
               </p>
             )}
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {filteredCompatible.length > 0 ? (
-              filteredCompatible.map((voice) => (
+            {flatFiltered.length > 0 ? (
+              flatFiltered.map((voice) => (
                 <VoiceCard
                   key={voice.id}
                   voice={voice}
