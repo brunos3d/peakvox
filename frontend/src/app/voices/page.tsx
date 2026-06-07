@@ -435,7 +435,6 @@ export default function VoiceLibraryPage() {
                     onToggleFavorite={(v) => toggleFavorite.mutate({ id: v.id, value: !v.is_favorite })}
                   />
                   <PaginationControls
-                    currentCount={filteredVoices.length}
                     hasNextPage={query.hasNextPage}
                     isFetchingNextPage={query.isFetchingNextPage}
                     onLoadMore={() => query.fetchNextPage()}
