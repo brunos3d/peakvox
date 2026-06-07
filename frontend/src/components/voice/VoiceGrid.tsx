@@ -11,7 +11,6 @@ interface VoiceGridProps {
   loading?: boolean
   selectedId?: string | null
   onSelect?: (voice: VoiceProfile) => void
-  onOpenDetails?: (voice: VoiceProfile) => void
   onEdit?: (voice: VoiceProfile) => void
   onDelete?: (voice: VoiceProfile) => void
   onToggleFavorite?: (voice: VoiceProfile) => void
@@ -59,7 +58,6 @@ export function VoiceGrid({
   loading,
   selectedId,
   onSelect,
-  onOpenDetails,
   onEdit,
   onDelete,
   onToggleFavorite,
@@ -126,7 +124,6 @@ export function VoiceGrid({
                       voice={voice}
                       selected={selectedId === voice.id}
                       onSelect={onSelect}
-                      onOpenDetails={onOpenDetails}
                       onEdit={onEdit}
                       onDelete={onDelete}
                       onToggleFavorite={onToggleFavorite}

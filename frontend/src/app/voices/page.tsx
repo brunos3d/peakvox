@@ -14,7 +14,6 @@ import { SortDropdown } from "@/components/common/SortDropdown"
 import { VariantDashboard } from "@/components/voice/VariantDashboard"
 import { PresetVoicesTab } from "@/components/voice/PresetVoicesTab"
 import { VoiceGrid } from "@/components/voice/VoiceGrid"
-import { VoiceDetailPanel } from "@/components/voice/VoiceDetailPanel"
 import { VoiceEditDialog } from "@/components/voice/VoiceEditDialog"
 import { SelectedVoicePanel } from "@/components/voice/SelectedVoicePanel"
 import { EmptyState } from "@/components/common/EmptyState"
@@ -72,8 +71,6 @@ export default function VoiceLibraryPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
   const [recentlyUsed, setRecentlyUsed] = useState<string | undefined>(undefined)
 
-  const [detailsVoice, setDetailsVoice] = useState<VoiceProfile | null>(null)
-  const [detailsOpen, setDetailsOpen] = useState(false)
   const [editVoice, setEditVoice] = useState<VoiceProfile | null>(null)
   const [editOpen, setEditOpen] = useState(false)
 
@@ -127,7 +124,6 @@ export default function VoiceLibraryPage() {
       queryClient.invalidateQueries({ queryKey: ["voices-page"] })
       queryClient.invalidateQueries({ queryKey: ["voices"] })
       if (selectedProfile?.id === id) setSelectedProfile(null)
-      if (detailsVoice?.id === id) setDetailsOpen(false)
     },
   })
 
@@ -137,10 +133,6 @@ export default function VoiceLibraryPage() {
   const activeFilterCount =
     Object.values(filters).filter((v) => v !== undefined && v !== false).length
 
-  const openDetails = (voice: VoiceProfile) => {
-    setDetailsVoice(voice)
-    setDetailsOpen(true)
-  }
   const openEdit = (voice: VoiceProfile) => {
     setEditVoice(voice)
     setEditOpen(true)
@@ -220,7 +212,6 @@ export default function VoiceLibraryPage() {
               onOpenLibraryVoice={(v) => {
                 setScope("mine")
                 setSelectedProfile(v)
-                openDetails(v)
               }}
             />
           ) : (
@@ -440,7 +431,6 @@ export default function VoiceLibraryPage() {
                     loading={query.isLoading}
                     selectedId={activeVoice?.id ?? null}
                     onSelect={setSelectedProfile}
-                    onOpenDetails={openDetails}
                     onEdit={openEdit}
                     onDelete={(v) => deleteMutation.mutate(v.id)}
                     onToggleFavorite={(v) => toggleFavorite.mutate({ id: v.id, value: !v.is_favorite })}
@@ -457,11 +447,7 @@ export default function VoiceLibraryPage() {
         </div>
       </PageLayout>
 
-      <VoiceDetailPanel
-        voice={detailsVoice}
-        open={detailsOpen}
-        onOpenChange={setDetailsOpen}
-      />
+      <VoiceEditDialog voice={editVoice} open={editOpen} onOpenChange={setEditOpen} />
       <VoiceEditDialog voice={editVoice} open={editOpen} onOpenChange={setEditOpen} />
     </>
   )

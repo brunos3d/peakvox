@@ -91,7 +91,7 @@ export function SelectedVoicePanel({
       <div className="flex flex-col gap-5 p-6">
         <div>
           <h2 className="text-section-title">Selected voice</h2>
-          <p className="text-caption mt-0.5">Single-click a card to select, double-click for details.</p>
+          <p className="text-caption mt-0.5">Single-click a card to select it.</p>
         </div>
         <p className="text-sm text-muted-foreground">No voice selected.</p>
       </div>

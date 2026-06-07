@@ -35,7 +35,6 @@ interface VoiceCardProps {
   voice: VoiceProfile
   selected?: boolean
   onSelect?: (voice: VoiceProfile) => void
-  onOpenDetails?: (voice: VoiceProfile) => void
   onEdit?: (voice: VoiceProfile) => void
   onDelete?: (voice: VoiceProfile) => void
   onToggleFavorite?: (voice: VoiceProfile) => void
@@ -45,7 +44,6 @@ export function VoiceCard({
   voice,
   selected,
   onSelect,
-  onOpenDetails,
   onEdit,
   onDelete,
   onToggleFavorite,
@@ -87,7 +85,6 @@ export function VoiceCard({
   return (
     <div
       onClick={() => onSelect?.(voice)}
-      onDoubleClick={() => onOpenDetails?.(voice)}
       className={cn(
         "group relative flex flex-col gap-3 rounded-xl border-l-2 border bg-surface p-4 cursor-pointer transition-all hover:bg-surface-2",
         selected ? "border-primary ring-1 ring-primary/30" : "border-border hover:border-border",
