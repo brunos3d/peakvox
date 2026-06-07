@@ -371,25 +371,55 @@ export default function VoiceLibraryPage() {
                 <EmptyState
                   icon={Library}
                   title={
-                    compatibleWithModelFilter && activeModel
-                      ? `No voices compatible with ${activeModel.name}`
-                      : creationSourceFilter
-                        ? `No ${creationSourceFilter.toLowerCase().replace("_", " ")} voices`
-                        : scope === "recent"
-                          ? "No recently used voices"
-                          : "No matching voices"
+                    // First-run: the library is genuinely empty (no filters
+                    // applied, no search, no scope change) — show a
+                    // welcoming prompt instead of "no matches found".
+                    voices.length === 0 &&
+                    !debouncedSearch &&
+                    !creationSourceFilter &&
+                    activeFilterCount === 0 &&
+                    scope === "mine"
+                      ? "Your voice library is empty"
+                      : compatibleWithModelFilter && activeModel
+                        ? `No voices compatible with ${activeModel.name}`
+                        : creationSourceFilter
+                          ? `No ${creationSourceFilter.toLowerCase().replace("_", " ")} voices`
+                          : scope === "recent"
+                            ? "No recently used voices"
+                            : "No matching voices"
                   }
                   description={
-                    compatibleWithModelFilter && activeModel
-                      ? "Try switching to a different model or clear the compatibility filter."
-                      : creationSourceFilter
-                        ? "Try switching filters or create a new voice."
-                        : scope === "recent"
-                          ? "Voices you generate with will appear here."
-                          : "Try adjusting your search or filters, or create a new voice."
+                    voices.length === 0 &&
+                    !debouncedSearch &&
+                    !creationSourceFilter &&
+                    activeFilterCount === 0 &&
+                    scope === "mine"
+                      ? "Clone a voice from your own audio, or browse the preset library to get started."
+                      : compatibleWithModelFilter && activeModel
+                        ? "Try switching to a different model or clear the compatibility filter."
+                        : creationSourceFilter
+                          ? "Try switching filters or create a new voice."
+                          : scope === "recent"
+                            ? "Voices you generate with will appear here."
+                            : "Try adjusting your search or filters, or create a new voice."
                   }
                   action={
-                    <Button asChild className="gap-2"><Link href="/clone"><Plus className="h-4 w-4" /> Create voice</Link></Button>
+                    voices.length === 0 &&
+                    !debouncedSearch &&
+                    !creationSourceFilter &&
+                    activeFilterCount === 0 &&
+                    scope === "mine" ? (
+                      <div className="flex flex-wrap items-center justify-center gap-2">
+                        <Button asChild className="gap-2">
+                          <Link href="/clone"><Plus className="h-4 w-4" /> Clone a voice</Link>
+                        </Button>
+                        <Button asChild variant="outline" className="gap-2">
+                          <Link href="/voices?tab=preset">Browse presets</Link>
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button asChild className="gap-2"><Link href="/clone"><Plus className="h-4 w-4" /> Create voice</Link></Button>
+                    )
                   }
                 />
               ) : (
