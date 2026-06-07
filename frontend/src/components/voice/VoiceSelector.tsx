@@ -11,6 +11,15 @@ import { EmptyState } from "@/components/common/EmptyState"
 import { useAppStore } from "@/store/use-store"
 import { useActiveModel } from "@/hooks/use-models"
 
+const CREATION_SOURCE_LABELS: Record<string, string> = {
+  SOURCE_ASSET: "Cloned",
+  PRESET_VOICE: "Preset",
+  MARKETPLACE_VOICE: "Marketplace",
+  TRAINED_VOICE: "Trained",
+  IMPORTED_VOICE: "Imported",
+  SYSTEM_VOICE: "System",
+}
+
 export function VoiceSelector() {
   const voices = useAppStore((s) => s.voices)
   const selected = useAppStore((s) => s.selectedProfile)
@@ -52,7 +61,7 @@ export function VoiceSelector() {
               <p className="text-card-title truncate">{selected ? selected.name : "Select a voice"}</p>
               <p className="text-caption truncate">
                 {selected
-                  ? [selected.language, "Cloned voice"].filter(Boolean).join(" · ")
+                  ? [selected.language, CREATION_SOURCE_LABELS[selected.creation_source] ?? selected.creation_source].filter(Boolean).join(" · ")
                   : activeModel
                     ? `${compatible.length} compatible · ${voices.length} total`
                     : `${voices.length} voice${voices.length !== 1 ? "s" : ""}`}

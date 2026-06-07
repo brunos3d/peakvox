@@ -117,12 +117,12 @@
 - [ ] Double-import returns HTTP 409 Conflict
 - [x] `POST /voices/from-preset` delegates to `ImportResolver` (backward-compatible)
 - [x] `GET /api/provider-voices` delegates to `VoiceResourceService` (backward-compatible)
-- [ ] `VoiceDetailPanel` accepts `VoiceProfile | VoiceResourceResponse | null`
-- [ ] `VoiceDetailPanel` shows "Import to Library" action for unimported resources
-- [ ] `VoiceDetailPanel` does not branch layout on type — only on action availability
-- [ ] `PresetVoicesTab` uses `fetchVoiceResources()` + `importVoiceResource()`
+- [x] `VoiceDetailPanel` accepts `VoiceProfile | VoiceResourceResponse | null`
+- [x] `VoiceDetailPanel` shows "Import to Library" action for unimported resources
+- [x] `VoiceDetailPanel` does not branch layout on type — only on action availability
+- [x] `PresetVoicesTab` uses `fetchVoiceResources()` + `importVoiceResource()`
 - [x] No new DB tables created for VoiceResource (transient only)
-- [ ] Frontend `VoiceResourceResponse` type exists with all fields
+- [x] Frontend `VoiceResourceResponse` type exists with all fields
 
 ### Phase I: ADRs and Documentation (P3)
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { Wand2, Loader2, AlertCircle, Cpu, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VoiceSelector } from "@/components/voice/VoiceSelector";
@@ -17,7 +18,7 @@ import {
 } from "@/components/ui/accordion";
 import { useAppStore } from "@/store/use-store";
 import { useSubmitGeneration, useModelStatus } from "@/hooks/use-generation";
-import { useActiveModel } from "@/hooks/use-models";
+import { useActiveModel, useModels } from "@/hooks/use-models";
 import { buildInstruct } from "@/config/voice-design";
 import { validateTags } from "@/editor/validate";
 
@@ -31,8 +32,11 @@ export function GenerationPanel() {
   const language = useAppStore((s) => s.ttsLanguage);
   const setLanguage = useAppStore((s) => s.setTtsLanguage);
   const selectedModelId = useAppStore((s) => s.selectedModelId);
+  const setSelectedModelId = useAppStore((s) => s.setSelectedModelId);
   const { data: model } = useModelStatus();
   const { activeModel } = useActiveModel();
+  const { data: allModels } = useModels();
+  const models = allModels ?? [];
   const generate = useSubmitGeneration();
 
   const modelReady = !!model?.loaded;
@@ -45,6 +49,19 @@ export function GenerationPanel() {
     selectedVoiceCompatibleModels &&
     !selectedVoiceCompatibleModels.includes(activeModel.id);
 
+  useEffect(() => {
+    if (
+      !selectedProfile ||
+      !selectedVoiceCompatibleModels ||
+      !selectedModelId
+    ) return;
+    if (selectedVoiceCompatibleModels.includes(selectedModelId)) return;
+    const firstCompatible = selectedVoiceCompatibleModels[0];
+    if (firstCompatible) {
+      setSelectedModelId(firstCompatible);
+    }
+  }, [selectedProfile?.id]);
+
   const tagIssues = activeModel
     ? validateTags(text, activeModel.supported_tags)
     : [];
@@ -54,7 +71,8 @@ export function GenerationPanel() {
     !!selectedProfile &&
     modelReady &&
     !isGenerating &&
-    !hasTagIssues;
+    !hasTagIssues &&
+    !selectedModelIncompatible;
 
   const handleGenerate = () => {
     if (!canGenerate) return;

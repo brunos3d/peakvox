@@ -2,7 +2,7 @@
 
 **Status:** PARTIAL — Phases A, B, C, D, E, F, G, H, J, K, L implemented
 
-**Last updated:** 2026-06-06
+**Last updated:** 2026-06-07
 
 **Context:** Fourth architecture refinement pass complete. Product UX scalability, canonical voice experience, and recently-used tracking added.
 
@@ -54,6 +54,8 @@
 | I | Remaining ADRs and codification | P3 |
 | M | Collections (future reservation only) | P3 |
 
-**Completed:** A (settings schema), B (CompatibilityResolver), C (frontend capability), D (type-aware display), E (VoicePreview multi-preview), F (VariantBuildStrategy + ModelVoiceFeatures), G (VOICE_DOMAIN_MODEL.md), H (VoiceResource Catalog — H1-H10 backend + H9/H10 backward compat refactoring), J (library search/sort/paginate), K (VoiceDetailPanel canonical surface), L (recently used tracking + most used sort).
+**Completed:** A (settings schema), B (CompatibilityResolver), C (frontend capability), D (type-aware display), E (VoicePreview multi-preview), F (VariantBuildStrategy + ModelVoiceFeatures), G (VOICE_DOMAIN_MODEL.md), H (VoiceResource Catalog — H1-H13 backend + frontend fully implemented and committed), J (library search/sort/paginate), K (VoiceDetailPanel canonical surface), L (recently used tracking + most used sort).
 
-**Next step:** Phase H H11-H13 (frontend types + API + DetailPanel + PresetVoicesTab), then Phase H H14 (verify + commit) or Phase I (ADRs).
+**Architecture Audit (2026-06-07):** Full frontend architecture audit across all 10 issues — 3 gaps found and fixed: (1) VoiceSelector subtitle hardcoded "Cloned voice" → now uses `creation_source` label, (2) `canGenerate` did not check voice-model compatibility → now includes `!selectedModelIncompatible`, (3) no model auto-selection on voice change → `useEffect` added to GenerationPanel. Backend tests: 374 pass, 0 regressions. 7 of 10 architecture invariants verified already correct (DynamicSettingsForm wiring, settings_schema serialization, ModelSelector filtering, VoiceCard badges, VoiceDetailPanel presets, AudioPlayer null states, preview_summary.origin checks).
+
+**Next step:** Phase I (ADRs) or Phase M (Collections).
