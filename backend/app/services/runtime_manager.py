@@ -36,7 +36,7 @@ from typing import List, Optional, Protocol, runtime_checkable
 from app.services.runtime_driver import RuntimeDriver
 from app.services.runtime_errors import RuntimeDriverError
 from app.services.runtime_events import RuntimeEvent, RuntimeEventBus
-from app.services.runtime_instance import RuntimeInstance
+from app.services.runtime_instance import HealthState, ImageIdentity, RuntimeInstance, RuntimeState
 from app.services.runtime_registry import RuntimeRegistry
 from app.services.runtime_types import RuntimeDescriptor
 
@@ -116,15 +116,22 @@ class RuntimeManager:
           4. Hint filter (e.g. 'cuda', 'cpu', 'local', 'cloud').
           5. First match.
 
-        In Phase 2A, the driver is ``None``; the method always
-        returns ``None`` and the bridge (2A.10) falls through to the
-        existing in-process path. When the driver is wired (Phase
-        2B+), the method will return a ``RuntimeResolution`` for
-        the active instance.
+        Phase 2B: when a driver is wired, the method returns a
+        ``RuntimeResolution`` with the chosen descriptor, a
+        SYNTHETIC ``RuntimeInstance`` (state=Active, health_state=
+        Ready), and a reachable endpoint URL. The instance is
+        synthetic because the manager does NOT call the driver
+        to verify the instance state in 2B — that is the 2C+
+        bridge's job (it will call ``driver.runtime_health`` to
+        verify the runtime is ready before routing traffic).
+
+        Phase 2A: when no driver is wired, the method returns
+        ``None`` and the bridge (2A.10) falls through to the
+        existing in-process path. This behavior is preserved.
         """
         if self._driver is None:
-            # 2A: no driver wired. The bridge uses None to fall through
-            # to the existing in-process path.
+            # 2A behavior: no driver wired. The bridge uses None to
+            # fall through to the existing in-process path.
             return None
 
         descriptors = self._registry.list_for_model(model_id)
@@ -145,10 +152,37 @@ class RuntimeManager:
                 descriptors = hinted
         chosen = descriptors[0]
 
-        # 2A returns None for the no-driver case; with a driver the
-        # status/start flow runs here. Left as the future shape —
-        # exercised by Phase 2B tests when the driver lands.
-        return None
+        # Build the synthetic instance and endpoint URL. The host is
+        # the conventional CE default ("localhost"); Cloud
+        # service-DNS resolution is a 2C+ concern. The port is the
+        # runtime descriptor's service port. The 2C+ bridge
+        # verifies the instance is actually ready via
+        # ``driver.runtime_health`` before routing traffic; the
+        # synthetic state here is a placeholder for that bridge
+        # path, not a claim that the container is currently
+        # running.
+        host = "localhost"
+        port = chosen.spec.service.port
+        endpoint = f"http://{host}:{port}"
+        instance = RuntimeInstance(
+            runtime_id=chosen.metadata.id,
+            state=RuntimeState.ACTIVE,
+            host=host,
+            port=port,
+            image_identity=ImageIdentity(
+                repository=chosen.spec.image.repository,
+                tag=chosen.spec.image.tag,
+                digest=chosen.spec.image.digest,
+            ),
+            started_at=None,
+            last_health_at=None,
+            health_state=HealthState.READY,
+        )
+        return RuntimeResolution(
+            descriptor=chosen,
+            instance=instance,
+            endpoint=endpoint,
+        )
 
     # --- Lifecycle (raise when no driver; delegate when wired) ---------------
 
