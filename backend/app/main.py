@@ -20,6 +20,7 @@ from app.api.voice_resources import router as voice_resources_router
 from app.api.settings import router as settings_router
 from app.api.api_keys import router as api_keys_router
 from app.api.v1 import router as v1_router
+from app.api.runtime_api import router as runtimes_router
 from app.services.model_registry import model_registry
 from app.services.model_wiring import wire_registry_from_database, wire_runtime
 from app.services.runtime_wiring import start_idle_reaper, stop_idle_reaper, wire_runtime_services
@@ -190,6 +191,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 app.include_router(health.router, tags=["System"])
 app.include_router(platform.router, tags=["Platform"])
 app.include_router(models.router, tags=["Models"])
+app.include_router(runtimes_router, tags=["Runtimes"])
 app.include_router(media.router, tags=["Media"])
 app.include_router(voices.router, prefix="/voices", tags=["Voices"])
 app.include_router(variants.router, prefix="/voices", tags=["Variants"])
