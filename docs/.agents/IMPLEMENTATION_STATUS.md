@@ -84,7 +84,7 @@ for the full task breakdown.
 | `RuntimeDriver` Protocol (10 operations) | IMPLEMENTED | `app/services/runtime_driver.py`; `tests/test_runtime_driver_protocol.py` (3 tests) — `runtime_checkable`, structural conformance, rejects missing methods |
 | `RuntimeRegistry` + `RuntimeRegistryLoader` | IMPLEMENTED | `app/services/runtime_registry.py`; `tests/test_runtime_registry.py` (10 tests) — indexes by id/model_id/capability, file walking, path-traversal guard, malformed-descriptor tolerance |
 | `RuntimeEventBus` | IMPLEMENTED | `app/services/runtime_events.py`; `tests/test_runtime_events.py` (8 tests) — publish/subscribe, in-order dispatch, exception isolation, canonical event vocabulary (12 event types) |
-| `RuntimeManager` skeleton | IMPLEMENTED | `app/services/runtime_manager.py`; `tests/test_runtime_manager.py` (11 tests) — orchestration only (no `generate`/`infer`/`load_weights` method), `resolve()` returns `None` in 2A, lifecycle operations raise `NoDriverConfigured` when no driver wired, event publication, in-process path preserved |
+| `RuntimeManager` skeleton | IMPLEMENTED | `app/services/runtime_manager.py`; `tests/test_runtime_manager.py` (11 tests) — orquestación only (no `generate`/`infer`/`load_weights` method), `resolve()` returns `None` in 2A, lifecycle operations raise `NoDriverConfigured` when no driver wired, event publication, in-process path preserved |
 | PeakVoxRuntime bridge integration | IMPLEMENTED | `app/services/runtime.py` (`attach_runtime_manager` + bridge block in `generate`); `tests/test_runtime_routing_phase2.py` (10 tests) — transitional pass-through only; `Voice → VoiceVariant → Active Artifact → RuntimeManager (skeleton) → Adapter → existing inference path`; behavior unchanged in 2A; the 2C+ runtime-service branch is a documented-but-unreachable literal `pass` |
 
 **Phase 2A architectural invariants (verified per the 2A gate checklist):**
@@ -94,6 +94,38 @@ for the full task breakdown.
 - No runtime activation: `DockerRuntimeDriver` is introduced in sub-phase 2B.
 - No Runtime Service communication: `HTTPTransport` is introduced in sub-phase 2C.
 - No behavior regressions: full backend test suite (excluding pre-existing numpy/torch-dependent files) is 401 passed (was 374 before Phase 2 implementation began; +27 new tests for Phase 2A across 9 test files; all 52 pre-existing runtime tests continue to pass).
+
+### Phase 2B — First Concrete Driver (IMPLEMENTED 2026-06-07)
+
+Phase 2B introduces the FIRST CONCRETE `RuntimeDriver`: the
+`DockerRuntimeDriver`. The driver is the only component in the
+backend allowed to import the docker SDK (the import is LAZY so
+the module is importable in environments without the SDK —
+notably the test venv). The `RuntimeManager.resolve()` is
+updated to return a non-None `RuntimeResolution` when a driver
+is wired; the 2A bridge in `runtime.py` is unchanged (the
+runtime-service branch is still a literal `pass`; activation is
+in 2C). See
+[`SPECS/FEATURES/runtime-services-implementation/TASKS.md` §2B](../SPECS/FEATURES/runtime-services-implementation/TASKS.md)
+for the full task breakdown.
+
+| Component | Status | Evidence |
+|---|---|---|
+| `DockerRuntimeDriver` (concrete driver) | IMPLEMENTED | `app/services/drivers/docker_runtime_driver.py`; `tests/test_docker_runtime_driver.py` (21 tests) — all 10 RuntimeDriver operations; pulls by digest (preferred) or tag; idempotent install; `ImagePullError` on 404; `SubstrateError` on daemon failure; `/ready` probe (urllib GET, run in a thread to avoid blocking); `RuntimeHealthFailed` on timeout; no top-level `import docker` (lazy inside `_ensure_client()`) |
+| `lint_no_docker_outside_driver.py` | IMPLEMENTED | `scripts/lint_no_docker_outside_driver.py`; `tests/test_lint_no_docker_outside_driver.py` (8 tests) — AST scan bans `import docker`, `from docker import ...`, and docker-shaped `subprocess.run` calls outside `backend/app/services/drivers/`; patchable `BACKEND_ROOT` for tests; current tree passes the lint |
+| `RuntimeManager` wired with `DockerRuntimeDriver` | IMPLEMENTED | `app/services/runtime_manager.py`; `tests/test_runtime_manager_with_docker.py` (11 tests) — `resolve()` with a driver returns a non-None `RuntimeResolution` (synthetic `RuntimeInstance`, endpoint URL from descriptor service port + default host); selection rules (default > priority > hint > first); without a driver, `resolve()` returns `None` (2A behavior preserved) |
+| `PeakVoxRuntime` bridge — runtime path activation | NOT_STARTED | The 2A bridge block in `runtime.py` (`attach_runtime_manager` + the `if _resolution is not None: pass` block) is intentionally unchanged in 2B. The runtime-service branch activates in 2C, when `HTTPTransport` is added to adapters. The bridge falls through to the existing in-process path even when the manager is wired. |
+
+**Phase 2B architectural invariants (verified per the 2B gate checklist):**
+- Docker imports confined to `backend/app/services/drivers/docker_runtime_driver.py`. The import is LAZY (inside `_ensure_client()`) so the module is importable in environments without the SDK. The lint script enforces this in CI: `$ python scripts/lint_no_docker_outside_driver.py` → `clean`.
+- `RuntimeManager` does not gain Docker knowledge: the manager is unchanged in the sense that the docker import is NOT in `runtime_manager.py`. The driver is injected via the constructor; the manager is substrate-neutral.
+- `RuntimeManager` continues to communicate exclusively through `RuntimeDriver` — preserved. The manager's lifecycle methods (install/update/remove/start/stop) call through `self._driver` (the `RuntimeDriver` Protocol).
+- `RuntimeRegistry` remains declarative — preserved. The manager reads the registry but does not mutate it.
+- No adapter communicates directly with Docker — no adapter modifications; the lint confirms no `import docker` in any adapter file.
+- No runtime service bypasses Adapter → RuntimeManager → RuntimeDriver — the 2C+ branch in 2A.10 is a literal `pass` in 2B; the runtime path is not activated by 2B.
+- No model framework imports in runtime modules.
+- No HTTP client imports in runtime modules (only `urllib` in the driver for the substrate-internal `/ready` and `/health` probes).
+- No behavior regressions: full backend test suite (excluding pre-existing numpy/torch-dependent files) is 441 passed (was 401 after Milestone 6; +40 new tests across 2 test files for Phase 2B). All 52 pre-existing runtime tests continue to pass.
 
 ## C. Voice / data layer
 

@@ -23,15 +23,28 @@
    pass-through; behavior unchanged in 2A. See
    [`IMPLEMENTATION_STATUS.md` §"Phase 2A — Runtime Services
    Foundations"](../IMPLEMENTATION_STATUS.md).
-5. **Runtime-Service migration — Phase 2 Sub-phase 2B (`DockerRuntimeDriver`).**
-   TDD tasks in
-   [`../SPECS/FEATURES/runtime-services-implementation/TASKS.md`](../SPECS/FEATURES/runtime-services-implementation/TASKS.md) §2B.
-   First P0 work item: `DockerRuntimeDriver` skeleton; install/start/stop/etc.
-   implementations; `lint_no_docker_outside_driver.py` AST check; wire into
-   `RuntimeManager`; status updates.
-6. **Runtime-Service migration — Sub-phases 2C, 2D** (HTTPTransport + Kokoro
-   integration; CE operations). Sequenced behind 2B.
-7. **Runtime-Service migration — Phases 3–7** (Kokoro, F5-TTS, Fish, OmniVoice migrations,
+5. ~~**Runtime-Service migration — Phase 2 Sub-phase 2B (`DockerRuntimeDriver`).**~~ ✅
+   **Complete 2026-06-07.** 1 new module (`docker_runtime_driver.py`) +
+   1 new script (`lint_no_docker_outside_driver.py`) + 2 modified
+   modules (`runtime_manager.py`, `__init__.py` for the drivers
+   package) + 2 new test files (40 new tests; 441 pre-existing
+   tests pass; 0 regressions). Docker imports confined to the
+   driver package (enforced by the lint script, exit 0 on the real
+   tree). The `RuntimeManager.resolve()` is updated to return a
+   non-None `RuntimeResolution` when a driver is wired; the 2A
+   bridge in `runtime.py` is unchanged (the runtime-service branch
+   is still a literal `pass`; activation is in 2C).
+6. **Runtime-Service migration — Phase 2 Sub-phase 2C (`HTTPTransport` +
+   KokoroAdapter `KOKORO_RUNTIME_URL` path).** TDD tasks in
+   [`../SPECS/FEATURES/runtime-services-implementation/TASKS.md`](../SPECS/FEATURES/runtime-services-implementation/TASKS.md) §2C.
+   First P0 work item: `HTTPTransport` for adapters;
+   `KokoroAdapter` `KOKORO_RUNTIME_URL` integration; env plumbing;
+   E2E validation report; status updates. The 2A bridge's
+   runtime-service branch is activated in this sub-phase.
+7. **Runtime-Service migration — Sub-phase 2D** (CE operations:
+   install/activate/update/remove + `runtime-registry/` with Kokoro
+   descriptor). Sequenced behind 2C.
+8. **Runtime-Service migration — Phases 3–7** (Kokoro, F5-TTS, Fish, OmniVoice migrations,
    in-process path removal). Sequenced behind Phase 2.
 
 ## P1 — CE hardening (can proceed in parallel with Phase 2)

@@ -5,77 +5,88 @@
 
 **As of:** 2026-06-07
 
-> ## ⚠ PHASE 2 GUARDRAIL — RESOLVED FOR SUB-PHASE 2A
+> ## ⚠ PHASE 2 GUARDRAIL — RESOLVED FOR SUB-PHASES 2A AND 2B
 >
-> **Sub-phase 2A of the Runtime-Service migration is COMPLETE
-> (2026-06-07).** ADR-0016 + ADR-0017 are Accepted; 2A delivered
-> 9 new modules + 9 test files (76 new tests, 0 regressions).
-> The previous guardrail ("may not begin until ADR-0017 is
-> Accepted") is satisfied for 2A; the next sub-phase (2B) may
-> begin per the same architecture.
+> **Sub-phase 2B of the Runtime-Service migration is COMPLETE
+> (2026-06-07).** ADR-0016 + ADR-0017 are Accepted. 2A delivered 9
+> modules + 9 test files (76 new tests). 2B delivered 1 module +
+> 1 lint script + 2 modified modules + 2 test files (40 new
+> tests, 0 regressions). The previous guardrail ("may not begin
+> until ADR-0017 is Accepted") is satisfied for both sub-phases.
 >
-> **Sub-phase 2B is now the active work item.** 2B is the first
-> sub-phase that introduces substrate-specific code
-> (`DockerRuntimeDriver`); it is gated on the architecture
-> review guardrail: "If any task requires activating runtimes,
-> communicating with containers, performing inference routing,
-> or introducing DockerRuntimeDriver behavior, stop and create
-> a review checkpoint because that belongs to later phases."
+> **Sub-phase 2C is the next active work item.** 2C is the first
+> sub-phase that introduces the **runtime-service communication
+> path**: `HTTPTransport` for adapters + the `KokoroAdapter`
+> `KOKORO_RUNTIME_URL` path (additive; in-process fallback
+> preserved). The 2A bridge's `if _resolution is not None: pass`
+> placeholder becomes the live runtime-service branch in 2C.
 
-## Task: Phase 2 Sub-phase 2B — DockerRuntimeDriver + lint_no_docker_outside_driver.py
+## Task: Phase 2 Sub-phase 2C — HTTPTransport + KokoroAdapter KOKORO_RUNTIME_URL path
 
-- **Priority:** P0. Phase 2 implementation is in flight; 2A is
-  complete; 2B is the next sub-phase.
-- **Status:** **Ready to start.** Sub-phase 2A is complete
-  (2026-06-07); 9 new modules + 9 test files delivered; 76 new
-  tests; 401/401 pre-existing tests continue to pass; no
-  regressions, no Docker integration, no Runtime Service
-  communication, no model framework imports, no HTTP clients
-  in the new modules.
-- **Architecture review guardrail:** 2B is exactly the sub-phase
-  that the guardrail was written for. Introducing
-  `DockerRuntimeDriver` is gated on the architecture review.
-  No code may be written for 2B until the review is passed (it
-  was, in TASK 11).
-- **Sub-phase 2B plan** (TDD per task, from
-  [`SPECS/FEATURES/runtime-services-implementation/TASKS.md`](SPECS/FEATURES/runtime-services-implementation/TASKS.md) §2B):
+- **Priority:** P0. Phase 2 implementation is in flight; 2A and
+  2B are complete; 2C is the next sub-phase.
+- **Status:** **Ready to start.** Sub-phases 2A and 2B are
+  complete (2026-06-07). The `DockerRuntimeDriver` is wired;
+  the `RuntimeManager.resolve()` returns a non-None resolution
+  when a driver is wired; the bridge in `runtime.py` is the
+  activation point. 2C introduces the HTTP transport and
+  activates the runtime-service branch in the bridge.
+- **Architecture review guardrail (still in force):**
+  - DockerRuntimeDriver is the only component allowed to import
+    Docker libraries — preserved by the lint script.
+  - RuntimeManager must not gain Docker knowledge — preserved;
+    the manager's `resolve()` reads the descriptor's service
+    config and does not import any substrate library.
+  - RuntimeManager must continue to communicate exclusively
+    through RuntimeDriver — preserved.
+  - RuntimeRegistry must remain declarative — preserved.
+  - **No adapter may communicate directly with Docker** —
+    preserved in 2C; the adapter communicates with the Runtime
+    Service via the Runtime Service Contract (HTTP/JSON), not
+    with Docker.
+  - **No runtime service may bypass Adapter → RuntimeManager
+    → RuntimeDriver** — the 2C+ bridge in `runtime.py` is
+    exactly this chain: PeakVoxRuntime → RuntimeManager.resolve
+    → endpoint → adapter.translate_generate → HTTP POST to the
+    endpoint. The driver is the substrate; the runtime service
+    is the engine; the adapter is the protocol translator.
+- **Sub-phase 2C plan** (TDD per task, from
+  [`SPECS/FEATURES/runtime-services-implementation/TASKS.md`](SPECS/FEATURES/runtime-services-implementation/TASKS.md) §2C):
 
   | Task | Component | File | Test |
   |---|---|---|---|
-  | 2B.1 | `DockerRuntimeDriver` skeleton | `backend/app/services/drivers/__init__.py`, `…/docker_runtime_driver.py` | `tests/test_docker_runtime_driver.py` |
-  | 2B.2 | `install_runtime` impl | … | idempotency, ImagePullError on 404, SubstrateError on daemon failure, default 300s timeout |
-  | 2B.3 | `start_runtime` + readiness probe | … | container started; `/ready` polled at `lifecycle.health_interval_seconds`; success → `state=Active`, `health_state=Ready`; timeout → `state=Failed`, `RuntimeHealthFailed` |
-  | 2B.4 | `stop_runtime`, `restart_runtime`, `update_runtime`, `remove_runtime`, `runtime_status`, `runtime_logs`, `runtime_health`, `runtime_metrics` | … | per-operation semantics from ADR-0017 §4.3; `runtime_metrics` returns `Metrics()` empty for first version |
-  | 2B.5 | `scripts/lint_no_docker_outside_driver.py` | `scripts/` | AST scan: `import docker` outside `backend/app/services/drivers/` is a violation; runs in CI |
-  | 2B.6 | Wire `DockerRuntimeDriver` into `RuntimeManager` | `backend/app/services/runtime_manager.py` | `tests/test_runtime_manager_with_docker.py` |
-  | 2B.7 | Update `IMPLEMENTATION_STATUS.md` | `docs/.agents/IMPLEMENTATION_STATUS.md` | cross-link check |
+  | 2C.1 | `HTTPTransport` (generic adapter HTTP client) | `backend/app/services/adapter_transport/http_transport.py` | `tests/test_http_transport.py` — retry policy, timeouts, streaming, error mapping |
+  | 2C.2 | Wire `KokoroAdapter` to use `HTTPTransport` when `KOKORO_RUNTIME_URL` is set | `backend/app/services/model_adapters/kokoro_adapter.py` | `tests/test_kokoro_runtime_adapter.py` — in-process fallback (env unset) and runtime path (env set) |
+  | 2C.3 | `KOKORO_RUNTIME_URL` plumbing in config | `backend/app/core/config.py` (or wherever settings live) | defaults to empty string (= in-process) |
+  | 2C.4 | End-to-end test: peakvox backend + `peakvox/kokoro-runtime` container, generating audio through the runtime service | integration; gated | `tests/test_kokoro_e2e_runtime.py` (integration, gated, not in default CI lane) |
+  | 2C.5 | Update `IMPLEMENTATION_STATUS.md`; provider validation report at `docs/.agents/VALIDATION/PROVIDER_VALIDATIONS/kokoro-runtime-validation-report.md` | `docs/.agents/` | cross-link + status update |
 
-- **Definition of done — Sub-phase 2B:**
-  - `DockerRuntimeDriver` is the first concrete driver; the
-    `RuntimeManager` depends on it through the `RuntimeDriver`
-    protocol only.
-  - The `lint_no_docker_outside_driver.py` script is in CI.
-  - The Docker SDK import is confined to the driver package.
-  - No `runtime-registry/` directory created (still); runtime
-    descriptors are loaded from a configured path.
-  - No new API endpoints yet.
-  - Existing in-process model execution **continues to work
-    unchanged** (regression: all 401 pre-existing tests still
-    pass).
+- **Definition of done — Sub-phase 2C:**
+  - `KokoroAdapter` works both in-process and through the
+    runtime service.
+  - The in-process path is the default; the runtime path is
+    opt-in via `KOKORO_RUNTIME_URL`.
+  - A provider-validated report exists for the runtime path
+    (gated, not in default CI).
+  - The Kokoro migration is **additive**; the in-process path
+    is not removed (Phase 7 will remove it).
+  - The 2A bridge's `pass` placeholder becomes the live
+    runtime-service branch: PeakVoxRuntime calls
+    `RuntimeManager.resolve(model_id)`; if the resolution is
+    non-None, the adapter translates the request to the
+    Runtime Service Contract and POSTs to `resolution.endpoint`.
 
-- **Sub-phases 2C, 2D** (sequenced behind 2B, not in flight):
-  - **2C** — `HTTPTransport` + `KokoroAdapter` `KOKORO_RUNTIME_URL`
-    path (additive; in-process fallback).
+- **Sub-phase 2D** (sequenced behind 2C, not in flight):
   - **2D** — CE operations (install/activate/update/remove) +
     `runtime-registry/` with Kokoro descriptor.
 
 - **Provider-validation status (unchanged):** Kokoro G5 ✅. Fish
   Audio S2 Pro still blocked on hardware. OmniVoice Base E2E
   audio test would be nice; no GPU in CI.
-- **Cloud readiness gate:** still OPEN. 2A → 2B unblocks both CE
-  hardening and Cloud architecture planning (the
+- **Cloud readiness gate:** still OPEN. 2A → 2B → 2C unblocks
+  both CE hardening and Cloud architecture planning (the
   `KubernetesRuntimeDriver` lands as Decision 11's separate ADR).
-- **Next:** begin sub-phase 2B with strict TDD.
+- **Next:** begin sub-phase 2C with strict TDD.
 
 ---
 

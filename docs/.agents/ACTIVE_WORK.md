@@ -9,14 +9,13 @@
 
 ## In flight
 
-1. **Runtime-Service migration — Phase 2 Sub-phase 2B (DockerRuntimeDriver).**
-   **Ready to start.** TDD-shaped tasks in
-   [`docs/.agents/SPECS/FEATURES/runtime-services-implementation/TASKS.md`](../SPECS/FEATURES/runtime-services-implementation/TASKS.md) §2B.
-   The 7 tasks are: `DockerRuntimeDriver` skeleton; `install_runtime`
-   implementation; `start_runtime` + readiness probe; lifecycle
-   operations (stop / restart / update / remove / status / logs /
-   health / metrics); `lint_no_docker_outside_driver.py` AST
-   check; wire driver into `RuntimeManager`; status updates.
+1. **Runtime-Service migration — Phase 2 Sub-phase 2C (HTTPTransport +
+   KokoroAdapter migration).** **Ready to start.** TDD-shaped
+   tasks in
+   [`docs/.agents/SPECS/FEATURES/runtime-services-implementation/TASKS.md`](../SPECS/FEATURES/runtime-services-implementation/TASKS.md) §2C.
+   The 5 tasks are: `HTTPTransport` for adapters; `KokoroAdapter`
+   `KOKORO_RUNTIME_URL` integration; env plumbing; E2E validation
+   report; status updates.
 
 ## Not in flight (recently completed)
 
@@ -29,7 +28,7 @@
   consistency fixed). `OPEN_DECISIONS.md` Decision 10 is RESOLVED.
   See `docs/.agents/SPECS/FEATURES/runtime-services-implementation/`.
 - **Runtime-Service migration — Phase 2 Sub-phase 2A (Foundations).** ✅
-  **Complete 2026-06-07.** 9 new modules + 9 test files delivered:
+  Complete 2026-06-07. 9 new modules + 9 test files delivered:
   `RuntimeDescriptor` (12 tests), `RuntimeInstance` (7),
   `HealthReport`/`Metrics` (6), `RuntimeDriverError` (8),
   `RuntimeDriver` Protocol (3), `RuntimeRegistry`/`Loader`
@@ -40,6 +39,19 @@
   activation, no Runtime Service communication. The
   `PeakVoxRuntime` bridge is a transitional pass-through; behavior
   is unchanged in 2A.
+- **Runtime-Service migration — Phase 2 Sub-phase 2B (First
+  Concrete Driver).** ✅ **Complete 2026-06-07.** 1 new module
+  (`docker_runtime_driver.py`) + 1 new script
+  (`lint_no_docker_outside_driver.py`) + 2 modified modules
+  (`runtime_manager.py`, `__init__.py` for the drivers package) +
+  2 new test files (21 + 8 = 29 new tests, 11 new tests on the
+  manager wiring). 40 new tests total; 441 pre-existing tests
+  pass; 0 regressions. Docker imports confined to the driver
+  package (enforced by the lint script, exit 0 on the real
+  tree). The `RuntimeManager.resolve()` is updated to return a
+  non-None `RuntimeResolution` when a driver is wired; the 2A
+  bridge in `runtime.py` is unchanged (the runtime-service branch
+  is still a literal `pass`; activation is in 2C).
 - **Validation reports and state cleanup.** Kokoro provider validation complete (G5 passed).
 - **Kokoro Preset Voice Adapter (Phase 1 + 2).** Complete. 54 presets, catalog-only registry,
   metadata-only build_variant, Preset Voices tab.
@@ -49,7 +61,7 @@
 
 ## Not in flight (explicitly paused)
 
-- **Sub-phases 2C, 2D** of the Runtime-Service migration — sequenced behind 2B.
+- **Sub-phase 2D** of the Runtime-Service migration — sequenced behind 2C.
 - **Phases 3–7 of the Runtime-Service migration** (Kokoro, F5-TTS, Fish, OmniVoice
   migrations, in-process path removal). Sequenced behind Phase 2.
 - **Cloud phases** (auth/billing/creators/marketplace) — held behind the provider-validation

@@ -28,14 +28,15 @@ only.
 
 ### In progress
 
-- **Runtime-Service migration — Phase 2 Sub-phase 2B (`DockerRuntimeDriver`).** TDD
-  tasks in
-  [`../SPECS/FEATURES/runtime-services-implementation/TASKS.md`](../SPECS/FEATURES/runtime-services-implementation/TASKS.md) §2B.
+- **Runtime-Service migration — Phase 2 Sub-phase 2C (`HTTPTransport` +
+  KokoroAdapter migration).** TDD tasks in
+  [`../SPECS/FEATURES/runtime-services-implementation/TASKS.md`](../SPECS/FEATURES/runtime-services-implementation/TASKS.md) §2C.
 
-> ## ⚠ PHASE 2 IMPLEMENTATION GUARDRAIL — RESOLVED FOR SUB-PHASE 2A
+> ## ⚠ PHASE 2 IMPLEMENTATION GUARDRAIL — RESOLVED FOR SUB-PHASES 2A AND 2B
 >
-> **Sub-phase 2A is COMPLETE (2026-06-07).** Phase 2 implementation
-> may continue; the next sub-phase is 2B (`DockerRuntimeDriver`).
+> **Sub-phases 2A and 2B are COMPLETE (2026-06-07).** Phase 2
+> implementation may continue; the next sub-phase is 2C
+> (`HTTPTransport` + KokoroAdapter migration).
 >
 > **Current state (2026-06-07):**
 > - ADR-0016 (architecture): **Accepted** (2026-06-07).
@@ -51,22 +52,31 @@ only.
 >   2A. See
 >   [`../IMPLEMENTATION_STATUS.md` §"Phase 2A — Runtime Services
 >   Foundations"](../IMPLEMENTATION_STATUS.md).
-> - Sub-phase 2B (`DockerRuntimeDriver`): **ready to start**.
->   TDD tasks in
->   [`../SPECS/FEATURES/runtime-services-implementation/TASKS.md`](../SPECS/FEATURES/runtime-services-implementation/TASKS.md) §2B.
-> - Sub-phases 2C, 2D: sequenced behind 2B.
+> - Sub-phase 2B (First Concrete Driver): **✅ Complete.** 1
+>   new module (`docker_runtime_driver.py`) + 1 new script
+>   (`lint_no_docker_outside_driver.py`) + 2 modified modules +
+>   2 new test files; 40 new tests; 441/441 pre-existing tests
+>   pass. Docker imports confined to the driver package
+>   (enforced by the lint script, exit 0 on the real tree).
+>   The `RuntimeManager.resolve()` is updated to return a non-None
+>   `RuntimeResolution` when a driver is wired; the 2A bridge
+>   in `runtime.py` is unchanged (the runtime-service branch is
+>   still a literal `pass`; activation is in 2C).
+> - Sub-phase 2C (`HTTPTransport` + KokoroAdapter migration):
+>   **ready to start**. TDD tasks in
+>   [`../SPECS/FEATURES/runtime-services-implementation/TASKS.md`](../SPECS/FEATURES/runtime-services-implementation/TASKS.md) §2C.
+> - Sub-phase 2D: sequenced behind 2C.
 >
-> Sub-phase 2A ✅ done. Sub-phase 2B may begin. TDD-shaped tasks:
+> Sub-phases 2A ✅ 2B ✅ done. Sub-phase 2C may begin. TDD-shaped
+> tasks for 2C (in `TASKS.md` §2C):
 >
 > | # | Component | File | Test |
 > |---|---|---|---|
-> | 2B.1 | `DockerRuntimeDriver` skeleton | `backend/app/services/drivers/docker_runtime_driver.py` | `tests/test_docker_runtime_driver.py` |
-> | 2B.2 | `install_runtime` impl | … | idempotency, ImagePullError on 404, SubstrateError on daemon failure, default 300s timeout |
-> | 2B.3 | `start_runtime` + readiness probe | … | container started; `/ready` polled; success → `Active`/`Ready`; timeout → `Failed`/`RuntimeHealthFailed` |
-> | 2B.4 | `stop_runtime`, `restart_runtime`, `update_runtime`, `remove_runtime`, `runtime_status`, `runtime_logs`, `runtime_health`, `runtime_metrics` | … | per-operation semantics from ADR-0017 §4.3 |
-> | 2B.5 | `scripts/lint_no_docker_outside_driver.py` | `scripts/` | AST scan: `import docker` outside driver pkg is a violation |
-> | 2B.6 | Wire `DockerRuntimeDriver` into `RuntimeManager` | `backend/app/services/runtime_manager.py` | `tests/test_runtime_manager_with_docker.py` |
-> | 2B.7 | Status updates | `docs/.agents/IMPLEMENTATION_STATUS.md` | cross-link |
+> | 2C.1 | `HTTPTransport` | `backend/app/services/adapter_transport/http_transport.py` | `tests/test_http_transport.py` |
+> | 2C.2 | `KokoroAdapter` integration | `backend/app/services/model_adapters/kokoro_adapter.py` | `tests/test_kokoro_runtime_adapter.py` |
+> | 2C.3 | `KOKORO_RUNTIME_URL` plumbing | `backend/app/core/config.py` (or wherever settings live) | env defaults to empty (= in-process) |
+> | 2C.4 | E2E validation | integration; gated | `tests/test_kokoro_e2e_runtime.py` (gated) |
+> | 2C.5 | Status updates | `docs/.agents/IMPLEMENTATION_STATUS.md` | cross-link + provider validation report |
 
 ### The gate before Cloud work
 

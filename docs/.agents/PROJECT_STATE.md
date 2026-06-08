@@ -3,18 +3,17 @@
 > Single source of truth for overall project state. Objective facts only. No emojis, no
 > subjective language. Update this file whenever phase, priorities, risks, or blockers change.
 
-**Last update:** 2026-06-07 (Phase 2 Sub-phase 2A — Foundations — COMPLETE: 9 new modules + 9 test files; 76 new tests, 0 regressions, 401 pre-existing tests pass; no Docker, no Runtime Service communication, no model framework imports; sub-phase 2B is the next P0 work item)
+**Last update:** 2026-06-07 (Phase 2 Sub-phases 2A AND 2B — COMPLETE: 2A delivered 9 modules + 9 test files (76 new tests); 2B delivered `DockerRuntimeDriver` + `lint_no_docker_outside_driver.py` + manager wiring (40 new tests); 0 regressions; 441 pre-existing tests pass; sub-phase 2C is the next P0 work item)
 **Branch:** `feat/peakvox-phase-1`
 **Edition target:** Community Edition (CE). Cloud is schema-ready, not implemented.
 **Cloud readiness gate:** ✅ OPEN — Kokoro validated as first non-OmniVoice provider (G5 passed).
 **Architecture direction:** ADR-0016 (Models as Runtime Services) Accepted 2026-06-07;
 ADR-0017 (Runtime Services Implementation — Phase 2 architecture) Accepted 2026-06-07.
 The Runtime-Service architecture is the agreed target; migration is sequenced across
-7 phases. Phase 1 (ADR + design) is complete. Phase 2 Sub-phase 2A (Foundations:
-`RuntimeDescriptor`, `RuntimeInstance`, `HealthReport`/`Metrics`, `RuntimeDriverError`,
-`RuntimeDriver` Protocol, `RuntimeRegistry`/`Loader`, `RuntimeEventBus`,
-`RuntimeManager` skeleton, `PeakVoxRuntime` bridge) is **complete**. Sub-phase 2B
-(`DockerRuntimeDriver`) is the next P0 work item.
+7 phases. Phase 1 (ADR + design) and Phase 2 Sub-phases 2A + 2B are complete.
+Sub-phase 2C (`HTTPTransport` + KokoroAdapter `KOKORO_RUNTIME_URL` path — the first
+sub-phase to introduce the runtime-service communication path) is the next P0
+work item.
 
 ---
 
@@ -25,9 +24,11 @@ PeakVox Phase 1 (Platform Foundations) through Phase 3.11 are built. The CE spin
 Kokoro provider validation is complete (G5 passed — real audio generated E2E through
 the Runtime; see `VALIDATION/PROVIDER_VALIDATIONS/kokoro-validation-report.md`).
 Active focus: Phase 2 implementation. ADR-0016 (architecture) is Accepted;
-ADR-0017 (Phase 2 implementation architecture) is Accepted. Phase 2 Sub-phase 2A
-(Foundations) is **complete** (2026-06-07). Sub-phase 2B (`DockerRuntimeDriver`)
-is the next P0 work item. See [`ROADMAP/CURRENT_PHASE.md`](ROADMAP/CURRENT_PHASE.md)
+ADR-0017 (Phase 2 implementation architecture) is Accepted. Phase 2 Sub-phases 2A
+(Foundations) and 2B (DockerRuntimeDriver + manager wiring + lint script) are
+**complete** (2026-06-07). Sub-phase 2C (`HTTPTransport` + KokoroAdapter migration
+— the first sub-phase to introduce the runtime-service communication path) is
+the next P0 work item. See [`ROADMAP/CURRENT_PHASE.md`](ROADMAP/CURRENT_PHASE.md)
 and [`ROADMAP/ROADMAP.md`](ROADMAP/ROADMAP.md).
 
 ## Current priorities
@@ -47,10 +48,20 @@ and [`ROADMAP/ROADMAP.md`](ROADMAP/ROADMAP.md).
    Runtime Service communication, no model framework imports, no HTTP clients in
    the new modules; the `PeakVoxRuntime` bridge is a transitional pass-through that
    preserves existing in-process generation behavior.
-5. **Next workstream:** begin **sub-phase 2B** (`DockerRuntimeDriver` first concrete
-   driver + `lint_no_docker_outside_driver.py` AST check + wiring into
-   `RuntimeManager`). The `PeakVoxRuntime` bridge is in place; the 2C+ runtime-service
-   path becomes reachable when 2B's driver is wired in.
+5. ✅ **Sub-phase 2B (First Concrete Driver) complete.** 1 new module + 1 new
+   script + 2 modified modules + 2 new test files; 40 new tests; 0 regressions;
+   441 pre-existing tests pass. Docker imports confined to the driver package
+   (enforced by `lint_no_docker_outside_driver.py`). The
+   `RuntimeManager.resolve()` returns a non-None `RuntimeResolution` when a
+   driver is wired; the 2A bridge in `runtime.py` is unchanged (the
+   runtime-service branch is still a literal `pass`; activation is in 2C).
+6. **Next workstream:** begin **sub-phase 2C** (`HTTPTransport` for adapters +
+   `KokoroAdapter` `KOKORO_RUNTIME_URL` path). This is the first sub-phase to
+   activate the runtime-service branch in the bridge: PeakVoxRuntime calls
+   `RuntimeManager.resolve(model_id)`; if the resolution is non-None, the adapter
+   translates the request to the Runtime Service Contract and POSTs to
+   `resolution.endpoint`. The Kokoro migration is **additive**; the in-process
+   path is preserved.
 
 ## Implemented components (architecture-validated; see IMPLEMENTATION_STATUS for evidence)
 
