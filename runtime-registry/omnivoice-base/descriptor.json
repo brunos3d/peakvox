@@ -1,0 +1,65 @@
+{
+  "api_version": "peakvox.io/v1",
+  "kind": "Runtime",
+  "metadata": {
+    "id": "omnivoice-base",
+    "name": "OmniVoice Base Runtime",
+    "description": "Runtime service for the OmniVoice 0.6B diffusion-language-model TTS. CPU-capable (float32), supports voice cloning, voice design, emotion tags, and 646 languages. Mirrors the Kokoro reference shape (R8) — every descriptor field maps 1:1 to the canonical schema.",
+    "provider": "omnivoice",
+    "version": "0.1.0",
+    "edition": ["ce", "cloud"],
+    "labels": {
+      "substrate": "cpu-or-gpu",
+      "model_family": "omnivoice-0.6b"
+    }
+  },
+  "spec": {
+    "runtime_type": "docker",
+    "image": {
+      "repository": "peakvox/omnivoice-runtime",
+      "tag": "0.1.0"
+    },
+    "build": {
+      "entrypoint": "server.py",
+      "build_context": ".",
+      "dockerfile": "Dockerfile"
+    },
+    "service": {
+      "protocol": "http",
+      "port": 8000,
+      "health_path": "/health",
+      "readiness_path": "/ready",
+      "generate_path": "/v1/generate",
+      "build_path": "/v1/variants/build",
+      "metadata_path": "/v1/metadata"
+    },
+    "capabilities": [
+      "tts",
+      "voice_cloning",
+      "multilingual",
+      "emotion_tags",
+      "voice_design",
+      "reference_audio"
+    ],
+    "requirements": {
+      "gpu": "optional",
+      "min_vram_gb": 0,
+      "cpu_cores": 4,
+      "memory_gb": 16,
+      "edition": ["ce", "cloud"]
+    },
+    "model_binding": {
+      "model_id": "omnivoice-base",
+      "is_default": true,
+      "priority": 100
+    },
+    "lifecycle": {
+      "install_policy": "pull-on-install",
+      "health_interval_seconds": 10,
+      "health_timeout_seconds": 3,
+      "start_timeout_seconds": 120,
+      "restart_policy": "on-failure",
+      "idle_timeout": "15m"
+    }
+  }
+}

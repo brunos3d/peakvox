@@ -1,0 +1,32 @@
+# peakvox/f5-tts-runtime requirements (R8 reference shape).
+#
+# Mirrors runtime-registry/kokoro-82m/requirements.txt with the
+# F5-TTS framework pin. F5-TTS requires PyTorch + torchaudio +
+# the upstream `f5-tts` package (pip) plus the vocoder
+# dependencies. The base image is therefore a CUDA-enabled
+# PyTorch image (not python:3.11-slim); the Dockerfile bakes
+# the right base for GPU.
+
+# The HTTP service framework (5-endpoint Runtime Service Contract).
+# ADR-0017 §6: every runtime service exposes /health, /ready,
+# /v1/generate, /v1/variants/build, /v1/metadata over HTTP/JSON.
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+pydantic==2.9.2
+
+# F5-TTS framework pin. The upstream package is
+# `f5-tts` on PyPI; it pulls in torch + torchaudio + the
+# flow-matching model code. CUDA is required for inference
+# (CPU inference is unsupported upstream).
+#
+# The runtime entrypoint loads the model on the first
+# /v1/generate request (lazy), guarded by a lock so concurrent
+# first requests share the same load. If the framework is
+# unavailable (no CUDA, weights download fails), the runtime
+# reports "load_failed" on /ready and the manager reaps it
+# on idle_timeout.
+f5-tts==1.0.3
+
+# The F5-TTS vocoder (Vocos). The model is loaded alongside
+# the flow-matching transformer.
+vocos==0.1.0

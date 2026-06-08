@@ -1,0 +1,63 @@
+{
+  "api_version": "peakvox.io/v1",
+  "kind": "Runtime",
+  "metadata": {
+    "id": "f5-tts-base",
+    "name": "F5-TTS Base Runtime",
+    "description": "Runtime service for the F5-TTS flow-matching TTS model. GPU-only, supports zero-shot voice cloning via reference audio, multilingual EN/ZH/JA/FR/DE/ES and more. Third Runtime Service PeakVox ships; mirrors the Kokoro reference shape (R8).",
+    "provider": "f5-tts",
+    "version": "0.1.0",
+    "edition": ["ce", "cloud"],
+    "labels": {
+      "substrate": "gpu",
+      "model_family": "f5-tts"
+    }
+  },
+  "spec": {
+    "runtime_type": "docker",
+    "image": {
+      "repository": "peakvox/f5-tts-runtime",
+      "tag": "0.1.0"
+    },
+    "build": {
+      "entrypoint": "server.py",
+      "build_context": ".",
+      "dockerfile": "Dockerfile"
+    },
+    "service": {
+      "protocol": "http",
+      "port": 8000,
+      "health_path": "/health",
+      "readiness_path": "/ready",
+      "generate_path": "/v1/generate",
+      "build_path": "/v1/variants/build",
+      "metadata_path": "/v1/metadata"
+    },
+    "capabilities": [
+      "tts",
+      "voice_cloning",
+      "multilingual",
+      "reference_audio"
+    ],
+    "requirements": {
+      "gpu": "required",
+      "min_vram_gb": 12,
+      "cpu_cores": 4,
+      "memory_gb": 16,
+      "edition": ["ce", "cloud"]
+    },
+    "model_binding": {
+      "model_id": "f5-tts-base",
+      "is_default": true,
+      "priority": 100
+    },
+    "lifecycle": {
+      "install_policy": "pull-on-install",
+      "health_interval_seconds": 10,
+      "health_timeout_seconds": 3,
+      "start_timeout_seconds": 180,
+      "restart_policy": "on-failure",
+      "idle_timeout": "15m"
+    }
+  }
+}

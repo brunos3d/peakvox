@@ -1,10 +1,23 @@
-"""peakvox/kokoro-runtime — FastAPI server.
+"""peakvox/f5-tts-runtime — FastAPI server.
 
-The first Runtime Service PeakVox ships. This server implements
+The third Runtime Service PeakVox ships. This server implements
 the 5-endpoint Runtime Service Contract (ADR-0017 §6) over
-HTTP/JSON. The Kokoro model is loaded lazily on the first
-inference request; until then, the server reports not-ready
-(503 on /ready) but stays alive (200 on /health).
+HTTP/JSON. The F5-TTS flow-matching model is loaded lazily on
+the first inference request; until then, the server reports
+not-ready (503 on /ready) but stays alive (200 on /health).
+
+This file is the canonical copy-from-Kokoro template: every
+contract-level surface (/health, /ready, /v1/metadata,
+/v1/generate, /v1/variants/build, error envelope, response
+headers) is identical to the Kokoro runtime. Only the
+inference backend changes (F5-TTS's flow-matching pipeline
+vs. Kokoro's KPipeline).
+
+F5-TTS is GPU-only (CUDA required for inference). CPU
+inference is unsupported upstream; the runtime reports
+"load_failed: cuda_unavailable" on /ready when no GPU is
+present, and the manager reaps the container on
+idle_timeout.
 
 Endpoints
 ---------
@@ -12,12 +25,8 @@ Endpoints
   GET  /health                  liveness
   GET  /ready                   readiness (model loaded?)
   POST /v1/generate             inference (returns audio/wav)
-  POST /v1/variants/build       501 in Phase 3 (deferred)
+  POST /v1/variants/build       501 (deferred to in-process adapter)
   GET  /v1/metadata             capabilities + supported surface
-
-The server is **the canonical reference shape** (R8) — every
-future runtime (F5-TTS, XTTS, OpenVoice, Fish, OmniVoice) is
-a copy of this file with targeted edits.
 """
 
 from __future__ import annotations
@@ -28,22 +37,23 @@ import threading
 import time
 import wave
 from datetime import datetime, timezone
-from typing import Annotated, Any, Iterator, Literal, Optional
+from typing import Any, Iterator, Literal, Optional
 
 import numpy as np
+import torch
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 
-logger = logging.getLogger("peakvox.kokoro_runtime")
+logger = logging.getLogger("peakvox.f5_tts_runtime")
 
 
 # ---------------------------------------------------------------------------
 # Module-level state (the "model is loaded" singleton)
 # ---------------------------------------------------------------------------
 #
-# The Kokoro model is heavy. We load it once on first
+# The F5-TTS model is heavy. We load it once on the first
 # /v1/generate call (lazy), guarded by a lock so that
 # concurrent first requests share the same load. After load,
 # the pipeline is reused for every subsequent request.
@@ -53,8 +63,9 @@ logger = logging.getLogger("peakvox.kokoro_runtime")
 #                              → "failed"   (load error; error message in _load_error)
 
 
-_pipeline: Any = None  # the kokoro.KPipeline instance (or a mock in tests)
-_sample_rate: Optional[int] = None  # the pipeline's output sample rate (typically 24000)
+_pipeline: Any = None
+_sample_rate: Optional[int] = None
+_device: Optional[torch.device] = None
 _load_state: Literal["unloaded", "loading", "ready", "failed"] = "unloaded"
 _load_error: Optional[str] = None
 _load_lock = threading.Lock()
@@ -89,31 +100,33 @@ class BuildVariantRequest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Kokoro integration (lazy + injectable for tests)
+# F5-TTS integration (lazy + injectable for tests)
 # ---------------------------------------------------------------------------
 
 
-def _load_kokoro_pipeline() -> Any:
-    """Load the Kokoro pipeline.
+def _load_f5_tts_pipeline() -> Any:
+    """Load the F5-TTS pipeline.
 
-    The first call imports ``kokoro`` and constructs a
-    ``KPipeline``. Subsequent calls return the cached
-    pipeline. The function is the single load point; tests
-    patch ``_pipeline`` and ``_load_state`` to inject a
-    mock without exercising this code path.
+    The first call imports ``f5_tts`` and constructs the
+    flow-matching model + vocoder. Subsequent calls return
+    the cached pipeline. The function is the single load
+    point; tests patch ``_pipeline`` and ``_load_state`` to
+    inject a mock without exercising this code path.
     """
-    global _pipeline, _sample_rate
-    from kokoro import KPipeline  # type: ignore
+    global _pipeline, _sample_rate, _device
 
-    # Kokoro 0.7.x KPipeline signature: (lang_code, model, ...).
-    # The ``repo_id`` keyword was removed; the model is loaded
-    # by the package's own weights-resolution path. Callers
-    # that need a specific repo should use the higher-level
-    # `kokoro` package API; for the runtime, the package's
-    # default weight resolution is correct.
-    _pipeline = KPipeline(lang_code="a")
-    # The Kokoro pipeline outputs at 24kHz by default; the
-    # actual sample rate is exposed via the pipeline.
+    if not torch.cuda.is_available():
+        raise RuntimeError("cuda_unavailable: F5-TTS requires a CUDA device")
+
+    _device = torch.device("cuda:0")
+    from f5_tts.api import F5TTS  # type: ignore
+
+    _pipeline = F5TTS(
+        model="F5TTS_v1_Base",
+        vocoder="vocos",
+        device=_device,
+    )
+    # F5-TTS outputs at 24kHz by default.
     _sample_rate = 24000
     return _pipeline
 
@@ -128,7 +141,6 @@ def _ensure_pipeline_loaded() -> bool:
     if _load_state == "ready":
         return True
     if _load_state == "loading":
-        # Another thread is loading; wait for it.
         while _load_state == "loading":
             time.sleep(0.05)
         return _load_state == "ready"
@@ -141,13 +153,13 @@ def _ensure_pipeline_loaded() -> bool:
         _load_state = "loading"
         _load_error = None
         try:
-            _load_kokoro_pipeline()
+            _load_f5_tts_pipeline()
             _load_state = "ready"
             return True
         except Exception as exc:  # noqa: BLE001
             _load_state = "failed"
             _load_error = str(exc)
-            logger.exception("kokoro pipeline load failed")
+            logger.exception("f5-tts pipeline load failed")
             return False
 
 
@@ -158,13 +170,12 @@ def _ensure_pipeline_loaded() -> bool:
 
 def _float32_to_wav_bytes(audio: np.ndarray, sample_rate: int) -> bytes:
     """Encode a float32 mono waveform as 16-bit PCM WAV bytes."""
-    # Clip to [-1, 1] to avoid overflow when converting to int16.
     audio = np.clip(audio, -1.0, 1.0)
     pcm = (audio * 32767.0).astype(np.int16)
     buf = io.BytesIO()
     with wave.open(buf, "wb") as wf:
         wf.setnchannels(1)
-        wf.setsampwidth(2)  # 16-bit
+        wf.setsampwidth(2)
         wf.setframerate(sample_rate)
         wf.writeframes(pcm.tobytes())
     return buf.getvalue()
@@ -176,23 +187,23 @@ def _float32_to_wav_bytes(audio: np.ndarray, sample_rate: int) -> bytes:
 
 
 def _run_inference(req: GenerateRequest) -> tuple[np.ndarray, int]:
-    """Run Kokoro inference. Returns (audio, sample_rate)."""
-    # The pipeline is a callable: pipeline(text, voice=...) returns a
-    # generator of (graphemes, phonemes, audio) tuples.
-    voice = req.voice_id
-    # Kokoro voice names are like "af_bella". The adapter is
-    # responsible for translating PeakVox voice_id -> Kokoro
-    # voice name; for Phase 3 the voice_id is the Kokoro voice
-    # name verbatim.
+    """Run F5-TTS inference. Returns (audio, sample_rate)."""
     if _pipeline is None:
         raise HTTPException(status_code=503, detail="pipeline not loaded")
-    generator: Iterator[tuple[str, str, np.ndarray]] = _pipeline(req.text, voice=voice)
-    chunks = [audio for _, _, audio in generator]
-    if not chunks:
+    # F5-TTS's API takes (text, ref_audio, ref_text). The
+    # adapter is responsible for translating PeakVox voice_id
+    # and the optional variant/artifact into F5-TTS's expected
+    # inputs; for Phase 3 the voice_id is the catalog voice id
+    # and ref_audio is read from the variant artifact.
+    wav, sample_rate, _spec = _pipeline.infer(
+        ref_audio=req.params.get("ref_audio_path"),
+        ref_text=req.params.get("ref_text", ""),
+        gen_text=req.text,
+        language=req.language,
+    )
+    if wav is None or len(wav) == 0:
         raise HTTPException(status_code=500, detail="inference produced no audio")
-    audio = np.concatenate(chunks)
-    sample_rate = _sample_rate or 24000
-    return audio, sample_rate
+    return wav, int(sample_rate)
 
 
 # ---------------------------------------------------------------------------
@@ -200,42 +211,28 @@ def _run_inference(req: GenerateRequest) -> tuple[np.ndarray, int]:
 # ---------------------------------------------------------------------------
 
 app = FastAPI(
-    title="peakvox/kokoro-runtime",
+    title="peakvox/f5-tts-runtime",
     version="0.1.0",
     description=(
-        "Runtime service for the Kokoro 82M TTS model. "
+        "Runtime service for the F5-TTS flow-matching TTS model. "
         "Implements the 5-endpoint Runtime Service Contract "
-        "(ADR-0017 §6). Reference shape (R8) for every future "
-        "runtime (F5-TTS, XTTS, OpenVoice, Fish, OmniVoice)."
+        "(ADR-0017 §6). Mirrors the Kokoro reference shape (R8). "
+        "GPU-only (CUDA required)."
     ),
 )
 
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    """Liveness probe (ADR-0017 §6.1).
-
-    Returns 200 if the process is alive. Does NOT require the
-    model to be loaded. A 200 here is necessary but not
-    sufficient for inference.
-    """
+    """Liveness probe (ADR-0017 §6.1)."""
     return {"status": "alive"}
 
 
 @app.get("/ready")
 def ready() -> Response:
-    """Readiness probe (ADR-0017 §6.2).
-
-    Returns 200 with ``{"status": "ready"}`` only when the
-    Kokoro model is loaded and can serve inference. Returns
-    503 with ``{"status": "not_ready", "reason": "..."}``
-    otherwise (model still loading, or load failed).
-    """
+    """Readiness probe (ADR-0017 §6.2)."""
     if _load_state == "ready":
-        return JSONResponse(
-            status_code=200,
-            content={"status": "ready"},
-        )
+        return JSONResponse(status_code=200, content={"status": "ready"})
     reason = {
         "unloaded": "model_not_loaded",
         "loading": "weights_loading",
@@ -249,34 +246,33 @@ def ready() -> Response:
 
 @app.get("/v1/metadata")
 def metadata() -> dict[str, Any]:
-    """Runtime metadata (ADR-0017 §6.5).
-
-    Returns the canonical metadata body that the
-    `RuntimeManager` and the adapter use for capability
-    validation, language/tag gating, and realization-type
-    resolution.
-    """
+    """Runtime metadata (ADR-0017 §6.5)."""
     return {
-        "runtime_id": "kokoro-82m",
-        "model_id": "kokoro-base",
-        "capabilities": ["tts", "multilingual"],
+        "runtime_id": "f5-tts-base",
+        "model_id": "f5-tts-base",
+        "capabilities": [
+            "tts",
+            "voice_cloning",
+            "multilingual",
+            "reference_audio",
+        ],
         "supported_languages": [
-            "en", "es", "fr", "hi", "it", "ja", "pt", "tr", "zh",
+            "en", "zh", "ja", "fr", "de", "es", "ko", "ru",
         ],
-        "supported_tags": [
-            "af_bella", "af_sarah", "am_adam", "am_michael",
-            "bf_emma", "bf_isabella", "bm_george", "bm_lewis",
-        ],
-        "realization_types": ["voice_pack"],
+        "supported_tags": [],
+        "supported_voice_design": [],
+        "realization_types": ["source_asset"],
         "build_strategies": [
             {
-                "creation_source": "PRESET_VOICE",
+                "creation_source": "SOURCE_ASSET",
                 "can_build": True,
-                "requires": ["voice_name"],
+                "requires": ["reference_audio_storage_key", "ref_text"],
             },
         ],
-        "max_concurrent_requests": 4,
+        "max_concurrent_requests": 1,
         "max_text_length": 5000,
+        "substrate": "gpu",
+        "min_vram_gb": 12,
     }
 
 
@@ -301,16 +297,7 @@ def _error_response(
 
 @app.post("/v1/generate")
 def generate(req: GenerateRequest) -> Response:
-    """Inference endpoint (ADR-0017 §6.3).
-
-    Runs Kokoro inference and returns the audio as
-    ``audio/wav`` bytes. Headers:
-      ``X-Peakvox-Request-Id`` echoes the request id
-      ``X-Peakvox-Duration-Ms`` reports the produced audio length
-      ``X-Peakvox-Logs`` (optional) carries a base64 log tail
-
-    Errors use the canonical envelope (§6.6).
-    """
+    """Inference endpoint (ADR-0017 §6.3)."""
     if not _ensure_pipeline_loaded():
         return _error_response(
             status_code=503,
@@ -352,18 +339,16 @@ def generate(req: GenerateRequest) -> Response:
 def build_variant(req: BuildVariantRequest) -> JSONResponse:
     """Variant build endpoint (ADR-0017 §6.4).
 
-    Phase 3 returns 501 — variant build is delegated to the
-    in-process adapter (the descriptor's build_strategies
-    surface is served by KokoroAdapter.build_variant, not
-    by the runtime). A future phase may move the build
-    pipeline into the runtime container.
+    Returns 501 — variant build is delegated to the in-process
+    F5-TTS adapter. A future phase may move the build pipeline
+    into the runtime container.
     """
     return _error_response(
         status_code=501,
         category="not_implemented",
         message=(
             "variant build is not implemented in this runtime "
-            "in Phase 3; the in-process KokoroAdapter handles "
+            "in Phase 3; the in-process F5-TTS adapter handles "
             "build_variant requests"
         ),
         request_id=req.request_id,

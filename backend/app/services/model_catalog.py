@@ -260,6 +260,59 @@ BUILTIN_MODELS: list[ModelDescriptor] = [
         is_default=False,
         editions=["community", "cloud"],
     ),
+    # F5-TTS — flow-matching TTS (SWivid/F5-TTS). Reference-audio
+    # voice cloning; GPU-only. Disabled in CE by default; the
+    # runtime-registry/f5-tts-base/ entry binds to this model id
+    # and is the second multi-provider Runtime Service after Kokoro
+    # (TASK 12 — Runtime Registry expansion). F5-TTS is enabled
+    # in CE only when a CUDA device is present; the descriptor's
+    # spec.requirements.gpu="required" guards the runtime.
+    ModelDescriptor(
+        id="f5-tts-base",
+        name="F5-TTS",
+        description="F5-TTS is a flow-matching TTS model with zero-shot voice cloning via reference audio. Multilingual EN/ZH/JA/FR/DE/ES/KO/RU. GPU-only (CUDA required). The third Runtime Service PeakVox ships (TASK 12).",
+        version="1.0.0",
+        provider="f5-tts",
+        repo_id="SWivid/F5-TTS",
+        supported_languages=["en", "zh", "ja", "fr", "de", "es", "ko", "ru"],
+        supported_tags=[],
+        supported_voice_design=[],
+        capabilities=ModelCapabilities(
+            supports_tts=True,
+            supports_voice_cloning=True,
+            supports_multilingual=True,
+            supports_reference_audio=True,
+            supports_api=True,
+        ),
+        requirements=ModelRequirements(gpu_required=True, runtime="torch"),
+        license=ModelLicense(
+            name="MIT License (code) + CC-BY-NC (weights)",
+            code="f5-tts-research",
+            weights_license="Reference-audio voice cloning is permitted; commercial use requires a separate license. Weights are released under CC-BY-NC for research use.",
+            commercial_use=False,
+            url="https://github.com/SWivid/F5-TTS/blob/main/LICENSE",
+        ),
+        provider_metadata={
+            "author": "SWivid",
+            "provider_url": "https://github.com/SWivid",
+            "homepage_url": "https://github.com/SWivid/F5-TTS",
+            "repository_url": "https://github.com/SWivid/F5-TTS",
+            "documentation_url": "https://github.com/SWivid/F5-TTS",
+            "paper_url": "https://arxiv.org/abs/2410.06885",
+            "architecture": "Flow-matching transformer + Vocos vocoder",
+            "model_size": "~340M params (F5TTS_v1_Base)",
+            "languages_summary": "8 languages primary; 1 zero-shot cloning via reference audio",
+            "metadata_sources": [
+                "https://github.com/SWivid/F5-TTS",
+                "https://huggingface.co/SWivid/F5-TTS",
+            ],
+            "requirements_source": "GPU required; ~12 GB VRAM in BF16 for inference; no published minimum VRAM",
+            "edition_availability_basis": "Reference cloning permitted; commercial use requires separate license; CE-disabled by default; Cloud enabled with license review",
+        },
+        status="disabled",
+        is_default=False,
+        editions=["community", "cloud"],
+    ),
     ModelDescriptor(
         id="fish-audio-s2",
         name="Fish Audio S2 Pro",

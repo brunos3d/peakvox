@@ -291,7 +291,10 @@ def test_with_runtimes_no_prefix_alias(client_with_manager_attached) -> None:
     assert r.status_code == 200
     body = r.json()
     assert "models" in body
-    assert len(body["models"]) == 4
+    # 5 catalog models: omnivoice-base, omnivoice-singing,
+    # fish-audio-s2, kokoro-base, f5-tts-base. Updated in
+    # TASK 12 when f5-tts-base was added to the BUILTIN_MODELS.
+    assert len(body["models"]) == 5
 
 
 def test_with_runtimes_no_prefix_alias_no_manager(client_no_manager) -> None:
@@ -301,6 +304,8 @@ def test_with_runtimes_no_prefix_alias_no_manager(client_no_manager) -> None:
     r = c.get("/models/with-runtimes")
     assert r.status_code == 200
     body = r.json()
-    assert len(body["models"]) == 4
+    # 5 catalog models even when no manager is attached
+    # (catalog is always present; runtime portion is the augmentation).
+    assert len(body["models"]) == 5
     for m in body["models"]:
         assert m["runtimes"] == []
