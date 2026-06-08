@@ -468,3 +468,109 @@ export interface VoiceResourceResponse {
   compatible_models: string[]
   recommended_model_id: string | null
 }
+
+// ---------------------------------------------------------------------------
+// Runtime types (Phase 3 — runtime-registry surface)
+//
+// The Runtime Registry is the authoritative source of runtime metadata
+// (image, port, lifecycle, etc.). The Models page renders from
+// GET /api/runtimes when RUNTIME_SERVICE_ENABLED=true; the legacy
+// /api/models (BUILTIN_MODELS) is the fallback.
+//
+// A Runtime is NOT a Voice and is NOT a Model in the domain sense. It is
+// infrastructure that the Model layer routes to. Per ADR-0016/0017, the
+// runtime's `model_binding.model_id` joins a runtime to the catalog
+// model it serves.
+// ---------------------------------------------------------------------------
+
+export type RuntimePhase =
+  | "NotInstalled"
+  | "Pulling"
+  | "Installed"
+  | "Starting"
+  | "Active"
+  | "Stopping"
+  | "Stopped"
+  | "Failed"
+  | "Updating";
+
+export interface RuntimeImage {
+  repository: string;
+  tag: string;
+  digest: string | null;
+}
+
+export interface RuntimeBuild {
+  entrypoint: string;
+  build_context: string;
+  dockerfile: string;
+}
+
+export interface RuntimeServiceContract {
+  protocol: "http" | "grpc";
+  port: number;
+  endpoints: {
+    health: string;
+    ready: string;
+    generate: string;
+    build: string;
+    metadata: string;
+  };
+}
+
+export interface RuntimeRequirements {
+  gpu: "required" | "optional" | "none";
+  min_vram_gb: number | null;
+  cpu_cores: number | null;
+  memory_gb: number | null;
+  edition: string[];
+}
+
+export interface RuntimeModelBinding {
+  model_id: string;
+  is_default: boolean;
+  priority: number;
+}
+
+export interface RuntimeLifecycle {
+  install_policy: string;
+  health_interval_seconds: number;
+  health_timeout_seconds: number;
+  start_timeout_seconds: number;
+  restart_policy: string;
+  idle_timeout: string;
+}
+
+export interface RuntimeStatePayload {
+  runtime_id: string;
+  phase: RuntimePhase;
+  host: string | null;
+  port: number | null;
+  image_identity: RuntimeImage | null;
+  started_at: string | null;
+  last_health_at: string | null;
+  last_request_at: string | null;
+  health_state: "ready" | "not_ready" | "unknown" | null;
+  endpoint: string | null;
+}
+
+export interface RuntimeCard {
+  runtime_id: string;
+  name: string;
+  description: string;
+  provider: string;
+  version: string;
+  edition: string[];
+  image: RuntimeImage;
+  build: RuntimeBuild | null;
+  service: RuntimeServiceContract;
+  capabilities: string[];
+  requirements: RuntimeRequirements;
+  model_binding: RuntimeModelBinding;
+  lifecycle: RuntimeLifecycle;
+  state: RuntimeStatePayload;
+}
+
+export interface RuntimesResponse {
+  runtimes: RuntimeCard[];
+}

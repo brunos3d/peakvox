@@ -23,6 +23,10 @@ import type {
   ProviderVoiceResponse,
   CreateFromPresetRequest,
   VoiceResourceResponse,
+  RuntimeCard,
+  RuntimesResponse,
+  RuntimeStatePayload,
+  RuntimeImage,
 } from "@/types"
 import { parseApiError, type ApiError } from "./api-error"
 
@@ -294,6 +298,54 @@ export async function activateModel(id: string): Promise<{ id: string; status: M
 
 export async function deactivateModel(id: string): Promise<{ id: string; status: Model["status"] }> {
   return request<{ id: string; status: Model["status"] }>(`/models/${id}/deactivate`, { method: "POST" })
+}
+
+// ---------------------------------------------------------------------------
+// Runtime API (Phase 3 — runtime-registry surface)
+//
+// The Models page renders from /api/runtimes when
+// RUNTIME_SERVICE_ENABLED=true; the legacy /api/models is the fallback.
+// The runtime API is gated: when no manager is attached (CE default), the
+// endpoints return 503 with a clear error message.
+// ---------------------------------------------------------------------------
+
+export async function fetchRuntimes(): Promise<RuntimeCard[]> {
+  const data = await request<RuntimesResponse>("/runtimes")
+  return data.runtimes
+}
+
+export async function fetchRuntime(id: string): Promise<RuntimeCard> {
+  return request<RuntimeCard>(`/runtimes/${id}`)
+}
+
+export async function fetchRuntimeState(id: string): Promise<RuntimeStatePayload> {
+  return request<RuntimeStatePayload>(`/runtimes/${id}/state`)
+}
+
+export async function installRuntime(
+  id: string,
+): Promise<{ runtime_id: string; phase: string; image_identity: RuntimeImage }> {
+  return request(`/runtimes/${id}/install`, { method: "POST" })
+}
+
+export async function startRuntime(
+  id: string,
+): Promise<{ runtime_id: string; phase: string; host: string; port: number; endpoint: string }> {
+  return request(`/runtimes/${id}/start`, { method: "POST" })
+}
+
+export async function stopRuntime(id: string): Promise<{ runtime_id: string; phase: string }> {
+  return request(`/runtimes/${id}/stop`, { method: "POST" })
+}
+
+export async function updateRuntime(
+  id: string,
+): Promise<{ runtime_id: string; phase: string; image_identity: RuntimeImage }> {
+  return request(`/runtimes/${id}/update`, { method: "POST" })
+}
+
+export async function removeRuntime(id: string): Promise<{ runtime_id: string; phase: string }> {
+  return request(`/runtimes/${id}/remove`, { method: "POST" })
 }
 
 export async function fetchDeviceSettings(): Promise<{ use_gpu: boolean; cuda_available: boolean }> {
