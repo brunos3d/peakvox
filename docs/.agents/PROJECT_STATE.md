@@ -3,17 +3,19 @@
 > Single source of truth for overall project state. Objective facts only. No emojis, no
 > subjective language. Update this file whenever phase, priorities, risks, or blockers change.
 
-**Last update:** 2026-06-07 (Phase 2 Sub-phases 2A, 2B AND 2C — COMPLETE: 2A delivered 9 modules + 9 test files (76 new tests); 2B delivered `DockerRuntimeDriver` + `lint_no_docker_outside_driver.py` + manager wiring (40 new tests); 2C delivered `HTTPTransport` + `KokoroAdapter` `KOKORO_RUNTIME_URL` integration + env plumbing + E2E scaffold (25 new tests, 1 skipped); 0 regressions; 466 pre-existing tests pass; sub-phase 2D is the next P0 work item)
+**Last update:** 2026-06-07 (Phase 2 — COMPLETE: 2A delivered 9 modules + 9 test files (76 new tests); 2B delivered `DockerRuntimeDriver` + `lint_no_docker_outside_driver.py` + manager wiring (40 new tests); 2C delivered `HTTPTransport` + `KokoroAdapter` `KOKORO_RUNTIME_URL` integration + env plumbing + E2E scaffold (25 new tests, 1 skipped); 2D delivered `runtime-registry/` with Kokoro descriptor + `RuntimeManager` instance cache + CE operations + 2A bridge activation + CLI skeleton + Kokoro G6 provider-validated report (32 new tests); 0 regressions; 495 pre-existing tests pass; Phase 3 (Kokoro full migration) is the next P0 workstream)
 **Branch:** `feat/peakvox-phase-1`
 **Edition target:** Community Edition (CE). Cloud is schema-ready, not implemented.
-**Cloud readiness gate:** ✅ OPEN — Kokoro validated as first non-OmniVoice provider (G5 passed).
+**Cloud readiness gate:** ✅ OPEN — Kokoro validated as first non-OmniVoice provider (G5 in-process + G6 runtime-service architecturally).
 **Architecture direction:** ADR-0016 (Models as Runtime Services) Accepted+Implemented
-(Phase 1+2A+2B+2C) 2026-06-07; ADR-0017 (Runtime Services Implementation — Phase 2
-architecture) Accepted+Implemented (2A+2B+2C) 2026-06-07. The Runtime-Service
-architecture is the agreed target; migration is sequenced across 7 phases. Phase 1
-(ADR + design) and Phase 2 Sub-phases 2A + 2B + 2C are complete. Sub-phase 2D
-(CE operations + `runtime-registry/` with Kokoro descriptor + bridge activation —
-the last sub-phase of Phase 2) is the next P0 work item.
+(Phase 1+2A+2B+2C+2D) 2026-06-07; ADR-0017 (Runtime Services Implementation — Phase 2
+architecture) Accepted+Implemented (2A+2B+2C+2D) 2026-06-07. **Phase 2 is COMPLETE.**
+The Runtime-Service architecture is the agreed target; migration is sequenced across
+7 phases. Phase 1 (ADR + design) and Phase 2 (Sub-phases 2A + 2B + 2C + 2D) are
+complete. The Runtime Activation Audit (all 7 checks PASS) confirms the canonical
+chain (Voice → VoiceVariant → Active Artifact → Adapter) is intact and runtime
+infrastructure is strictly downstream. Phase 3 (Kokoro full migration) is the
+next P0 workstream.
 
 ---
 
@@ -23,16 +25,22 @@ PeakVox Phase 1 (Platform Foundations) through Phase 3.11 are built. The CE spin
 (Phases 1–3 plus sub-phases 3.5–3.11) is implemented and covered by automated tests.
 Kokoro provider validation is complete (G5 passed — real audio generated E2E through
 the Runtime; see `VALIDATION/PROVIDER_VALIDATIONS/kokoro-validation-report.md`).
-Active focus: Phase 2 implementation. ADR-0016 (architecture) is
-Accepted+Implemented (Phase 1+2A+2B+2C); ADR-0017 (Phase 2
-implementation architecture) is Accepted+Implemented (2A+2B+2C).
-Phase 2 Sub-phases 2A (Foundations), 2B (DockerRuntimeDriver +
-manager wiring + lint script) and 2C (`HTTPTransport` +
-KokoroAdapter `KOKORO_RUNTIME_URL` integration + env plumbing
-+ E2E scaffold) are **complete** (2026-06-07). Sub-phase 2D
-(CE operations + `runtime-registry/` with Kokoro descriptor +
-bridge activation — the LAST sub-phase of Phase 2) is the next
-P0 work item. See [`ROADMAP/CURRENT_PHASE.md`](ROADMAP/CURRENT_PHASE.md)
+Active focus: Phase 3 (Kokoro full migration). **Phase 2
+is COMPLETE (2026-06-07).** ADR-0016 (architecture) is
+Accepted+Implemented (Phase 1+2A+2B+2C+2D); ADR-0017
+(Phase 2 implementation architecture) is Accepted+Implemented
+(2A+2B+2C+2D). The Runtime Activation Audit (all 7 checks
+PASS) confirms the canonical chain (Voice → VoiceVariant →
+Active Artifact → Adapter) is intact and runtime
+infrastructure is strictly downstream. Phase 2 Sub-phases
+2A (Foundations), 2B (DockerRuntimeDriver + manager wiring
++ lint script), 2C (`HTTPTransport` + `KokoroAdapter`
+`KOKORO_RUNTIME_URL` integration + env plumbing + E2E
+scaffold), and 2D (CE operations + `runtime-registry/` with
+Kokoro descriptor + bridge activation + CLI skeleton +
+Kokoro G6 provider-validated report) are **complete**
+(2026-06-07). **Phase 3 is the next P0 workstream.** See
+[`ROADMAP/CURRENT_PHASE.md`](ROADMAP/CURRENT_PHASE.md)
 and [`ROADMAP/ROADMAP.md`](ROADMAP/ROADMAP.md).
 
 ## Current priorities
@@ -71,12 +79,26 @@ and [`ROADMAP/ROADMAP.md`](ROADMAP/ROADMAP.md).
    gain knowledge of Docker / `RuntimeDescriptor` /
    `RuntimeInstance` / `RuntimeRegistry` / `RuntimeManager`.
    The in-process path is preserved as the CE default.
-7. **Next workstream:** begin **sub-phase 2D** (CE operations
-   install/activate/update/remove + `runtime-registry/`
-   directory with the Kokoro descriptor + activation of the
-   2A bridge's runtime-service branch in `runtime.py`). 2D is
-   the LAST sub-phase of Phase 2. After 2D, Phase 2 is
-   complete and Phase 3 (Kokoro full migration) is unblocked.
+7. ✅ **Sub-phase 2D (CE Operations + Bridge Activation)
+   complete — Phase 2 is COMPLETE.** `runtime-registry/`
+   with Kokoro descriptor + `RuntimeManager` instance
+   cache + CE operations + 2A bridge activation (log when
+   resolution is non-None) + `RuntimeOperator` CLI
+   skeleton + Kokoro G6 provider-validated report. 32
+   new tests; 495 pre-existing tests pass; 0
+   regressions. The Runtime Activation Audit (all 7
+   checks PASS) confirms the canonical chain (Voice →
+   VoiceVariant → Active Artifact → Adapter) is intact
+   and runtime infrastructure is strictly downstream.
+8. **Next workstream:** begin **Phase 3 (Kokoro full
+   migration)**. The Kokoro provider becomes the FIRST
+   provider that runs ONLY through the runtime service in
+   CE (in-process path is still available as a fallback,
+   but the default CE deployment uses the runtime service).
+   The Kokoro descriptor's `image.digest` pins the runtime
+   service to a specific image version. The Kokoro adapter
+   is updated to communicate with the runtime service by
+   default.
 
 ## Implemented components (architecture-validated; see IMPLEMENTATION_STATUS for evidence)
 
@@ -109,12 +131,11 @@ and [`ROADMAP/ROADMAP.md`](ROADMAP/ROADMAP.md).
   Phases 2–7 (Runtime Manager, Kokoro/F5/Fish/OmniVoice migrations, in-process path
   removal) are planned, not started. Existing in-process model execution continues
   throughout.
-- **Phase 2 implementation architecture (ADR-0017):** **Accepted+Implemented (2A+2B+2C)**
+- **Phase 2 implementation architecture (ADR-0017):** **Accepted+Implemented (2A+2B+2C+2D)**
   2026-06-07. Specifies the 10 deliverables; resolves the 5 deferred open
-  questions from `OPEN_DECISIONS.md` Decision 10. Phases 2A+2B+2C implemented:
-  9 modules + 1 driver + 1 transport + 1 settings field; 25 new test files.
-  The remaining 2D (CE operations + `runtime-registry/` with Kokoro descriptor
-  + bridge activation) is sequenced.
+  questions from `OPEN_DECISIONS.md` Decision 10. Phases 2A+2B+2C+2D implemented:
+  9 modules + 1 driver + 1 transport + 1 settings field + 1 CLI skeleton + 1
+  runtime-registry/ directory; 21 new test files. **Phase 2 is COMPLETE.**
 
 ## Planned components (schema/seams only; no implementation)
 
@@ -161,10 +182,10 @@ and [`ROADMAP/ROADMAP.md`](ROADMAP/ROADMAP.md).
   [`VALIDATION/PROVIDER_VALIDATIONS/`](VALIDATION/PROVIDER_VALIDATIONS/) (Fish blocker report).
 - No GPU in CI, so end-to-end audio generation cannot be fully automated in the test suite.
 - `test_voices.py` requires `torch` — excluded from local test suite; only runs in Docker.
-- **No architectural blockers for Phase 2 implementation.** ADR-0017 is
-  Accepted+Implemented (2A+2B+2C). Sub-phase 2D (CE operations +
-  `runtime-registry/` + bridge activation — the LAST sub-phase of
-  Phase 2) is the next P0 work item. The Runtime Persistence
+- **No architectural blockers for Phase 3 implementation.** ADR-0017 is
+  Accepted+Implemented (2A+2B+2C+2D). **Phase 2 is COMPLETE.** Phase 3
+  (Kokoro full migration — E2E docker-compose CI + G7/G8 validation
+  reports) is the next P0 workstream. The Runtime Persistence
   follow-up ADR is tracked as [`OPEN_DECISIONS.md` Decision 12](OPEN_DECISIONS.md)
   (non-blocking, future work).
 

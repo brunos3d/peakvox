@@ -8,6 +8,32 @@
 **Last verified against code:** 2026-06-07 (`feat/peakvox-phase-1`).
 All paths are relative to repository root.
 
+## Phase 2 — Runtime-Service Migration (COMPLETE 2026-06-07)
+
+Phase 2 (Sub-phases 2A + 2B + 2C + 2D) is **COMPLETE**
+(2026-06-07). The Runtime-Service architecture is implemented
+end-to-end. Phase 3 (Kokoro full migration) is unblocked.
+
+Sub-phases:
+- **2A — Foundations:** `RuntimeDescriptor`, `RuntimeInstance`,
+  `HealthReport`/`Metrics`, `RuntimeDriverError`,
+  `RuntimeDriver` Protocol, `RuntimeRegistry`/`Loader`,
+  `RuntimeEventBus`, `RuntimeManager` skeleton,
+  `PeakVoxRuntime` bridge integration. **IMPLEMENTED**
+  2026-06-07 (see below for evidence).
+- **2B — First Concrete Driver:** `DockerRuntimeDriver`,
+  `lint_no_docker_outside_driver.py`, `RuntimeManager` wiring.
+  **IMPLEMENTED** 2026-06-07 (see below for evidence).
+- **2C — Runtime-Service Communication Path:** `HTTPTransport`,
+  `KokoroAdapter` `KOKORO_RUNTIME_URL` integration,
+  `Settings.KOKORO_RUNTIME_URL` plumbing, E2E scaffold (gated).
+  **IMPLEMENTED** 2026-06-07 (see below for evidence).
+- **2D — CE Operations + Bridge Activation:** `runtime-registry/`
+  with Kokoro descriptor, `RuntimeManager` instance cache +
+  CE operations, 2A bridge activation (observability), CLI
+  skeleton, Kokoro G6 provider-validated report.
+  **IMPLEMENTED** 2026-06-07 (see below for evidence).
+
 ## Status vocabulary
 
 | Status | Meaning |
@@ -46,8 +72,8 @@ provider validation.
 | 0009 | Artifact Versioning + Retention | IMPLEMENTED | `voice_variant_artifacts` table; `services/voice_variant_artifact_repository.py`; tests `test_artifact_versioning_migration`, `test_artifact_repository` |
 | 0010 | Voice Source Assets + Automatic Variant Provisioning | IMPLEMENTED | `models/db.py::VoiceSourceAsset`, `core/migrations.py::_backfill_voice_source_assets`; backfill creates source-asset rows from variant artifacts. No dedicated provisioning service beyond `ensure_variant`. |
 | 0011 | Voice Creation Sources | IMPLEMENTED | `creation_source` column on `Voice` model (`models/db.py`), migration backfill, generation dual-path uses `voice_id`. Full taxonomy + per-source provisioning policies (ADR-0012) not implemented. |
-| 0016 | Models as Runtime Services | IMPLEMENTED (Phase 1+2A+2B+2C) | ADR accepted 2026-06-07. Phases 1+2A+2B+2C implemented (foundations + first driver + first communication path). The remaining 3 phases are sequenced: 3 (Kokoro full migration) → 4 (F5-TTS reference) → 5 (Fish) → 6 (OmniVoice) → 7 (remove in-process path). See `docs/.agents/SPECS/FEATURES/models-as-runtime-services/` and §"Phase 2A/2B/2C" below for evidence. |
-| 0017 | Runtime Services Implementation (Phase 2 Implementation ADR) | IMPLEMENTED (2A+2B+2C) | ADR accepted 2026-06-07. Phases 2A+2B+2C implemented: 9 modules + 1 driver + 1 transport + 1 settings field; 25 new test files. The remaining 2D (CE operations + runtime-registry/ with Kokoro descriptor) is sequenced. Resolves the 5 deferred open questions from `OPEN_DECISIONS.md` Decision 10. See `docs/.agents/SPECS/FEATURES/runtime-services-implementation/` and §"Phase 2A/2B/2C" below for evidence. |
+| 0016 | Models as Runtime Services | IMPLEMENTED (Phase 1+2A+2B+2C+2D) | ADR accepted 2026-06-07. Phases 1+2A+2B+2C+2D implemented (foundations + first driver + first communication path + CE operations + bridge activation). **Phase 2 is COMPLETE** (2026-06-07). The remaining phases are sequenced: 3 (Kokoro full migration) → 4 (F5-TTS reference) → 5 (Fish) → 6 (OmniVoice) → 7 (remove in-process path). See `docs/.agents/SPECS/FEATURES/models-as-runtime-services/` and §"Phase 2A/2B/2C/2D" below for evidence. |
+| 0017 | Runtime Services Implementation (Phase 2 Implementation ADR) | IMPLEMENTED (2A+2B+2C+2D) | ADR accepted 2026-06-07. Phases 2A+2B+2C+2D implemented: 9 modules + 1 driver + 1 transport + 1 settings field + 1 CLI skeleton + 1 runtime-registry/ directory; 21 new test files. **Phase 2 is COMPLETE** (2026-06-07). The runtime-registry/ + Kokoro descriptor + CE operations + bridge activation are all in place. Phase 3 (Kokoro full migration) is unblocked. Resolves the 5 deferred open questions from `OPEN_DECISIONS.md` Decision 10. See `docs/.agents/SPECS/FEATURES/runtime-services-implementation/` and §"Phase 2A/2B/2C/2D" below for evidence. |
 
 ## B. Runtime components
 
@@ -162,6 +188,36 @@ for the full task breakdown.
 - No model framework imports in the adapter (the in-process path's lazy `import kokoro` is the model, not the substrate).
 - No behavior regressions: full backend test suite (excluding pre-existing numpy/torch-dependent files) is 466 passed (was 441 after Milestone 10; +25 new tests across 3 test files for Phase 2C: 14 transport + 8 adapter isolation + 3 settings; 1 E2E test skipped in default venv).
 - Lint passes: `$ python scripts/lint_no_docker_outside_driver.py` → `clean`.
+
+### Phase 2D — CE Operations + Bridge Activation (IMPLEMENTED 2026-06-07)
+
+Phase 2D is the LAST sub-phase of Phase 2. It lands the
+CE operations (install / activate / update / remove) on
+the `RuntimeManager`, the `runtime-registry/` directory
+with the Kokoro Runtime Descriptor, and the activation
+of the 2A bridge in `PeakVoxRuntime.generate()`. After
+2D, **Phase 2 is COMPLETE** and Phase 3 (Kokoro full
+migration) is unblocked.
+
+| Component | Status | Evidence |
+|---|---|---|
+| `runtime-registry/` with Kokoro descriptor | IMPLEMENTED | `runtime-registry/kokoro-82m/descriptor.json`; `tests/test_runtime_registry_kokoro_descriptor.py` (9 tests) — parses, validates, binds to `kokoro-base`, edition `["ce"]`, capabilities subset of `ModelCapabilities`; `tests/test_settings_runtime_registry_path.py` (2 tests) — `Settings.RUNTIME_REGISTRY_PATH` env-driven |
+| `RuntimeManager` instance cache | IMPLEMENTED | `app/services/runtime_manager.py` (`_instance_cache: dict[str, RuntimeInstance]`); `tests/test_runtime_manager_operations.py` (12 tests) — install/start/stop/update/remove all update the cache; `resolve()` returns cached ACTIVE instance or None; `status()` reads from cache |
+| `PeakVoxRuntime` 2A bridge activation | IMPLEMENTED | `app/services/runtime.py` (bridge block in `generate()`); `tests/test_bridge_activation_phase2d.py` (5 tests) — debug log when resolution is non-None; no kwargs perturbation; no log when manager not wired |
+| `RuntimeOperator` CLI skeleton | IMPLEMENTED | `scripts/runtime_manager.py`; `tests/test_runtime_manager_cli_skeleton.py` (4 tests) — `from_settings()` loads registry; four CE operations work end-to-end; list_runtimes; resolve; no Docker import |
+| Kokoro G6 provider-validated report | IMPLEMENTED | `docs/.agents/VALIDATION/PROVIDER_VALIDATIONS/kokoro-runtime-validation-report.md` — full G6 validation; Runtime Activation Audit summary; Phase 2 → Phase 3 gate |
+| Runtime Activation Audit | PASSED | `docs/.agents/VALIDATION/AUDITS/runtime-activation-audit.md` — all 7 checks PASS; canonical chain (Voice → VoiceVariant → Active Artifact → Adapter) intact; runtime infrastructure is strictly downstream |
+
+**Phase 2D architectural invariants (verified per the 2D gate checklist + Runtime Activation Audit):**
+- The `runtime-registry/` directory is published with the Kokoro descriptor. The descriptor validates against the bound model's `ModelCapabilities` (no implicit capabilities).
+- The `RuntimeManager` instance cache holds `RuntimeInstance` objects only — NOT `Voice` / `VoiceVariant` / `VoiceVariantArtifact` objects. Voices / Variants / Artifacts live in the DB layer.
+- The 2A bridge activation is a documentation + observability change. The bridge does NOT perturb the adapter's kwargs, does NOT change the in-process path, and does NOT inject a runtime endpoint into the adapter's signature.
+- The `RuntimeOperator` is substrate-neutral. The driver is the only component allowed to import Docker libraries (enforced by `lint_no_docker_outside_driver.py`).
+- The Runtime Activation Audit (all 7 checks PASS) confirms: `RuntimeResolution` is not a canonical domain object; `RuntimeDescriptor` does not own Model metadata; `RuntimeInstance` does not own Voice metadata; `RuntimeRegistry` is deployment metadata only; voice compatibility is derived from `VoiceVariant` + `ModelCapabilities`; runtime activation cannot bypass `VariantResolver` / `ArtifactResolver`; the runtime service does not receive enough information to independently resolve voices.
+- No behavior regressions: full backend test suite (excluding pre-existing numpy/torch-dependent files) is 495 passed (was 466 after Milestone 13; +29 new tests across 4 test files for Phase 2D: 9 descriptor + 2 settings path + 12 CE operations + 5 bridge activation + 4 CLI skeleton = 32; 7 tests updated in `test_runtime_manager_with_docker.py` to match the new cache-based behavior).
+- Lint passes: `$ python scripts/lint_no_docker_outside_driver.py` → `clean`.
+
+**Phase 2 → Phase 3 gate: OPEN.** Phase 2 is COMPLETE. Phase 3 (Kokoro full migration) is unblocked.
 
 ## C. Voice / data layer
 
