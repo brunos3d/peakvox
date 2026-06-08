@@ -151,7 +151,7 @@ def _state_to_payload(runtime_id: str, instance: Optional[RuntimeInstance]) -> d
     if instance is None:
         return {
             "runtime_id": runtime_id,
-            "phase": "NotInstalled",
+            "phase": "notInstalled",
             "host": None,
             "port": None,
             "image_identity": None,
@@ -391,7 +391,7 @@ async def stop_runtime(runtime_id: str) -> dict[str, Any]:
                 "category": "stop_failed",
             },
         )
-    return {"runtime_id": runtime_id, "phase": "Stopped"}
+    return {"runtime_id": runtime_id, "phase": "stopped"}
 
 
 @router.post("/{runtime_id}/update")
@@ -429,7 +429,7 @@ async def remove_runtime(runtime_id: str) -> dict[str, Any]:
                 "category": "remove_failed",
             },
         )
-    return {"runtime_id": runtime_id, "phase": "Removed"}
+    return {"runtime_id": runtime_id, "phase": "notInstalled"}
 
 
 # ---------------------------------------------------------------------------
@@ -458,9 +458,31 @@ async def list_models_with_runtimes() -> dict[str, Any]:
     The composed view is the Models page's source of truth.
     The catalog is the primary entity; the runtime-registry
     augments it with infrastructure metadata.
+
+    T13.2 — Runtime Registry Authority:
+    When RUNTIME_SERVICE_ENABLED=true and a runtime manager
+    is attached, only models that have at least one runtime
+    descriptor in the registry are returned. The catalog
+    portion is the augmentation when no manager is attached.
+    The Runtime Registry is authoritative: models without
+    a runtime descriptor do not appear in the response.
     """
     manager = runtime_module.runtime._runtime_manager
     catalog_models = model_registry.list_models(edition=settings.EDITION)
+
+    # T13.2: when the runtime subsystem is wired, filter to
+    # models that have at least one runtime. Without this
+    # filter, the page renders catalog-only models (e.g.
+    # omnivoice-singing, fish-audio-s2) as "Runtime Not
+    # Migrated" — which is correct UX but contradicts the
+    # user's intent that the Runtime Registry is the
+    # single source of truth when the runtime subsystem is
+    # enabled. The catalog-only models live in the
+    # /models endpoint (which the Models page does not
+    # consume).
+    runtime_authoritative = (
+        settings.RUNTIME_SERVICE_ENABLED and manager is not None
+    )
 
     composed: list[dict[str, Any]] = []
     for model in catalog_models:
@@ -493,6 +515,11 @@ async def list_models_with_runtimes() -> dict[str, Any]:
                 # selection rules in RuntimeManager.resolve).
                 default_runtime_id = runtimes[0]["runtime_id"]
 
+        # T13.2: drop catalog-only models when the runtime
+        # subsystem is the authority.
+        if runtime_authoritative and not runtimes:
+            continue
+
         composed.append(
             {
                 "model": model.model_dump(),
@@ -513,3 +540,43 @@ no_prefix_router = APIRouter(tags=["Models (composed)"])
 async def list_models_with_runtimes_no_prefix() -> dict[str, Any]:
     """Same as /api/models/with-runtimes (legacy non-/api prefix)."""
     return await list_models_with_runtimes()
+
+
+# T13 — add the legacy non-/api prefix aliases for the runtime
+# lifecycle endpoints. The frontend's request() helper calls
+# /runtimes/<id>/{install,start,stop,update,remove} (no /api
+# prefix per the project convention); without these aliases
+# every button click returns 404.
+@no_prefix_router.post("/runtimes/{runtime_id}/install")
+async def install_runtime_no_prefix(runtime_id: str) -> dict[str, Any]:
+    return await install_runtime(runtime_id)
+
+
+@no_prefix_router.post("/runtimes/{runtime_id}/start")
+async def start_runtime_no_prefix(runtime_id: str) -> dict[str, Any]:
+    return await start_runtime(runtime_id)
+
+
+@no_prefix_router.post("/runtimes/{runtime_id}/stop")
+async def stop_runtime_no_prefix(runtime_id: str) -> dict[str, Any]:
+    return await stop_runtime(runtime_id)
+
+
+@no_prefix_router.post("/runtimes/{runtime_id}/update")
+async def update_runtime_no_prefix(runtime_id: str) -> dict[str, Any]:
+    return await update_runtime(runtime_id)
+
+
+@no_prefix_router.post("/runtimes/{runtime_id}/remove")
+async def remove_runtime_no_prefix(runtime_id: str) -> dict[str, Any]:
+    return await remove_runtime(runtime_id)
+
+
+@no_prefix_router.get("/runtimes")
+async def list_runtimes_no_prefix() -> dict[str, Any]:
+    return await list_runtimes()
+
+
+@no_prefix_router.get("/runtimes/{runtime_id}/state")
+async def get_runtime_state_no_prefix(runtime_id: str) -> dict[str, Any]:
+    return await get_runtime_state(runtime_id)

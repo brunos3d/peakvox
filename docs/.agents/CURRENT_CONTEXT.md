@@ -5,24 +5,21 @@
 
 **As of:** 2026-06-08
 
-- **Current focus:** **Runtime-Canonical Models Page** is
-  VALIDATED (2026-06-08). **TASK 12 (Runtime Registry
-  Expansion)** is VALIDATED. The Runtime Registry now
-  hosts three independent runtime implementations
-  (`kokoro-82m`, `omnivoice-base`, `f5-tts-base`). The
-  Models page renders all three with zero hardcoded
-  assumptions. The Kokoro runtime container produces
-  real audio (4.45s WAV, 24kHz mono PCM) end-to-end
-  through the 5-endpoint Runtime Service Contract.
-  Workstream A (Models page) + Workstream B (Runtime
-  Registry expansion) are both complete and validated.
-  Audit:
-  [`SPECS/FEATURES/runtime-canonical-models-page/audits/`](SPECS/FEATURES/runtime-canonical-models-page/audits/).
-  Phase 2 (Runtime Services) remains COMPLETE; the
-  Phase 3 full-stack convergence is now mid-flight
-  with the runtime-canonical Models page + the
-  multi-runtime registry expansion as the first two
-  deliverables.
+- **Current focus:** **T13 (Runtime Registry as the Single
+  Source of Truth + Fully Functional Runtime Lifecycle)**
+  is **VALIDATED** (2026-06-08). The browser-driven
+  Install / Start / Stop / Update / Remove buttons now
+  actually execute against the runtime registry. The
+  full chain works end-to-end: browser → React Query
+  → backend → RuntimeManager → DockerRuntimeDriver →
+  docker SDK → host Docker daemon → driver-managed
+  container. Verified via 13 new regression tests +
+  Chrome DevTools browser E2E + 266,444 bytes of
+  generated audio. The Runtime Registry is the
+  authoritative source — when the runtime subsystem is
+  enabled, only models with a runtime descriptor
+  render. All three Phase 3 workstreams are now
+  complete and validated.
 - **Current branch:** `feat/peakvox-phase-1`
 - **Current ADRs in play:** ADR-0008/0009/0010/0011/0012
   (variant lifecycle, artifacts, source assets, creation

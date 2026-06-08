@@ -23,3 +23,12 @@ huggingface_hub
 # unset, the in-process path is unavailable (the backend image
 # is model-free; the legacy mock path is removed in a future
 # phase — Phase 7 "Remove direct in-process model execution").
+
+# Phase 3 (T13) — Runtime lifecycle depends on the docker
+# Python SDK. The DockerRuntimeDriver (sub-phase 2B) is the
+# only component allowed to import this module (enforced by
+# scripts/lint_no_docker_outside_driver.py). The backend
+# container MUST also mount /var/run/docker.sock for the
+# SDK to talk to the host Docker daemon (see docker-compose.yml).
+# The pin strategy: exact version for reproducibility.
+docker==7.1.0

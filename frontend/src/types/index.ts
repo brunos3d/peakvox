@@ -483,16 +483,20 @@ export interface VoiceResourceResponse {
 // model it serves.
 // ---------------------------------------------------------------------------
 
+// RuntimePhase matches the lowercase enum returned by the
+// runtime-state API (ADR-0017 §RuntimeState). The UI normalizes
+// to Title Case for display only; maps keyed on this type
+// therefore use lowercase keys.
 export type RuntimePhase =
-  | "NotInstalled"
-  | "Pulling"
-  | "Installed"
-  | "Starting"
-  | "Active"
-  | "Stopping"
-  | "Stopped"
-  | "Failed"
-  | "Updating";
+  | "notInstalled"
+  | "pulling"
+  | "installed"
+  | "starting"
+  | "active"
+  | "stopping"
+  | "stopped"
+  | "failed"
+  | "updating";
 
 export interface RuntimeImage {
   repository: string;

@@ -10,17 +10,21 @@
 ## In flight
 
 1. **Phase 3 — Kokoro full migration + Runtime Service
-   Container E2E (the remaining sub-tasks).** The
-   runtime-canonical Models page and the Runtime
-   Registry expansion (TASK 12) are VALIDATED. The
-   remaining Phase 3 work is the E2E audio generation
-   pipeline through the backend: G6 (architecture) +
-   G9 (reaper) + G10 (no-Kokoro backend) reports are
-   written; G7 (Performance) + G8 (Error recovery)
-   reports are deferred to a future phase. The
-   pre-existing `KokoroAdapter` voice-id → preset-name
-   translation issue is the next P0 unblocker for the
-   full backend → runtime path.
+   Container E2E.** The runtime-canonical Models page
+   (Workstream A), the Runtime Registry expansion to 3
+   entries (TASK 12), and the T13 functional lifecycle
+   (browser-driven Install/Start/Stop/Update/Remove) are
+   all VALIDATED. The remaining Phase 3 work is the E2E
+   audio generation pipeline through the backend:
+   G6 (architecture) + G9 (reaper) + G10 (no-Kokoro
+   backend) reports are written; G7 (Performance) +
+   G8 (Error recovery) reports are deferred to a future
+   phase. The pre-existing `KokoroAdapter` voice-id →
+   preset-name translation issue remains the next P0
+   unblocker for the full backend → runtime generation
+   path (Kokoro runtime container itself produces real
+   audio, as proven by the 266,444-byte WAV in
+   `audits/screenshots/t13-kokoro-runtime-generated-audio.wav`).
 
 ## Not in flight (recently completed)
 

@@ -9,6 +9,12 @@ services:
     volumes:
       - omnivoice_data:/data
       - ./runtime-registry:/app/runtime-registry:ro
+      # T13 — the DockerRuntimeDriver talks to the host Docker
+      # daemon via the unix socket. Without this mount, the
+      # driver can connect (`docker.from_env()`) but every
+      # operation fails with "host not accessible". CE-only;
+      # Cloud uses a Kubernetes driver (Decision 11).
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - DATABASE_URL=sqlite+aiosqlite:////data/omnivoice.db
       - OMNIVOICE_MODEL=k2-fsa/OmniVoice

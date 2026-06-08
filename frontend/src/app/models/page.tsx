@@ -23,8 +23,8 @@ function asLegacyModel(card: ModelWithRuntimesCard): Model {
   const defaultRuntime = card.runtimes.find((r) => r.runtime_id === card.default_runtime_id) ?? card.runtimes[0]
   if (defaultRuntime) {
     const phase = defaultRuntime.state.phase
-    const isActive = phase === "Active"
-    const isInstalled = phase !== "NotInstalled" && phase !== "Failed"
+    const isActive = phase === "active"
+    const isInstalled = phase !== "notInstalled" && phase !== "failed"
     return {
       ...m,
       install_status: isInstalled ? "installed" : "not_installed",

@@ -12,27 +12,27 @@ import type {
 import type { RuntimeLifecycleAction } from "@/hooks/use-runtimes"
 
 const RUNTIME_PHASE_LABEL: Record<RuntimePhase, string> = {
-  NotInstalled: "Not Installed",
-  Pulling: "Pulling image...",
-  Installed: "Installed (image present, container stopped)",
-  Starting: "Starting container...",
-  Active: "Active (container running, /ready 200)",
-  Stopping: "Stopping...",
-  Stopped: "Stopped",
-  Failed: "Failed",
-  Updating: "Updating...",
+  notInstalled: "Not Installed",
+  pulling: "Pulling image...",
+  installed: "Installed (image present, container stopped)",
+  starting: "Starting container...",
+  active: "Active (container running, /health 200)",
+  stopping: "Stopping...",
+  stopped: "Stopped",
+  failed: "Failed",
+  updating: "Updating...",
 }
 
 const RUNTIME_PHASE_BADGE: Record<RuntimePhase, string> = {
-  NotInstalled: "bg-muted text-muted-foreground",
-  Pulling: "bg-warning/15 text-warning",
-  Installed: "bg-muted text-muted-foreground",
-  Starting: "bg-warning/15 text-warning",
-  Active: "bg-success/15 text-success",
-  Stopping: "bg-muted text-muted-foreground",
-  Stopped: "bg-muted text-muted-foreground",
-  Failed: "bg-error/15 text-error",
-  Updating: "bg-warning/15 text-warning",
+  notInstalled: "bg-muted text-muted-foreground",
+  pulling: "bg-warning/15 text-warning",
+  installed: "bg-muted text-muted-foreground",
+  starting: "bg-warning/15 text-warning",
+  active: "bg-success/15 text-success",
+  stopping: "bg-muted text-muted-foreground",
+  stopped: "bg-muted text-muted-foreground",
+  failed: "bg-error/15 text-error",
+  updating: "bg-warning/15 text-warning",
 }
 
 function InfoLine({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
@@ -54,7 +54,12 @@ function CapabilityChip({ name }: { name: string }) {
   )
 }
 
-function RuntimeDescriptorView({
+// ---------------------------------------------------------------------------
+// Runtime identity + state header (T13.4: rendered at the TOP of
+// the Runtime Section, immediately above the OperationsRow so the
+// action buttons are visible without scrolling).
+// ---------------------------------------------------------------------------
+function RuntimeHeader({
   descriptor,
   state,
 }: {
@@ -62,41 +67,77 @@ function RuntimeDescriptorView({
   state: RuntimeStatePayload
 }) {
   const { spec, metadata } = descriptor
-
   return (
-    <div className="rounded-md border border-border bg-surface-2 p-3 space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-mono">
+    <div className="rounded-md border border-border bg-surface-2 p-3 space-y-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <p className="text-sm font-mono break-all">
             {spec.image.repository}:{spec.image.tag}
           </p>
           {spec.image.digest && (
             <p className="text-[10px] text-muted-foreground font-mono break-all">@{spec.image.digest}</p>
           )}
           {metadata.name && metadata.name !== `${spec.image.repository}:${spec.image.tag}` && (
-            <p className="text-xs text-muted-foreground mt-0.5">{metadata.name}</p>
+            <p className="text-xs text-muted-foreground">{metadata.name}</p>
           )}
+          <p className="text-[10px] text-muted-foreground">
+            v{metadata.version} · provider={metadata.provider}
+          </p>
         </div>
-        <span className={cn("rounded px-2 py-1 text-[10px] font-medium", RUNTIME_PHASE_BADGE[state.phase])}>
+        <span
+          className={cn(
+            "shrink-0 rounded px-2 py-1 text-[10px] font-medium",
+            RUNTIME_PHASE_BADGE[state.phase],
+          )}
+        >
           {state.phase}
         </span>
       </div>
+      <p className="text-xs text-muted-foreground">
+        {RUNTIME_PHASE_LABEL[state.phase]}
+      </p>
+    </div>
+  )
+}
 
-      <p className="text-xs text-muted-foreground">{RUNTIME_PHASE_LABEL[state.phase]}</p>
-
+// ---------------------------------------------------------------------------
+// Runtime state details (endpoint, started_at, health). Rendered
+// below the OperationsRow so the user can see the current
+// state details AFTER the actions they may want to take.
+// ---------------------------------------------------------------------------
+function RuntimeStateDetails({ state }: { state: RuntimeStatePayload }) {
+  if (
+    !state.endpoint &&
+    !(state.phase === "active" && state.started_at) &&
+    !state.last_health_at &&
+    !state.health_state
+  ) {
+    return null
+  }
+  return (
+    <div className="rounded-md border border-border bg-surface-2 p-3 space-y-2">
       {state.endpoint && <InfoLine label="Endpoint" value={state.endpoint} mono />}
-
-      {state.phase === "Active" && state.started_at && (
+      {state.phase === "active" && state.started_at && (
         <InfoLine label="Started" value={new Date(state.started_at).toLocaleString()} />
       )}
-
       {state.last_health_at && (
         <InfoLine label="Last health" value={new Date(state.last_health_at).toLocaleString()} />
       )}
-
       {state.health_state && <InfoLine label="Health" value={state.health_state} />}
+    </div>
+  )
+}
 
-      <div className="border-t border-border pt-2 space-y-1">
+// ---------------------------------------------------------------------------
+// Descriptor details (service contract, requirements, capabilities).
+// All values are derived from the descriptor; the UI never
+// hardcodes per-runtime metadata (T13.3).
+// ---------------------------------------------------------------------------
+function RuntimeDescriptorDetails({ descriptor }: { descriptor: ComposedRuntimeDescriptor }) {
+  const { spec } = descriptor
+  return (
+    <div className="space-y-3">
+      <div className="rounded-md border border-border bg-surface-2 p-3 space-y-2">
         <p className="text-caption uppercase tracking-wide flex items-center gap-1.5">
           <Network className="h-3 w-3" /> Service
         </p>
@@ -109,7 +150,7 @@ function RuntimeDescriptorView({
         <InfoLine label="Metadata" value={spec.service.metadata_path} mono />
       </div>
 
-      <div className="border-t border-border pt-2 space-y-1">
+      <div className="rounded-md border border-border bg-surface-2 p-3 space-y-2">
         <p className="text-caption uppercase tracking-wide flex items-center gap-1.5">
           <HardDrive className="h-3 w-3" /> Requirements
         </p>
@@ -129,7 +170,7 @@ function RuntimeDescriptorView({
         <InfoLine label="Edition" value={spec.requirements.edition.join(", ")} />
       </div>
 
-      <div className="border-t border-border pt-2 space-y-1">
+      <div className="rounded-md border border-border bg-surface-2 p-3 space-y-2">
         <p className="text-caption uppercase tracking-wide flex items-center gap-1.5">
           <Container className="h-3 w-3" /> Capabilities
         </p>
@@ -160,18 +201,24 @@ export function RuntimeSection({
   const defaultRuntime = card.runtimes.find((r) => r.runtime_id === card.default_runtime_id) ?? card.runtimes[0]
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <p className="text-caption uppercase tracking-wide flex items-center gap-1.5">
         <Server className="h-3 w-3" /> Runtime
       </p>
       {defaultRuntime && defaultRuntime.descriptor ? (
+        // T13.4: OperationsRow is rendered at the TOP of the
+        // runtime section, immediately after the identity
+        // header. The user and audits can see the action
+        // buttons without scrolling.
         <div className="space-y-3">
-          <RuntimeDescriptorView descriptor={defaultRuntime.descriptor} state={defaultRuntime.state} />
+          <RuntimeHeader descriptor={defaultRuntime.descriptor} state={defaultRuntime.state} />
           <OperationsRow
             phase={defaultRuntime.state.phase}
             pending={actionPending}
             onAction={(action) => onAction(defaultRuntime.runtime_id, action)}
           />
+          <RuntimeStateDetails state={defaultRuntime.state} />
+          <RuntimeDescriptorDetails descriptor={defaultRuntime.descriptor} />
         </div>
       ) : (
         <NotMigratedEmptyState modelId={card.model.id as string} />

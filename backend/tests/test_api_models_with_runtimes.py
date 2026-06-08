@@ -221,7 +221,7 @@ def test_with_runtimes_joins_kokoro_when_manager_attached(
     runtime = kokoro_card["runtimes"][0]
     assert runtime["runtime_id"] == "kokoro-82m"
     assert runtime["descriptor"]["metadata"]["name"] == "Kokoro 82M Runtime"
-    assert runtime["state"]["phase"] == "NotInstalled"  # R6 — empty cache at startup
+    assert runtime["state"]["phase"] == "notInstalled"  # R6 — empty cache at startup
 
 
 def test_with_runtimes_marks_unmigrated_models(client_with_manager_attached) -> None:
@@ -258,7 +258,7 @@ def test_with_runtimes_state_reflects_manager_cache(
     kokoro_card = next(
         m for m in body["models"] if m["model"]["id"] == "kokoro-base"
     )
-    assert kokoro_card["runtimes"][0]["state"]["phase"] == "NotInstalled"
+    assert kokoro_card["runtimes"][0]["state"]["phase"] == "notInstalled"
     # The endpoint is None because no container is running.
     assert kokoro_card["runtimes"][0]["state"]["endpoint"] is None
 
@@ -291,21 +291,26 @@ def test_with_runtimes_no_prefix_alias(client_with_manager_attached) -> None:
     assert r.status_code == 200
     body = r.json()
     assert "models" in body
-    # 5 catalog models: omnivoice-base, omnivoice-singing,
-    # fish-audio-s2, kokoro-base, f5-tts-base. Updated in
-    # TASK 12 when f5-tts-base was added to the BUILTIN_MODELS.
+    # T13.2: the composed view filter (RUNTIME_SERVICE_ENABLED
+    # && manager attached) requires BOTH the flag AND a wired
+    # manager. The legacy fixture used by this test sets up
+    # the manager but does NOT toggle the flag, so the filter
+    # is OFF and all 5 catalog models are returned. The
+    # T13.2-on behavior is covered by
+    # ``tests/test_runtime_registry_authority_t13.py``.
     assert len(body["models"]) == 5
 
 
 def test_with_runtimes_no_prefix_alias_no_manager(client_no_manager) -> None:
     """The non-/api alias also returns 200 when no manager is
-    attached (the catalog portion is always present)."""
+    attached. T13.2: when no manager is attached, the runtime
+    subsystem is NOT authoritative, so all catalog models are
+    returned (the runtime portion is the augmentation)."""
     c = client_no_manager
     r = c.get("/models/with-runtimes")
     assert r.status_code == 200
     body = r.json()
-    # 5 catalog models even when no manager is attached
-    # (catalog is always present; runtime portion is the augmentation).
+    # 5 catalog models when no manager is attached.
     assert len(body["models"]) == 5
     for m in body["models"]:
         assert m["runtimes"] == []

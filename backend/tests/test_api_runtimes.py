@@ -195,7 +195,7 @@ def test_list_runtimes_state_phase_is_not_installed_at_startup(
     r = c.get("/api/runtimes")
     body = r.json()
     runtime = body["runtimes"][0]
-    assert runtime["state"]["phase"] == "NotInstalled"
+    assert runtime["state"]["phase"] == "notInstalled"
 
 
 # ---------------------------------------------------------------------------
@@ -240,4 +240,4 @@ def test_get_runtime_state_returns_state_payload(
     body = r.json()
     assert body["runtime_id"] == "kokoro-82m"
     assert "phase" in body
-    assert body["phase"] == "NotInstalled"  # at startup, R6
+    assert body["phase"] == "notInstalled"  # at startup, R6

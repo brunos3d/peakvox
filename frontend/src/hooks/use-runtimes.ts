@@ -80,6 +80,11 @@ export function useRuntimeLifecycleAction() {
     mutationFn: ({ id, action }: { id: string; action: RuntimeLifecycleAction }) =>
       lifecycleFns[action](id) as Promise<unknown>,
     onSuccess: (_data, variables) => {
+      // Invalidate the composed-view cache (the Models page
+      // subscribes to this via useModelsWithRuntimes). Without
+      // this, the page state badge won't refresh after a
+      // lifecycle operation.
+      queryClient.invalidateQueries({ queryKey: ["models-with-runtimes"] });
       queryClient.invalidateQueries({ queryKey: ["runtimes"] });
       queryClient.invalidateQueries({ queryKey: ["runtime", variables.id] });
       queryClient.invalidateQueries({ queryKey: ["runtime-state", variables.id] });

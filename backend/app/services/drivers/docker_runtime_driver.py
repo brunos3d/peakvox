@@ -29,6 +29,7 @@ The driver does NOT:
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 import urllib.error
 import urllib.request
@@ -50,6 +51,9 @@ from app.services.runtime_instance import (
     RuntimeState,
 )
 from app.services.runtime_types import HealthReport, Liveness, Metrics, Readiness, RuntimeDescriptor
+
+
+logger = logging.getLogger(__name__)
 
 
 __all__ = [
@@ -199,9 +203,48 @@ class DockerRuntimeDriver:
         # docker SDK expects {"Name": "on-failure"|"always"|"no"}.
         return {"Name": policy}
 
+    def _compose_network_name(self, client: Any) -> Optional[str]:
+        """Return the compose network name to attach the new
+        container to, or None to use the default bridge.
+
+        T13 — the driver must attach the runtime container to
+        the same docker network as the backend so the adapter
+        can reach it via ``<container-name>:<internal-port>``.
+        The driver looks at its own container (the one this
+        Python process is running in) and returns the first
+        attached network name.
+
+        In a non-compose environment the driver falls back
+        to the default bridge.
+        """
+        try:
+            hostname_path = "/etc/hostname"
+            with open(hostname_path) as f:
+                own_container_id = f.read().strip()
+            me = client.containers.get(own_container_id)
+            networks = me.attrs.get("NetworkSettings", {}).get("Networks", {}) or {}
+            # Prefer a network whose name starts with the
+            # compose project prefix; fall back to the first.
+            for name in networks.keys():
+                if name.endswith("_default"):
+                    return name
+            return next(iter(networks.keys()), None)
+        except Exception:
+            return None
+
     def _port_bindings(self, port: int) -> dict:
-        # Bind container port to a host port (same port for simplicity).
-        return {f"{port}/tcp": port}
+        # Bind the container's port to a random host port
+        # (host=0). This avoids host port conflicts with
+        # the backend (which uses 8000) and other services.
+        # The actual host port is read back via
+        # ``_port_for_container`` after ``containers.run``.
+        # T13: the runtime service's host port is the random
+        # value docker allocates; the in-cluster URL used
+        # by adapters is rewritten through the docker
+        # gateway (containers on the default bridge reach
+        # each other via the container name + the container's
+        # internal port).
+        return {f"{port}/tcp": 0}
 
     def _image_ref(self, desc: RuntimeDescriptor) -> str:
         return f"{desc.spec.image.repository}:{desc.spec.image.tag}"
@@ -302,13 +345,32 @@ class DockerRuntimeDriver:
     ) -> RuntimeInstance:
         client = self._ensure_client()
         image = descriptor.spec.image
+        # T13 — check for the image locally first. Local
+        # images (built from runtime-registry/<id>/Dockerfile)
+        # do not exist in any registry; pulling them returns
+        # 404 "pull access denied" which is a real-world
+        # error to surface, but the install must succeed
+        # when the image is already present. This matches
+        # the R8 reference shape: the build script is the
+        # only consumer of the image, and the runtime driver
+        # reuses what is already present.
+        ref = self._image_ref(descriptor)
         try:
-            if image.digest:
-                client.images.pull(f"{image.repository}@{image.digest}")
-            else:
-                client.images.pull(image.repository, tag=image.tag)
-        except BaseException as exc:
-            self._translate_install_error(exc, runtime_id)
+            client.images.get(ref)
+            logger.info(
+                "install_runtime(%s): image %s already present locally; "
+                "skipping pull",
+                runtime_id, ref,
+            )
+        except Exception:
+            # Not local. Try to pull from a registry.
+            try:
+                if image.digest:
+                    client.images.pull(f"{image.repository}@{image.digest}")
+                else:
+                    client.images.pull(image.repository, tag=image.tag)
+            except BaseException as exc:
+                self._translate_install_error(exc, runtime_id)
         # Cache the descriptor for later start_runtime; the manager
         # always calls install before start, so the cache is hot
         # at start time.
@@ -379,18 +441,35 @@ class DockerRuntimeDriver:
                 environment=self._environment(desc),
                 labels=self._labels(desc),
                 restart_policy=self._restart_policy_arg(desc.spec.lifecycle.restart_policy),
+                # T13 — attach the container to the same docker
+                # network the backend is on so the adapter can
+                # reach it via ``<container-name>:<internal-port>``.
+                # The default compose network is the project
+                # default (``<project>_default``); the driver
+                # derives it from the backend's own network
+                # attachments.
+                network=self._compose_network_name(client),
             )
         except BaseException as exc:
             self._translate_install_error(exc, runtime_id)
             raise  # unreachable; the helper always raises
-        # Wait for /ready. The probe is synchronous; run it in a
-        # thread to avoid blocking the event loop on long waits.
+        # Wait for /health. We intentionally probe /health
+        # (liveness) and not /ready (model readiness) —
+        # model loading is the runtime's concern and most
+        # runtimes load the model lazily on first inference
+        # (Kokoro returns /ready=503 "model_not_loaded"
+        # until the first /v1/generate call). The driver is
+        # responsible for "container is up"; the runtime is
+        # responsible for "model is loaded". The probe runs
+        # against the container's internal endpoint (container
+        # name + internal port), NOT the host port mapping.
+        in_cluster_host = _container_name(runtime_id)
         await asyncio.to_thread(
             self._wait_ready,
             runtime_id,
-            self._host,
+            in_cluster_host,
             port,
-            desc.spec.service.readiness_path,
+            desc.spec.service.health_path,
             float(desc.spec.lifecycle.start_timeout_seconds),
             float(desc.spec.lifecycle.health_interval_seconds),
             float(desc.spec.lifecycle.health_timeout_seconds),
@@ -398,7 +477,7 @@ class DockerRuntimeDriver:
         return RuntimeInstance(
             runtime_id=runtime_id,
             state=RuntimeState.ACTIVE,
-            host=self._host,
+            host=in_cluster_host,
             port=port,
             image_identity=self._image_identity_from_descriptor(desc),
             started_at=datetime.now(timezone.utc),
@@ -418,11 +497,17 @@ class DockerRuntimeDriver:
         c = self._container(runtime_id)
         c.reload()
         is_running = c.status == "running"
+        # T13: report the in-cluster endpoint (container
+        # name + internal port) so the adapter can reach
+        # it from inside the compose network. The host
+        # port mapping is read for diagnostics but is not
+        # the addressable endpoint.
+        host_port = self._port_for_container(c)
         return RuntimeInstance(
             runtime_id=runtime_id,
             state=RuntimeState.ACTIVE if is_running else RuntimeState.STOPPED,
-            host=self._host,
-            port=self._port_for_container(c),
+            host=_container_name(runtime_id),
+            port=self._descriptor_for_runtime(runtime_id).spec.service.port,
             image_identity=ImageIdentity(
                 repository=c.image.split(":")[0] if c.image and ":" in c.image else (c.image or ""),
                 tag=c.image.split(":", 1)[1] if c.image and ":" in c.image else "",

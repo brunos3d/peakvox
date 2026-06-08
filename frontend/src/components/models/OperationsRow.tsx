@@ -4,25 +4,25 @@ import { cn } from "@/lib/utils"
 import type { RuntimePhase } from "@/types"
 import type { RuntimeLifecycleAction } from "@/hooks/use-runtimes"
 
-type PendingPhase = "Pulling" | "Starting" | "Stopping" | "Updating"
+type PendingPhase = "pulling" | "starting" | "stopping" | "updating"
 
 const OPERATIONS_BY_PHASE: Record<RuntimePhase, RuntimeLifecycleAction[]> = {
-  NotInstalled: ["install"],
-  Pulling: [],
-  Installed: ["start", "remove"],
-  Starting: [],
-  Active: ["stop", "update", "remove"],
-  Stopping: [],
-  Stopped: ["start", "remove"],
-  Failed: ["remove"],
-  Updating: [],
+  notInstalled: ["install"],
+  pulling: [],
+  installed: ["start", "remove"],
+  starting: [],
+  active: ["stop", "update", "remove"],
+  stopping: [],
+  stopped: ["start", "remove"],
+  failed: ["remove"],
+  updating: [],
 }
 
 const PENDING_LABELS: Record<PendingPhase, string> = {
-  Pulling: "Pulling image...",
-  Starting: "Starting container...",
-  Stopping: "Stopping container...",
-  Updating: "Updating image...",
+  pulling: "Pulling image...",
+  starting: "Starting container...",
+  stopping: "Stopping container...",
+  updating: "Updating image...",
 }
 
 const ACTION_ICON: Record<RuntimeLifecycleAction, typeof Download> = {
@@ -42,7 +42,7 @@ const ACTION_VARIANT: Record<RuntimeLifecycleAction, "default" | "outline" | "de
 }
 
 function isPendingPhase(phase: RuntimePhase): phase is PendingPhase {
-  return phase === "Pulling" || phase === "Starting" || phase === "Stopping" || phase === "Updating"
+  return phase === "pulling" || phase === "starting" || phase === "stopping" || phase === "updating"
 }
 
 export function OperationsRow({
@@ -64,14 +64,14 @@ export function OperationsRow({
   }
 
   const actions = OPERATIONS_BY_PHASE[phase]
-  if (actions.length === 0) return null
+  if (!actions || actions.length === 0) return null
 
   return (
     <div className="flex flex-wrap gap-1.5 pt-1">
       {actions.map((action) => {
         const Icon = ACTION_ICON[action]
         const variant = ACTION_VARIANT[action]
-        const isRemoveBlockedDuringActive = action === "remove" && phase === "Active"
+        const isRemoveBlockedDuringActive = action === "remove" && phase === "active"
         return (
           <Button
             key={action}
