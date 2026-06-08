@@ -14,6 +14,7 @@ VRAM/load discipline.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -40,6 +41,9 @@ from app.services.voice_variant_repository import (
     get_voice_identity_by_public_id,
     resolve_variant,
 )
+
+
+_logger = logging.getLogger(__name__)
 
 # Phase 2A bridge: RuntimeManager is imported lazily inside
 # ``attach_runtime_manager`` to avoid an import cycle (the manager
@@ -472,18 +476,32 @@ class PeakVoxRuntime:
         # adapter call. It does not perturb the adapter's kwargs; it
         # does not execute inference; it does not communicate with
         # Docker or with any runtime service in 2A.
+        #
+        # === Phase 2D bridge activation ==================================
+        # In 2D the bridge is ACTIVATED. When the manager is wired AND
+        # the resolution is non-None (the runtime is installed and
+        # ACTIVE in the manager's cache), the bridge records an
+        # observability event confirming the runtime-service path is
+        # reachable. The adapter (KokoroAdapter) dispatches on
+        # ``KOKORO_RUNTIME_URL`` (per 2C.2); the bridge does NOT
+        # perturb the adapter's kwargs, does NOT change the in-process
+        # path, and does NOT inject a runtime endpoint into the
+        # adapter's signature. The activation is a documentation +
+        # observability change at the verification point.
         if self._runtime_manager is not None:
             _resolution = self._runtime_manager.resolve(descriptor.id)
-            # ``_resolution`` is None in 2A (no driver wired). When the
-            # driver is wired in sub-phase 2B+, a non-None resolution
-            # would carry the runtime endpoint and instance; the
-            # 2C+ branch routes through it. For 2A, the no-op
-            # assignment documents the seam.
             if _resolution is not None:
-                # 2C+ runtime-service path. Unreachable in 2A; reserved
-                # for the future shape per ADR-0017 §7. Do NOT activate
-                # in 2A. The literal pass-through below is intentional.
-                pass
+                # 2D activation: the runtime-service path is reachable.
+                # The adapter's 2C.2 dispatch handles the actual
+                # routing. The bridge records an observability event
+                # for operators and downstream telemetry.
+                _logger.debug(
+                    "PeakVoxRuntime: runtime-service path available for model %s "
+                    "via runtime %s at %s",
+                    descriptor.id,
+                    _resolution.descriptor.metadata.id,
+                    _resolution.endpoint,
+                )
 
         return await adapter.generate(
             text=text,
