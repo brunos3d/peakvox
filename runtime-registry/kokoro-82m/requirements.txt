@@ -1,0 +1,29 @@
+# peakvox/kokoro-runtime requirements (R8 reference).
+#
+# This file is the canonical reference for the
+# `runtime-registry/<runtime_id>/requirements.txt` shape.
+# Future runtimes (F5-TTS, XTTS, OpenVoice, Fish, OmniVoice)
+# pin their own framework versions in their own copies of
+# this file.
+#
+# Pin strategy: exact version pins for reproducibility.
+# The image tag (e.g. peakvox/kokoro-runtime:0.1.0) moves in
+# lockstep with the kokoro framework version; the spec.image.digest
+# is set by the build script after a successful `docker build`.
+
+# The HTTP service framework (5-endpoint Runtime Service Contract).
+# ADR-0017 §6: every runtime service exposes /health, /ready,
+# /v1/generate, /v1/variants/build, /v1/metadata over HTTP/JSON.
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+pydantic==2.9.2
+
+# The Kokoro TTS framework.
+# 82M params; CPU-capable; 24kHz WAV output; 54 preset voices
+# across 9 languages. The first runtime service PeakVox ships.
+kokoro==0.7.16
+
+# Spacy is required by the kokoro package for phonemization.
+# The en_core_web_sm model is auto-downloaded on first inference
+# (or baked into the image during build for offline deployments).
+spacy==3.8.3

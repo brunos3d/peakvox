@@ -4,13 +4,14 @@
   "metadata": {
     "id": "kokoro-82m",
     "name": "Kokoro 82M Runtime",
-    "description": "Runtime service for the Kokoro 82M TTS model. CPU-capable, 24kHz WAV output, 54 preset voices across 9 languages.",
+    "description": "Runtime service for the Kokoro 82M TTS model. CPU-capable, 24kHz WAV output, 54 preset voices across 9 languages. Reference runtime shape (R8) — every future runtime (F5-TTS, XTTS, OpenVoice, Fish, OmniVoice) mirrors this directory.",
     "provider": "kokoro",
     "version": "0.1.0",
     "edition": ["ce"],
     "labels": {
       "substrate": "cpu",
-      "model_family": "kokoro-82m"
+      "model_family": "kokoro-82m",
+      "reference_shape": "true"
     }
   },
   "spec": {
@@ -18,6 +19,11 @@
     "image": {
       "repository": "peakvox/kokoro-runtime",
       "tag": "0.1.0"
+    },
+    "build": {
+      "entrypoint": "server.py",
+      "build_context": ".",
+      "dockerfile": "Dockerfile"
     },
     "service": {
       "protocol": "http",
@@ -46,7 +52,8 @@
       "health_interval_seconds": 10,
       "health_timeout_seconds": 3,
       "start_timeout_seconds": 60,
-      "restart_policy": "on-failure"
+      "restart_policy": "on-failure",
+      "idle_timeout": "15m"
     }
   }
 }
