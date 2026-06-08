@@ -22,6 +22,7 @@ from app.api.api_keys import router as api_keys_router
 from app.api.v1 import router as v1_router
 from app.services.model_registry import model_registry
 from app.services.model_wiring import wire_registry_from_database, wire_runtime
+from app.services.runtime_wiring import start_idle_reaper, stop_idle_reaper, wire_runtime_services
 from app.services.storage import storage
 from app.services.migration import run_migration
 
@@ -98,8 +99,24 @@ async def lifespan(app: FastAPI):
     wire_runtime()
     default_id = model_registry.resolve_default().id
     asyncio.create_task(model_registry.ensure_loaded(default_id))
-    yield
-    logger.info("Shutting down")
+
+    # Phase 3: wire the runtime subsystem (R3, R6, R7).
+    #
+    # Gated on Settings.RUNTIME_SERVICE_ENABLED. When the flag is
+    # False (CE default), the runtime subsystem is not constructed
+    # and the in-process adapter path is the only path. When the
+    # flag is True, the registry is loaded, the driver is built,
+    # the manager is attached to PeakVoxRuntime, and the idle
+    # reaper background task is started. NO runtime container is
+    # started at boot (R6 — lazy activation).
+    runtime_manager = wire_runtime_services(settings)
+    idle_reaper_task = await start_idle_reaper(runtime_manager)
+
+    try:
+        yield
+    finally:
+        await stop_idle_reaper(idle_reaper_task)
+        logger.info("Shutting down")
 
 
 app = FastAPI(title=settings.APP_NAME, lifespan=lifespan)

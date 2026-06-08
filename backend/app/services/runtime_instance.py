@@ -83,3 +83,14 @@ class RuntimeInstance:
     started_at: Optional[datetime]
     last_health_at: Optional[datetime]
     health_state: HealthState
+    last_request_at: Optional[datetime] = None
+
+    def with_last_request_at(self, when: datetime) -> "RuntimeInstance":
+        """Return a new instance with ``last_request_at`` set to ``when``.
+
+        The dataclass is frozen; mutation is a state transition.
+        Used by the manager to record the most recent ``resolve()``
+        call without mutating the cached instance in place.
+        """
+        from dataclasses import replace
+        return replace(self, last_request_at=when)

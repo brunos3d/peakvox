@@ -112,6 +112,14 @@ class RuntimeDiscovered(RuntimeEvent):
     descriptor_count: int = 0
 
 
+@dataclass(frozen=True)
+class RuntimeIdleTimeout(RuntimeEvent):
+    """Emitted by the idle reaper (R7) when an Active runtime is
+    auto-stopped after exceeding its ``idle_timeout``."""
+
+    idle_seconds: float = 0.0
+
+
 # ---- Bus -----------------------------------------------------------------------
 
 class _Subscriber(Protocol):

@@ -114,10 +114,14 @@ class RuntimeManager:
 
     # --- Cache (2D.1-2D.3) -----------------------------------------------------
 
+    @property
+    def registry(self) -> RuntimeRegistry:
+        """Read-only access to the runtime registry (ADR-0017 §2.3)."""
+        return self._registry
+
     def get_cached_instance(self, runtime_id: str) -> Optional[RuntimeInstance]:
         """Return the cached ``RuntimeInstance`` for ``runtime_id``,
-        or ``None`` if the runtime is not in the cache (i.e. not
-        yet installed)."""
+        or ``None`` if the runtime is not in the cache (i.e. not        yet installed)."""
         return self._instance_cache.get(runtime_id)
 
     def list_cached_instances(self) -> List[RuntimeInstance]:
@@ -271,6 +275,62 @@ class RuntimeManager:
             return self._instance_cache[runtime_id]
         driver = self._require_driver()
         return await driver.runtime_status(runtime_id)
+
+    # --- Phase 3: idle reaping (R7) -----------------------------------------
+
+    async def run_idle_reaper(self) -> int:
+        """Auto-stop any Active runtime that has been idle too long (R7).
+
+        For each ``Active`` instance in the cache, compute
+        ``now - last_request_at``. If the elapsed time exceeds
+        ``descriptor.spec.lifecycle.idle_timeout`` (in seconds),
+        call ``stop_runtime`` and emit the ``runtime.idle.timeout``
+        event. ``idle_timeout = "never"`` disables the reaper
+        for that runtime (Cloud default).
+
+        Returns the number of runtimes that were reaped.
+        """
+        from datetime import datetime, timezone
+        from app.services.runtime_events import RuntimeIdleTimeout
+        from app.services.runtime_types import parse_idle_timeout_to_seconds
+
+        now = datetime.now(timezone.utc)
+        reaped = 0
+        for runtime_id, inst in list(self._instance_cache.items()):
+            if inst.state != RuntimeState.ACTIVE:
+                continue
+            if inst.last_request_at is None:
+                # Active but never touched (e.g. started manually
+                # outside the manager). Skip; we don't know when
+                # the user wants it stopped.
+                continue
+            descriptor = self._registry.get(runtime_id)
+            if descriptor is None:
+                continue
+            timeout_seconds = parse_idle_timeout_to_seconds(
+                descriptor.spec.lifecycle.idle_timeout
+            )
+            if timeout_seconds is None:
+                # "never" — autoscaler owns lifecycle.
+                continue
+            elapsed = (now - inst.last_request_at).total_seconds()
+            if elapsed < timeout_seconds:
+                continue
+            # Idle timeout exceeded. Auto-stop the container.
+            try:
+                await self.stop(runtime_id)
+                if self._events is not None:
+                    self._events.publish(
+                        RuntimeIdleTimeout(
+                            runtime_id=runtime_id,
+                            idle_seconds=elapsed,
+                        )
+                    )
+                reaped += 1
+            except Exception:  # noqa: BLE001
+                # Don't let one runtime's reaper failure block others.
+                continue
+        return reaped
 
     # --- Event publication (internal helper) ----------------------------------
 
