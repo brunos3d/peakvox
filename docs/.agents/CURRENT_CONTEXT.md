@@ -5,22 +5,22 @@
 
 **As of:** 2026-06-07
 
-- **Current focus:** Phase 2 implementation. ADR-0016 (Accepted) +
-  ADR-0017 (Accepted) are the architectural baseline. **Sub-phases
-  2A and 2B are COMPLETE (2026-06-07).** 2A: 9 new modules + 9
-  test files (76 new tests). 2B: `DockerRuntimeDriver` + lint
-  script + manager wiring (40 new tests). 0 regressions; 441
-  pre-existing tests pass. The next sub-phase is **2C
-  (HTTPTransport + KokoroAdapter migration)**, the first
-  sub-phase to introduce the runtime-service communication path.
+- **Current focus:** Phase 2 implementation. ADR-0016
+  (Implemented 2A+2B+2C) + ADR-0017 (Implemented 2A+2B+2C)
+  are the architectural baseline. **Sub-phases 2A, 2B AND 2C
+  are COMPLETE (2026-06-07).** 2A: 9 new modules + 9 test
+  files (76 new tests). 2B: `DockerRuntimeDriver` + lint
+  script + manager wiring (40 new tests). 2C: `HTTPTransport`
+  + `KokoroAdapter` `KOKORO_RUNTIME_URL` integration + env
+  plumbing + E2E scaffold (25 new tests, 1 skipped). 0
+  regressions; 466 pre-existing tests pass. The next sub-phase
+  is **2D (CE operations + runtime-registry + bridge
+  activation)**, the LAST sub-phase of Phase 2.
 - **Current branch:** `feat/peakvox-phase-1`
-- **Working tree:** clean — this commit lands the Phase 2B
-  implementation: 1 new module (`docker_runtime_driver.py`) +
-  1 new script (`lint_no_docker_outside_driver.py`) + 2
-  modified modules (`runtime_manager.py`, `__init__.py` for the
-  drivers package) + 2 new test files (40 new tests). Plus
+- **Working tree:** clean — this commit lands the Phase 2C
   state file updates (IMPLEMENTATION_STATUS, NEXT_TASK,
-  CURRENT_CONTEXT, ACTIVE_WORK, PROJECT_STATE, ROADMAP/*).
+  ACTIVE_WORK, CURRENT_CONTEXT, PROJECT_STATE,
+  ROADMAP/CURRENT_PHASE) promoting 2C complete and 2D next.
 - **Current ADRs in play:** ADR-0008/0009/0010/0011/0012
   (variant lifecycle, artifacts, source assets, creation
   sources, catalog resources) — the surface touched by the
@@ -34,10 +34,11 @@
 - **Current blockers:** Fish Audio real inference deferred
   (codec/VRAM); no GPU in CI. These predate Phase 2A and are
   unaffected.
-- **Current validation goal:** Sub-phase 2C is the first
-  provider-validated runtime-service migration (Kokoro +
-  runtime service E2E). The 2A bridge's `pass` placeholder
-  becomes the live runtime-service branch in 2C.
+- **Current validation goal:** Sub-phase 2D lands the Kokoro
+  G6 provider-validated E2E report (peakvox backend +
+  `peakvox/kokoro-runtime` container, real audio E2E through
+  the runtime service). The 2A bridge's `pass` placeholder
+  becomes the live runtime-service branch in 2D.
 
 ---
 

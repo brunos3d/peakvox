@@ -9,13 +9,16 @@
 
 ## In flight
 
-1. **Runtime-Service migration — Phase 2 Sub-phase 2C (HTTPTransport +
-   KokoroAdapter migration).** **Ready to start.** TDD-shaped
-   tasks in
-   [`docs/.agents/SPECS/FEATURES/runtime-services-implementation/TASKS.md`](../SPECS/FEATURES/runtime-services-implementation/TASKS.md) §2C.
-   The 5 tasks are: `HTTPTransport` for adapters; `KokoroAdapter`
-   `KOKORO_RUNTIME_URL` integration; env plumbing; E2E validation
-   report; status updates.
+1. **Runtime-Service migration — Phase 2 Sub-phase 2D (CE operations
+   + runtime-registry + bridge activation).** **Ready to start.**
+   TDD-shaped tasks in
+   [`docs/.agents/SPECS/FEATURES/runtime-services-implementation/TASKS.md`](../SPECS/FEATURES/runtime-services-implementation/TASKS.md) §2D.
+   The 5 tasks are: `runtime-registry/` with Kokoro descriptor;
+   CE operations (install/activate/update/remove); bridge
+   activation in `runtime.py`; provider-validated report
+   (Kokoro G6); status updates. 2D is the LAST sub-phase of
+   Phase 2; after 2D, Phase 3 (Kokoro full migration) is
+   unblocked.
 
 ## Not in flight (recently completed)
 
@@ -52,6 +55,23 @@
   non-None `RuntimeResolution` when a driver is wired; the 2A
   bridge in `runtime.py` is unchanged (the runtime-service branch
   is still a literal `pass`; activation is in 2C).
+- **Runtime-Service migration — Phase 2 Sub-phase 2C (HTTPTransport
+  + KokoroAdapter migration — first runtime-service communication
+  path).** ✅ **Complete 2026-06-07.** 1 new module
+  (`http_transport.py` — pure HTTP abstraction for adapters) +
+  1 modified module (`kokoro_adapter.py` — dispatches on
+  `KOKORO_RUNTIME_URL`) + 1 modified module (`config.py` —
+  `Settings.KOKORO_RUNTIME_URL`) + 3 new test files (14
+  transport + 8 adapter isolation + 3 settings) + 1
+  E2E-scaffold test (gated, skipped in default venv). 25 new
+  tests, 1 skipped; 466 pre-existing tests pass; 0
+  regressions. Transport Boundary Audit: PASSED. The
+  `KokoroAdapter` gains ONE new dependency (`HTTPTransport`); it
+  does NOT gain knowledge of Docker / `RuntimeDescriptor` /
+  `RuntimeInstance` / `RuntimeRegistry` / `RuntimeManager`. The
+  in-process path is preserved as the CE default. The 2A bridge
+  in `runtime.py` is unchanged (the runtime-service branch is
+  still a literal `pass`; activation is in 2D).
 - **Validation reports and state cleanup.** Kokoro provider validation complete (G5 passed).
 - **Kokoro Preset Voice Adapter (Phase 1 + 2).** Complete. 54 presets, catalog-only registry,
   metadata-only build_variant, Preset Voices tab.

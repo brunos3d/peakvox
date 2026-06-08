@@ -28,22 +28,25 @@ only.
 
 ### In progress
 
-- **Runtime-Service migration — Phase 2 Sub-phase 2C (`HTTPTransport` +
-  KokoroAdapter migration).** TDD tasks in
-  [`../SPECS/FEATURES/runtime-services-implementation/TASKS.md`](../SPECS/FEATURES/runtime-services-implementation/TASKS.md) §2C.
+- **Runtime-Service migration — Phase 2 Sub-phase 2D (CE operations
+  + `runtime-registry/` with Kokoro descriptor + bridge activation).**
+  TDD tasks in
+  [`../SPECS/FEATURES/runtime-services-implementation/TASKS.md`](../SPECS/FEATURES/runtime-services-implementation/TASKS.md) §2D.
 
-> ## ⚠ PHASE 2 IMPLEMENTATION GUARDRAIL — RESOLVED FOR SUB-PHASES 2A AND 2B
+> ## ⚠ PHASE 2 IMPLEMENTATION GUARDRAIL — RESOLVED FOR SUB-PHASES 2A, 2B AND 2C
 >
-> **Sub-phases 2A and 2B are COMPLETE (2026-06-07).** Phase 2
-> implementation may continue; the next sub-phase is 2C
-> (`HTTPTransport` + KokoroAdapter migration).
+> **Sub-phases 2A, 2B AND 2C are COMPLETE (2026-06-07).** Phase 2
+> implementation may continue; the next sub-phase is 2D
+> (CE operations + `runtime-registry/` + bridge activation —
+> the LAST sub-phase of Phase 2).
 >
 > **Current state (2026-06-07):**
-> - ADR-0016 (architecture): **Accepted** (2026-06-07).
-> - ADR-0017 (Phase 2 implementation architecture): **Accepted**
->   (2026-06-07). Architecture review: 0 blocking issues;
->   non-blocking suggestions applied (Runtime Persistence →
->   `OPEN_DECISIONS.md` Decision 12).
+> - ADR-0016 (architecture): **Accepted+Implemented (Phase 1+2A+2B+2C)**
+>   (2026-06-07).
+> - ADR-0017 (Phase 2 implementation architecture):
+>   **Accepted+Implemented (2A+2B+2C)** (2026-06-07). Architecture
+>   review: 0 blocking issues; non-blocking suggestions applied
+>   (Runtime Persistence → `OPEN_DECISIONS.md` Decision 12).
 > - Sub-phase 2A (Foundations): **✅ Complete.** 9 new modules +
 >   9 test files; 76 new tests; 401/401 pre-existing tests pass;
 >   no Docker integration, no Runtime Service communication, no
@@ -63,20 +66,30 @@ only.
 >   in `runtime.py` is unchanged (the runtime-service branch is
 >   still a literal `pass`; activation is in 2C).
 > - Sub-phase 2C (`HTTPTransport` + KokoroAdapter migration):
->   **ready to start**. TDD tasks in
->   [`../SPECS/FEATURES/runtime-services-implementation/TASKS.md`](../SPECS/FEATURES/runtime-services-implementation/TASKS.md) §2C.
-> - Sub-phase 2D: sequenced behind 2C.
+>   **✅ Complete.** 1 new transport module (`HTTPTransport`)
+>   + 1 modified adapter (`KokoroAdapter` dispatches on
+>   `KOKORO_RUNTIME_URL`) + 1 modified settings
+>   (`Settings.KOKORO_RUNTIME_URL`) + 3 new test files (14
+>   transport + 8 adapter isolation + 3 settings) + 1 E2E
+>   scaffold (gated, skipped in default venv). 25 new tests,
+>   1 skipped; 466/466 pre-existing tests pass. Transport
+>   Boundary Audit: PASSED. The 2A bridge in `runtime.py` is
+>   unchanged (the runtime-service branch is still a literal
+>   `pass`; activation is in 2D).
+> - Sub-phase 2D (CE operations + `runtime-registry/` + bridge
+>   activation): **ready to start**. TDD tasks in
+>   [`../SPECS/FEATURES/runtime-services-implementation/TASKS.md`](../SPECS/FEATURES/runtime-services-implementation/TASKS.md) §2D.
 >
-> Sub-phases 2A ✅ 2B ✅ done. Sub-phase 2C may begin. TDD-shaped
-> tasks for 2C (in `TASKS.md` §2C):
+> Sub-phases 2A ✅ 2B ✅ 2C ✅ done. Sub-phase 2D may begin. TDD-shaped
+> tasks for 2D (in `TASKS.md` §2D):
 >
 > | # | Component | File | Test |
 > |---|---|---|---|
-> | 2C.1 | `HTTPTransport` | `backend/app/services/adapter_transport/http_transport.py` | `tests/test_http_transport.py` |
-> | 2C.2 | `KokoroAdapter` integration | `backend/app/services/model_adapters/kokoro_adapter.py` | `tests/test_kokoro_runtime_adapter.py` |
-> | 2C.3 | `KOKORO_RUNTIME_URL` plumbing | `backend/app/core/config.py` (or wherever settings live) | env defaults to empty (= in-process) |
-> | 2C.4 | E2E validation | integration; gated | `tests/test_kokoro_e2e_runtime.py` (gated) |
-> | 2C.5 | Status updates | `docs/.agents/IMPLEMENTATION_STATUS.md` | cross-link + provider validation report |
+> | 2D.1 | `runtime-registry/` with Kokoro descriptor | `backend/app/services/runtime_registry/kokoro.json` (or `.yaml` if pyyaml is installed) | `tests/test_runtime_registry_loader_kokoro.py` |
+> | 2D.2 | CE operations (install/activate/update/remove) | `backend/app/services/runtime_operations.py` (or wherever the operations live) | `tests/test_runtime_operations.py` |
+> | 2D.3 | Bridge activation in `runtime.py` | `backend/app/services/runtime.py` (replace the 2A.10 `pass` block) | `tests/test_runtime_routing_phase2d.py` |
+> | 2D.4 | Provider-validated report (Kokoro G6: runtime-service E2E) | `docs/.agents/VALIDATION/PROVIDER_VALIDATIONS/kokoro-runtime-validation-report.md` | gated E2E test passes against a real `peakvox/kokoro-runtime` container |
+> | 2D.5 | Update `IMPLEMENTATION_STATUS.md` + state files | `docs/.agents/` | cross-link + status update |
 
 ### The gate before Cloud work
 

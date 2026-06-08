@@ -5,7 +5,7 @@
 > partially regenerated from codebase analysis — every "IMPLEMENTED/VALIDATED" row cites
 > concrete files and tests. Prefer code evidence over assumption; when in doubt, mark lower.
 
-**Last verified against code:** 2026-06-05 (`feat/peakvox-phase-1`).
+**Last verified against code:** 2026-06-07 (`feat/peakvox-phase-1`).
 All paths are relative to repository root.
 
 ## Status vocabulary
@@ -46,8 +46,8 @@ provider validation.
 | 0009 | Artifact Versioning + Retention | IMPLEMENTED | `voice_variant_artifacts` table; `services/voice_variant_artifact_repository.py`; tests `test_artifact_versioning_migration`, `test_artifact_repository` |
 | 0010 | Voice Source Assets + Automatic Variant Provisioning | IMPLEMENTED | `models/db.py::VoiceSourceAsset`, `core/migrations.py::_backfill_voice_source_assets`; backfill creates source-asset rows from variant artifacts. No dedicated provisioning service beyond `ensure_variant`. |
 | 0011 | Voice Creation Sources | IMPLEMENTED | `creation_source` column on `Voice` model (`models/db.py`), migration backfill, generation dual-path uses `voice_id`. Full taxonomy + per-source provisioning policies (ADR-0012) not implemented. |
-| 0016 | Models as Runtime Services | APPROVED | ADR accepted 2026-06-07. **No code in this phase** (architecture only). See `docs/.agents/SPECS/FEATURES/models-as-runtime-services/`. Introduces RuntimeRegistry, RuntimeManager, RuntimeDriver (with `DockerRuntimeDriver` as the first implementation); runtime infrastructure is *not* a domain concept. 7-phase migration: Phase 1 (this) → Phase 2 (Manager skeleton) → Phase 3 (Kokoro) → Phase 4 (F5-TTS reference) → Phase 5 (Fish) → Phase 6 (OmniVoice) → Phase 7 (remove in-process path). |
-| 0017 | Runtime Services Implementation (Phase 2 Implementation ADR) | APPROVED | ADR accepted 2026-06-07. **No code in this phase** (architecture only). See `docs/.agents/SPECS/FEATURES/runtime-services-implementation/`. Specifies the 10 deliverables (RuntimeDescriptor schema, RuntimeRegistry model, RuntimeManager orchestration + resolution flows, RuntimeDriver Protocol + 8 error categories, DockerRuntimeDriver boundaries, Runtime Service Contract 5 endpoints, runtime routing 12-step flow, Kokoro migration 4-step rollout, CE/Cloud operations). Resolves the 5 deferred open questions from `OPEN_DECISIONS.md` Decision 10. Phase 2 sub-phases: 2A (foundations) → 2B (Docker driver) → 2C (Kokoro integration) → 2D (CE operations). Sub-phases begin after this accept. |
+| 0016 | Models as Runtime Services | IMPLEMENTED (Phase 1+2A+2B+2C) | ADR accepted 2026-06-07. Phases 1+2A+2B+2C implemented (foundations + first driver + first communication path). The remaining 3 phases are sequenced: 3 (Kokoro full migration) → 4 (F5-TTS reference) → 5 (Fish) → 6 (OmniVoice) → 7 (remove in-process path). See `docs/.agents/SPECS/FEATURES/models-as-runtime-services/` and §"Phase 2A/2B/2C" below for evidence. |
+| 0017 | Runtime Services Implementation (Phase 2 Implementation ADR) | IMPLEMENTED (2A+2B+2C) | ADR accepted 2026-06-07. Phases 2A+2B+2C implemented: 9 modules + 1 driver + 1 transport + 1 settings field; 25 new test files. The remaining 2D (CE operations + runtime-registry/ with Kokoro descriptor) is sequenced. Resolves the 5 deferred open questions from `OPEN_DECISIONS.md` Decision 10. See `docs/.agents/SPECS/FEATURES/runtime-services-implementation/` and §"Phase 2A/2B/2C" below for evidence. |
 
 ## B. Runtime components
 
@@ -126,6 +126,42 @@ for the full task breakdown.
 - No model framework imports in runtime modules.
 - No HTTP client imports in runtime modules (only `urllib` in the driver for the substrate-internal `/ready` and `/health` probes).
 - No behavior regressions: full backend test suite (excluding pre-existing numpy/torch-dependent files) is 441 passed (was 401 after Milestone 6; +40 new tests across 2 test files for Phase 2B). All 52 pre-existing runtime tests continue to pass.
+
+### Phase 2C — Runtime-Service Communication Path (IMPLEMENTED 2026-06-07)
+
+Phase 2C is the FIRST sub-phase to introduce the runtime-service
+COMMUNICATION PATH. The `HTTPTransport` is the new abstraction
+for adapter → runtime service communication. The `KokoroAdapter`
+dispatches on `KOKORO_RUNTIME_URL`: when set, routes via
+`HTTPTransport`; when empty (CE default), uses the in-process
+`kokoro` package as before. The 2A bridge in `runtime.py`
+remains a literal `pass` in 2C; the activation of the
+runtime-service branch through `RuntimeManager.resolve()` is
+sequenced behind 2D. See
+[`SPECS/FEATURES/runtime-services-implementation/TASKS.md` §2C](../SPECS/FEATURES/runtime-services-implementation/TASKS.md)
+for the full task breakdown.
+
+| Component | Status | Evidence |
+|---|---|---|
+| `HTTPTransport` (adapter HTTP client) | IMPLEMENTED | `app/services/adapter_transport/http_transport.py`; `tests/test_http_transport.py` (14 tests) — pure `(base_url, request) -> response` abstraction; bearer token auth (CE default is none per `OPEN_DECISIONS.md` Decision 10 §5); retry policy: 1 retry on 5xx, 3 attempts on network errors with exponential backoff (1s, 2s, 4s), no retry on 4xx; non-2xx responses raise `HTTPTransportError` with status + category + body; streaming: `post_stream` returns an async iterator over response bytes; injectable `client` and `retry_backoff` for tests via `httpx.MockTransport` |
+| `KokoroAdapter` `KOKORO_RUNTIME_URL` integration | IMPLEMENTED | `app/services/model_adapters/kokoro_adapter.py`; `tests/test_kokoro_runtime_adapter.py` (8 tests) — dispatches on `KOKORO_RUNTIME_URL`: when set, routes via `HTTPTransport`; when empty, in-process `kokoro` (lazy import). Adapter contract surface unchanged (install/load/unload/health_check/generate/clone_voice/build_variant). Adapter gains no knowledge of Docker / RuntimeDescriptor / RuntimeInstance / RuntimeRegistry / RuntimeManager |
+| `KOKORO_RUNTIME_URL` plumbing in `Settings` | IMPLEMENTED | `app/core/config.py`; `tests/test_settings_kokoro_runtime_url.py` (3 tests) — `Settings.KOKORO_RUNTIME_URL: str = ""`; CE default empty (= in-process); non-empty URL routes through the runtime service |
+| E2E validation scaffolding | IMPLEMENTED (gated) | `tests/test_kokoro_e2e_runtime.py` (1 test, gated) — `pytest.mark.skipif` on `KOKORO_RUNTIME_URL` being empty; when set, runs end-to-end through the KokoroAdapter's runtime-service path against a real `peakvox/kokoro-runtime` container; verifies (duration, logs) tuple + audio file written + audio bytes non-empty. To be wired into the docker-compose CI lane in Phase 2D/3 |
+| `PeakVoxRuntime` bridge — runtime path activation | NOT_STARTED | The 2A bridge block in `runtime.py` (`attach_runtime_manager` + the `if _resolution is not None: pass` block) is intentionally unchanged in 2C. The activation of the runtime-service branch in the bridge is sequenced behind 2D, when CE operations + the `runtime-registry/` with Kokoro descriptor land. The KokoroAdapter's local `KOKORO_RUNTIME_URL` dispatch is the runtime-service path in 2C; the bridge in `runtime.py` continues to fall through to the in-process path. |
+
+**Phase 2C architectural invariants (verified per the 2C gate checklist + Transport Boundary Audit):**
+- `HTTPTransport` is the ONLY HTTP-shape dependency adapters may use. Verified by AST / static check: adapters do not import `httpx` / `aiohttp` / `requests` directly; they import only `HTTPTransport` from `app.services.adapter_transport`.
+- Adapters do NOT gain knowledge of Docker, containers, `RuntimeDescriptor`, `RuntimeInstance`, `RuntimeRegistry`, or `RuntimeManager`. Verified by isolation tests in `test_kokoro_runtime_adapter.py`.
+- The expected future chain is `Adapter -> HTTPTransport -> Runtime Service`, NOT `Adapter -> RuntimeManager -> Docker -> Runtime Service`. Verified by isolation tests.
+- Adapter contracts are unchanged. Verified by `test_kokoro_runtime_adapter.py::test_adapter_contract_surface_unchanged`.
+- The canonical adapter inputs (kwargs of `generate` and `build_variant`) remain the same; no `GenerationRequest` / `BuildVariantRequest` dataclass is introduced in 2C.
+- Runtime-service responses are mapped back into the existing `(duration, logs)` tuple. Verified by `test_kokoro_runtime_adapter.py::test_generate_routes_via_http_transport_when_runtime_url_set`.
+- `KokoroAdapter` can switch between in-process inference and runtime-service inference without changing the caller (`PeakVoxRuntime`). Verified by `test_kokoro_runtime_adapter.py::test_generate_falls_back_to_in_process_when_url_unset`.
+- No new API endpoints in the backend (the runtime service is a separate process; the adapter talks HTTP to it).
+- No docker / kubernetes / podman / kubectl / nerdctl references in the adapter (lint passes; transport is pure HTTP).
+- No model framework imports in the adapter (the in-process path's lazy `import kokoro` is the model, not the substrate).
+- No behavior regressions: full backend test suite (excluding pre-existing numpy/torch-dependent files) is 466 passed (was 441 after Milestone 10; +25 new tests across 3 test files for Phase 2C: 14 transport + 8 adapter isolation + 3 settings; 1 E2E test skipped in default venv).
+- Lint passes: `$ python scripts/lint_no_docker_outside_driver.py` → `clean`.
 
 ## C. Voice / data layer
 
