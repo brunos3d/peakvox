@@ -1,9 +1,9 @@
 # Runtime Registry Source of Truth Audit (Task 1)
 
-**Date:** 2026-06-08
+**Date:** 2026-06-08 (refined 2026-06-08 with R9)
 **Subject:** Identify every source of model/runtime metadata; classify each; propose the single source of truth.
-**Status:** AUDIT COMPLETE
-**Result:** **Runtime Registry is the authoritative source for runtime metadata. The legacy ModelRegistry is the authoritative source for catalog-level (domain) metadata. The two are layered, not duplicated.**
+**Status:** AUDIT COMPLETE + R9 REFINED
+**Result:** **The Models page renders a COMPOSED VIEW: Model Catalog + Runtime Registry + Runtime Operational State. The runtime-registry is NOT the sole source of truth for the Models page; it AUGMENTS the model cards with infrastructure metadata. The catalog and the registry are layered, not duplicated. (R9 refinement.)**
 
 ---
 
@@ -50,11 +50,7 @@ The **Runtime Registry** contains only:
 
 The other three catalog entries have **no runtime descriptor**. The Models page therefore shows three "runtimes" that do not exist in the runtime-registry/, and only one that does.
 
-This is the **mismatch** the user is calling out. The fix is to:
-
-  1. Make the Models page render from the **runtime-registry** when the runtime subsystem is enabled.
-  2. When the runtime subsystem is disabled (CE default), render from the catalog (legacy path).
-  3. Add **runtime descriptors** for OmniVoice, Fish Audio (and any others) so the registry matches the catalog.
+This is the **mismatch** the user is calling out. The fix (per the original audit) was to make the Models page render from the runtime-registry when the runtime subsystem is enabled. **R9 REJECTS this fix:** the runtime-registry is infrastructure metadata that AUGMENTS the model cards, not the source of truth that REPLACES them. See [`r9-models-page-composition.md`](r9-models-page-composition.md) for the architectural clarification. The right fix is the **composed view**: Catalog + Registry + State, with the catalog as the primary entity and the runtime as an infrastructure section of the model card.
 
 ## The single source of truth (proposed)
 
@@ -72,6 +68,20 @@ This is the **mismatch** the user is calling out. The fix is to:
   - **Infrastructure layer:** Runtimes. Owned by `runtime-registry/<id>/descriptor.json`.
 
 **A Model maps to one or more Runtimes** via the descriptor's `spec.model_binding.model_id`. The Models page's "this model is installed / running" status is **derived from the runtime state of the runtimes that serve it**.
+
+## The composed view (R9)
+
+Per R9, the Models page renders a **composed view** from the three sources:
+
+| Input | Layer | Visibility |
+|---|---|---|
+| Model Catalog | Domain | **Always visible** (catalog is the primary entity). |
+| Runtime Registry | Infrastructure | **Augments** the model card. A model may exist without a runtime. |
+| Runtime Operational State | Live | **Augments** the runtime section. A model without a runtime has no state. |
+
+The endpoint that joins these is `GET /api/models/with-runtimes` (available whether or not the runtime subsystem is enabled; the catalog portion is always present, the runtime portion is the augmentation).
+
+The previous fix (per the original audit) was to make the Models page render from the runtime-registry. R9 REJECTS that fix. See [`r9-models-page-composition.md`](r9-models-page-composition.md) for the full reasoning.
 
 ## What the Models page should render (proposed)
 
@@ -111,9 +121,9 @@ When the runtime subsystem is enabled (`RUNTIME_SERVICE_ENABLED=true`):
 - **Task 6:** Activation visibility. Long-poll / SSE endpoint for activate progress; UI shows "Starting runtime..." → "Waiting for readiness..." → "Runtime ready".
 - **Task 7:** Runtime Operations Panel. Expanded UI with runtime_id, image_tag, image_digest, runtime_version, readiness, uptime, health.
 
-## The fix, in one sentence
+## The fix, in one sentence (R9 updated)
 
-The Models page must render from the **Runtime Registry** (when RUNTIME_SERVICE_ENABLED=true) and the **Catalog** (when false). The two views are layered, not duplicated. A Model maps to one or more Runtimes via `spec.model_binding.model_id`. The runtime state is the source of truth for "is this model available?"
+The Models page must render the **composed view** from `GET /api/models/with-runtimes`: Model Catalog + Runtime Registry + Runtime Operational State. The catalog is the primary entity; the runtime-registry augments the model card with infrastructure metadata; the runtime state is the live view. A model may exist without a runtime; a runtime's lifecycle actions only appear when a runtime descriptor exists. The runtime-registry is **not** the source of truth for the Models page.
 
 ---
 

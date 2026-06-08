@@ -48,12 +48,21 @@ from app.services.runtime_instance import (
     RuntimeState,
 )
 from app.services.runtime_types import RuntimeDescriptor
+from app.services.model_registry import model_registry
+from app.core.config import settings
 
 
 logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/api/runtimes", tags=["Runtimes"])
+
+# A second router for the composed view (Models + Runtimes + State).
+# Per R9, the Models page renders a composed view: the catalog
+# is the primary entity; the runtime-registry is the
+# augmentation; the runtime state is the live view. This
+# endpoint joins all three.
+composed_router = APIRouter(prefix="/api/models", tags=["Models (composed)"])
 
 
 # ---------------------------------------------------------------------------
@@ -421,3 +430,86 @@ async def remove_runtime(runtime_id: str) -> dict[str, Any]:
             },
         )
     return {"runtime_id": runtime_id, "phase": "Removed"}
+
+
+# ---------------------------------------------------------------------------
+# Composed view (R9) — Catalog + Runtime Registry + Runtime State
+# ---------------------------------------------------------------------------
+#
+# Per R9, the Models page renders a composed view:
+#   1. Model Catalog (BUILTIN_MODELS -> models table) — always present
+#   2. Runtime Registry (runtime-registry/<id>/descriptor.json) — augments
+#   3. Runtime Operational State (RuntimeManager._instance_cache) — augments
+#
+# A model may exist without a runtime. A model with a runtime shows the
+# runtime's state, endpoint, and lifecycle buttons. A model without a
+# runtime shows "Not Available — Not Migrated" in the Runtime section.
+#
+# The endpoint is NOT gated on RUNTIME_SERVICE_ENABLED. It returns the
+# catalog portion always; the runtime portion is the augmentation when
+# a manager is attached.
+# ---------------------------------------------------------------------------
+
+
+@composed_router.get("/with-runtimes")
+async def list_models_with_runtimes() -> dict[str, Any]:
+    """List catalog models, each joined with its runtimes + state.
+
+    The composed view is the Models page's source of truth.
+    The catalog is the primary entity; the runtime-registry
+    augments it with infrastructure metadata.
+    """
+    manager = runtime_module.runtime._runtime_manager
+    catalog_models = model_registry.list_models(edition=settings.EDITION)
+
+    composed: list[dict[str, Any]] = []
+    for model in catalog_models:
+        model_id = model.id
+        # Resolve the default runtime for this model (if any).
+        runtimes: list[dict[str, Any]] = []
+        default_runtime_id: Optional[str] = None
+
+        if manager is not None:
+            descriptors = manager.registry.list_for_model(model_id)
+            # Sort by default + priority (mirrors RuntimeManager.resolve).
+            descriptors = sorted(
+                descriptors,
+                key=lambda d: (
+                    not d.spec.model_binding.is_default,
+                    d.spec.model_binding.priority,
+                ),
+            )
+            for desc in descriptors:
+                instance = manager.get_cached_instance(desc.metadata.id)
+                runtimes.append(
+                    {
+                        "runtime_id": desc.metadata.id,
+                        "descriptor": desc.model_dump(),
+                        "state": _state_to_payload(desc.metadata.id, instance),
+                    }
+                )
+            if runtimes:
+                # Default = the first sorted descriptor (matches the
+                # selection rules in RuntimeManager.resolve).
+                default_runtime_id = runtimes[0]["runtime_id"]
+
+        composed.append(
+            {
+                "model": model.model_dump(),
+                "runtimes": runtimes,
+                "default_runtime_id": default_runtime_id,
+            }
+        )
+
+    return {"models": composed}
+
+
+# A separate router for the legacy non-/api prefix (convention in this
+# codebase: every models endpoint has both /models and /api/models aliases).
+no_prefix_router = APIRouter(tags=["Models (composed)"])
+
+
+@no_prefix_router.get("/models/with-runtimes")
+async def list_models_with_runtimes_no_prefix() -> dict[str, Any]:
+    """Same as /api/models/with-runtimes (legacy non-/api prefix)."""
+    return await list_models_with_runtimes()

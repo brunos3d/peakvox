@@ -21,8 +21,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useModelLifecycleAction, useModels, type ModelLifecycleAction } from "@/hooks/use-models"
+import { useModelsWithRuntimes, useRuntimeLifecycleAction, type RuntimeLifecycleAction } from "@/hooks/use-runtimes"
 import { cn } from "@/lib/utils"
 import type { Model, ModelCapabilities } from "@/types"
+import type { ModelWithRuntimesCard, RuntimeCard, RuntimePhase } from "@/types"
 
 type ModelFilter = "all" | "installed" | "available"
 
@@ -82,6 +84,134 @@ function CapabilityBadge({ supported, label }: { supported: boolean; label: stri
   )
 }
 
+const RUNTIME_PHASE_LABEL: Record<RuntimePhase, string> = {
+  NotInstalled: "Not Installed",
+  Pulling: "Pulling image...",
+  Installed: "Installed (image present, container stopped)",
+  Starting: "Starting container...",
+  Active: "Active (container running, /ready 200)",
+  Stopping: "Stopping...",
+  Stopped: "Stopped",
+  Failed: "Failed",
+  Updating: "Updating...",
+}
+
+const RUNTIME_PHASE_BADGE: Record<RuntimePhase, string> = {
+  NotInstalled: "bg-muted text-muted-foreground",
+  Pulling: "bg-warning/15 text-warning",
+  Installed: "bg-muted text-muted-foreground",
+  Starting: "bg-warning/15 text-warning",
+  Active: "bg-success/15 text-success",
+  Stopping: "bg-muted text-muted-foreground",
+  Stopped: "bg-muted text-muted-foreground",
+  Failed: "bg-error/15 text-error",
+  Updating: "bg-warning/15 text-warning",
+}
+
+function RuntimeSection({
+  card,
+  onAction,
+  actionPending,
+}: {
+  card: ModelWithRuntimesCard | null | undefined
+  onAction: (runtimeId: string, action: RuntimeLifecycleAction) => void
+  actionPending: boolean
+}) {
+  if (!card) return null
+  const defaultRuntime = card.runtimes.find((r) => r.runtime_id === card.default_runtime_id) ?? card.runtimes[0]
+
+  return (
+    <div className="space-y-2">
+      <p className="text-caption uppercase tracking-wide">Runtime</p>
+      {defaultRuntime ? (
+        <div className="rounded-md border border-border bg-surface-2 p-3 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-mono">
+                {defaultRuntime.descriptor?.spec?.image?.repository}:{defaultRuntime.descriptor?.spec?.image?.tag}
+              </p>
+              {defaultRuntime.state.endpoint && (
+                <p className="text-xs text-muted-foreground font-mono break-all">
+                  {defaultRuntime.state.endpoint}
+                </p>
+              )}
+            </div>
+            <span className={cn("rounded px-2 py-1 text-[10px] font-medium", RUNTIME_PHASE_BADGE[defaultRuntime.state.phase])}>
+              {defaultRuntime.state.phase}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {RUNTIME_PHASE_LABEL[defaultRuntime.state.phase]}
+          </p>
+          {defaultRuntime.state.phase === "Active" && defaultRuntime.state.started_at && (
+            <p className="text-xs text-muted-foreground">
+              Started {new Date(defaultRuntime.state.started_at).toLocaleString()}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {defaultRuntime.state.phase === "NotInstalled" && (
+              <Button
+                size="sm"
+                variant="default"
+                disabled={actionPending}
+                onClick={() => onAction(defaultRuntime.runtime_id, "install")}
+              >
+                <Download className="mr-1 h-3 w-3" /> Install
+              </Button>
+            )}
+            {defaultRuntime.state.phase === "Installed" && (
+              <Button
+                size="sm"
+                variant="default"
+                disabled={actionPending}
+                onClick={() => onAction(defaultRuntime.runtime_id, "start")}
+              >
+                <PlayCircle className="mr-1 h-3 w-3" /> Start
+              </Button>
+            )}
+            {defaultRuntime.state.phase === "Active" && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={actionPending}
+                  onClick={() => onAction(defaultRuntime.runtime_id, "stop")}
+                >
+                  <PauseCircle className="mr-1 h-3 w-3" /> Stop
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={actionPending}
+                  onClick={() => onAction(defaultRuntime.runtime_id, "update")}
+                >
+                  <RefreshCw className="mr-1 h-3 w-3" /> Update
+                </Button>
+              </>
+            )}
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={actionPending || defaultRuntime.state.phase === "Active"}
+              onClick={() => onAction(defaultRuntime.runtime_id, "remove")}
+            >
+              <Trash2 className="mr-1 h-3 w-3" /> Remove
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-md border border-dashed border-border bg-surface-2 p-3">
+          <p className="text-sm font-medium text-muted-foreground">Not Available</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            This model has no runtime descriptor yet. Migration is scheduled
+            (OmniVoice: Phase 6; F5-TTS: Phase 4; XTTS / OpenVoice / Fish Audio: future).
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ModelRow({
   model,
   selected,
@@ -131,11 +261,45 @@ function ModelRow({
 }
 
 export default function ModelsPage() {
-  const { data: models = [], isLoading, error } = useModels()
+  // R9: The Models page renders a composed view from
+  // useModelsWithRuntimes() — Catalog + Runtime Registry + State.
+  // The catalog portion is always present; the runtime portion
+  // augments the card when a RuntimeManager is attached and a
+  // RuntimeDescriptor exists for the model.
+  const { data: composedCards = [], isLoading, error } = useModelsWithRuntimes()
+  const { data: legacyModels = [] } = useModels()  // legacy catalog (BUILTIN_MODELS) for backward compat
   const lifecycle = useModelLifecycleAction()
+  const runtimeLifecycle = useRuntimeLifecycleAction()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [filter, setFilter] = useState<ModelFilter>("all")
   const [query, setQuery] = useState("")
+
+  // R9: derive the legacy Model[] from the composed view so the
+  // rest of the page can keep using the existing render path.
+  // Each composed card's `model` is the catalog ModelDescriptor;
+  // we map it to the legacy Model shape for the existing UI.
+  const models = useMemo<Model[]>(
+    () =>
+      composedCards.map((c) => {
+        const m = c.model as unknown as Model
+        // Override the legacy status with the runtime state
+        // when a runtime exists.
+        const defaultRuntime = c.runtimes.find((r) => r.runtime_id === c.default_runtime_id) ?? c.runtimes[0]
+        if (defaultRuntime) {
+          const phase = defaultRuntime.state.phase
+          const isActive = phase === "Active"
+          const isInstalled = phase !== "NotInstalled" && phase !== "Failed"
+          return {
+            ...m,
+            install_status: isInstalled ? "installed" : "not_installed",
+            activation_status: isActive ? "active" : "inactive",
+            status: isActive ? "loaded" : isInstalled ? "available" : "inactive",
+          } as Model
+        }
+        return m
+      }),
+    [composedCards],
+  )
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -182,6 +346,12 @@ export default function ModelsPage() {
         <Metric icon={Cpu} label="GPU" value={selected.gpu_requirements.required ? "Required" : "Optional"} />
         <Metric icon={CheckCircle2} label="Edition" value={[selected.available_in_ce && "CE", selected.available_in_cloud && "Cloud"].filter(Boolean).join(" + ")} />
       </div>
+
+      <RuntimeSection
+        card={composedCards.find((c) => c.model.id === selected.id) ?? null}
+        onAction={(runtimeId, action) => runtimeLifecycle.mutate({ id: runtimeId, action })}
+        actionPending={runtimeLifecycle.isPending}
+      />
 
       <div className="space-y-2">
         <p className="text-caption uppercase tracking-wide">Sources</p>

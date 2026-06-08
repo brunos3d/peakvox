@@ -27,6 +27,8 @@ import type {
   RuntimesResponse,
   RuntimeStatePayload,
   RuntimeImage,
+  ModelWithRuntimesCard,
+  ModelsWithRuntimesResponse,
 } from "@/types"
 import { parseApiError, type ApiError } from "./api-error"
 
@@ -346,6 +348,19 @@ export async function updateRuntime(
 
 export async function removeRuntime(id: string): Promise<{ runtime_id: string; phase: string }> {
   return request(`/runtimes/${id}/remove`, { method: "POST" })
+}
+
+// ---------------------------------------------------------------------------
+// Composed view (R9) — Catalog + Runtime Registry + Runtime State
+//
+// The Models page renders from this endpoint. Available whether
+// or not RUNTIME_SERVICE_ENABLED is true; the catalog portion is
+// always present, the runtime portion is the augmentation.
+// ---------------------------------------------------------------------------
+
+export async function fetchModelsWithRuntimes(): Promise<ModelWithRuntimesCard[]> {
+  const data = await request<ModelsWithRuntimesResponse>("/models/with-runtimes")
+  return data.models
 }
 
 export async function fetchDeviceSettings(): Promise<{ use_gpu: boolean; cuda_available: boolean }> {

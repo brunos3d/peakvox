@@ -574,3 +574,23 @@ export interface RuntimeCard {
 export interface RuntimesResponse {
   runtimes: RuntimeCard[];
 }
+
+// ---------------------------------------------------------------------------
+// Composed view (R9) — Catalog + Runtime Registry + Runtime State
+//
+// The Models page renders a composed view: the Model Catalog is
+// the primary entity; the runtime-registry and runtime state are
+// the infrastructure augmentation. A model may exist without a
+// runtime; a model with a runtime shows the runtime's state,
+// endpoint, and lifecycle buttons.
+// ---------------------------------------------------------------------------
+
+export interface ModelWithRuntimesCard {
+  model: Record<string, unknown>;  // ModelDescriptor (catalog entity)
+  runtimes: RuntimeCard[];
+  default_runtime_id: string | null;
+}
+
+export interface ModelsWithRuntimesResponse {
+  models: ModelWithRuntimesCard[];
+}
