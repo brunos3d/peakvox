@@ -1,10 +1,17 @@
 from __future__ import annotations
 
+import base64
+import json
 import logging
+import os
 import uuid
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
+from app.services.adapter_transport.http_transport import (
+    HTTPTransport,
+    HTTPTransportError,
+)
 from app.services.model_adapter import ModelAdapter, VariantBuildStrategy
 from app.services.provider_voice import (
     ProviderVoice,
@@ -19,6 +26,13 @@ try:
     import kokoro as _kokoro_mod  # type: ignore[no-redef]
 except ImportError:
     _kokoro_mod = None  # type: ignore[assignment]
+
+
+# Env var that activates the runtime-service path. When set to a
+# non-empty string, the adapter routes all generation / variant
+# build requests to that URL via HTTPTransport. When empty (the CE
+# default), the adapter uses the in-process kokoro package.
+KOKORO_RUNTIME_URL_ENV = "KOKORO_RUNTIME_URL"
 
 # ── 54 preset voice definitions ──────────────────────────────────────────
 # Source: https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md
@@ -207,6 +221,100 @@ class KokoroAdapter(ModelAdapter, ProviderVoiceCatalog):
             lang_prefix = "a"
         return self._kokoro.KPipeline(lang_code=lang_prefix)
 
+    # --- Runtime-service path (Phase 2C, 2C.2) -----------------------------
+    #
+    # When KOKORO_RUNTIME_URL is set, the adapter routes all
+    # generation / variant-build requests to the runtime service
+    # via HTTPTransport. The in-process path (above) is preserved
+    # as a fallback for environments without the runtime service
+    # available. The dispatch is local to the adapter; the
+    # caller (PeakVoxRuntime) does not change.
+    #
+    # The runtime-service path does NOT import Docker, does NOT
+    # reference RuntimeDescriptor / RuntimeInstance / RuntimeRegistry /
+    # RuntimeManager, and does NOT add any new contract surface
+    # to the adapter. It is a single allowed seam: HTTPTransport.
+    # Per the Transport Boundary Audit, this is the ONLY allowed
+    # seam; any other runtime-related import in this file is a
+    # violation.
+
+    def _runtime_service_enabled(self) -> bool:
+        """True iff KOKORO_RUNTIME_URL is set to a non-empty value."""
+        url = os.environ.get(KOKORO_RUNTIME_URL_ENV, "").strip()
+        return bool(url)
+
+    def _get_runtime_transport(self, base_url: str) -> HTTPTransport:
+        """Return a cached HTTPTransport for the given runtime URL.
+
+        The transport is constructed lazily on first use; cached
+        for subsequent calls. The bearer token is empty in CE
+        (the OPEN_DECISIONS Decision 10 §5 default); Cloud
+        authentication is set by the Cloud ADR.
+        """
+        existing = getattr(self, "_runtime_transport", None)
+        if existing is not None and existing.base_url == base_url:
+            return existing
+        transport = HTTPTransport(base_url=base_url, bearer_token="")
+        self._runtime_transport = transport  # type: ignore[attr-defined]
+        return transport
+
+    async def _generate_via_runtime(
+        self,
+        *,
+        text: str,
+        output_path: Path,
+        voice_profile_id: Optional[str],
+        voice_id: Optional[str],
+        ref_audio_path: Optional[str],
+        ref_text: Optional[str],
+        language: Optional[str],
+        instruct: Optional[str],
+        params: Optional[dict],
+        job_id: Optional[str],
+    ) -> tuple[float, list[str]]:
+        """Route a generation request to the runtime service.
+
+        Translates the existing kwargs to the Runtime Service
+        Contract (ADR-0017 §6.3). The response is a JSON body with
+        ``duration_seconds``, ``logs``, and ``audio_b64`` (the
+        audio is base64-encoded in JSON for non-streaming
+        responses; streaming via ``post_stream`` is the
+        2D+ path). The audio bytes are written to
+        ``output_path``.
+        """
+        base_url = os.environ[KOKORO_RUNTIME_URL_ENV].strip()
+        transport = self._get_runtime_transport(base_url)
+        request_body: dict[str, Any] = {
+            "text": text,
+            "voice_id": voice_id or voice_profile_id,
+            "language": language,
+            "ref_audio_path": ref_audio_path,
+            "ref_text": ref_text,
+            "instruct": instruct,
+            "params": params or {},
+            "request_id": job_id,
+        }
+        # Strip None entries for a cleaner request body.
+        request_body = {k: v for k, v in request_body.items() if v is not None}
+        try:
+            response = await transport.post("/v1/generate", request_body)
+        except HTTPTransportError:
+            # The transport already maps to the canonical PeakVox
+            # error envelope; re-raise so the caller sees the
+            # standard error shape.
+            raise
+        # Map the response back to the existing (duration, logs)
+        # contract. The audio is base64-encoded in the response.
+        duration = float(response.get("duration_seconds", 0.0))
+        logs = list(response.get("logs", []))
+        audio_b64 = response.get("audio_b64")
+        if audio_b64:
+            output_path.write_bytes(base64.b64decode(audio_b64))
+        logs.append(
+            f"Kokoro: routed via runtime service {base_url} -> {output_path.name}"
+        )
+        return duration, logs
+
     async def generate(
         self,
         *,
@@ -221,6 +329,25 @@ class KokoroAdapter(ModelAdapter, ProviderVoiceCatalog):
         params: Optional[dict] = None,
         job_id: Optional[str] = None,
     ) -> tuple[float, list[str]]:
+        # Dispatch (Phase 2C, 2C.2): if KOKORO_RUNTIME_URL is set,
+        # route to the runtime service via HTTPTransport. Otherwise,
+        # use the in-process path.
+        if self._runtime_service_enabled():
+            return await self._generate_via_runtime(
+                text=text,
+                output_path=output_path,
+                voice_profile_id=voice_profile_id,
+                voice_id=voice_id,
+                ref_audio_path=ref_audio_path,
+                ref_text=ref_text,
+                language=language,
+                instruct=instruct,
+                params=params,
+                job_id=job_id,
+            )
+
+        # In-process path: lazy-import soundfile + numpy so the
+        # test venv (no soundfile) can still import the module.
         import soundfile as sf
         import numpy as np
 
