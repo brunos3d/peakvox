@@ -66,6 +66,14 @@ class Settings(BaseSettings):
     # authentication is set by the Cloud ADR.
     KOKORO_RUNTIME_URL: str = ""
 
+    # Path to the runtime-registry/ directory. The default points
+    # to the in-repo runtime-registry/ directory. The CE
+    # descriptor for Kokoro lives at
+    # <path>/kokoro-82m/descriptor.json. Deployments can override
+    # the path via env var (RUNTIME_REGISTRY_PATH) to a different
+    # mount or to a custom location.
+    RUNTIME_REGISTRY_PATH: Path = Path(__file__).resolve().parent.parent.parent.parent / "runtime-registry"
+
     @property
     def features(self) -> Features:
         return Features.for_edition(self.EDITION)

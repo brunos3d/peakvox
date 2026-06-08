@@ -1,0 +1,52 @@
+{
+  "api_version": "peakvox.io/v1",
+  "kind": "Runtime",
+  "metadata": {
+    "id": "kokoro-82m",
+    "name": "Kokoro 82M Runtime",
+    "description": "Runtime service for the Kokoro 82M TTS model. CPU-capable, 24kHz WAV output, 54 preset voices across 9 languages.",
+    "provider": "kokoro",
+    "version": "0.1.0",
+    "edition": ["ce"],
+    "labels": {
+      "substrate": "cpu",
+      "model_family": "kokoro-82m"
+    }
+  },
+  "spec": {
+    "runtime_type": "docker",
+    "image": {
+      "repository": "peakvox/kokoro-runtime",
+      "tag": "0.1.0"
+    },
+    "service": {
+      "protocol": "http",
+      "port": 8000,
+      "health_path": "/health",
+      "readiness_path": "/ready",
+      "generate_path": "/v1/generate",
+      "build_path": "/v1/variants/build",
+      "metadata_path": "/v1/metadata"
+    },
+    "capabilities": ["tts"],
+    "requirements": {
+      "gpu": "optional",
+      "min_vram_gb": 0,
+      "cpu_cores": 1,
+      "memory_gb": 2,
+      "edition": ["ce"]
+    },
+    "model_binding": {
+      "model_id": "kokoro-base",
+      "is_default": true,
+      "priority": 100
+    },
+    "lifecycle": {
+      "install_policy": "pull-on-install",
+      "health_interval_seconds": 10,
+      "health_timeout_seconds": 3,
+      "start_timeout_seconds": 60,
+      "restart_policy": "on-failure"
+    }
+  }
+}
