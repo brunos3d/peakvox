@@ -53,7 +53,7 @@
       "priority": 100
     },
     "lifecycle": {
-      "install_policy": "pull-on-install",
+      "install_policy": "build-on-install",
       "health_interval_seconds": 10,
       "health_timeout_seconds": 3,
       "start_timeout_seconds": 180,

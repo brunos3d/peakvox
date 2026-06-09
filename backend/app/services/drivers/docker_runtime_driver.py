@@ -401,6 +401,11 @@ class DockerRuntimeDriver:
             # build first (platform-managed install path). Otherwise
             # pull from registry.
             if descriptor.spec.build is not None:
+                # Pre-flight: verify the Dockerfile's base image exists
+                # before starting the build. A missing base image would
+                # cause a confusing mid-build failure after potentially
+                # downloading gigabytes of intermediate layers.
+                self._preflight_base_image(runtime_id, descriptor)
                 try:
                     build = descriptor.spec.build
                     assert build is not None
@@ -423,6 +428,83 @@ class DockerRuntimeDriver:
                     self._translate_install_error(exc, runtime_id)
         return None
 
+    @staticmethod
+    def _parse_dockerfile_from(dockerfile_path: Path) -> Optional[str]:
+        """Extract the first non-comment FROM image reference from a Dockerfile.
+
+        Returns the image string (e.g. ``pytorch/pytorch:2.4.0-cuda12.4-cudnn9-runtime``)
+        or None if the file cannot be read or has no FROM line.
+        """
+        try:
+            with open(dockerfile_path) as fh:
+                for line in fh:
+                    stripped = line.strip()
+                    if stripped.startswith("#") or not stripped:
+                        continue
+                    upper = stripped.upper()
+                    if upper.startswith("FROM "):
+                        parts = stripped.split()
+                        if len(parts) >= 2 and parts[1].upper() != "SCRATCH":
+                            return parts[1]
+        except OSError:
+            pass
+        return None
+
+    def _preflight_base_image(self, runtime_id: str, descriptor: RuntimeDescriptor) -> None:
+        """Check that the Dockerfile's FROM image exists before starting the build.
+
+        Raises ``ImagePullError`` immediately with a clear human-readable
+        message if the base image is not available locally or in the registry.
+        Falls through silently if the check itself cannot run (e.g. the
+        Dockerfile cannot be parsed), so the build attempt will surface its
+        own error naturally.
+        """
+        if descriptor.spec.build is None:
+            return
+        try:
+            context = self._build_context_from_descriptor(descriptor)
+            dockerfile_path = context / descriptor.spec.build.dockerfile
+            base_image = self._parse_dockerfile_from(dockerfile_path)
+            if base_image is None:
+                return
+
+            client = self._ensure_client()
+
+            # If already local, the build will succeed without a registry pull.
+            try:
+                client.images.get(base_image)
+                logger.debug(
+                    "preflight(%s): base image %s present locally", runtime_id, base_image
+                )
+                return
+            except Exception:
+                pass
+
+            # Not local — check the registry without downloading the image.
+            try:
+                client.api.inspect_distribution(base_image)
+                logger.debug(
+                    "preflight(%s): base image %s found in registry", runtime_id, base_image
+                )
+            except Exception as exc:
+                raise ImagePullError(
+                    runtime_id,
+                    f"invalid runtime definition: base image {base_image!r} "
+                    f"does not exist in the registry ({exc})",
+                ) from exc
+
+        except ImagePullError:
+            raise
+        except Exception:
+            # Pre-flight errors must not block installs whose base image
+            # is actually valid. Log and let the build try naturally.
+            logger.warning(
+                "preflight(%s): base image check could not complete; "
+                "proceeding with build",
+                runtime_id,
+                exc_info=True,
+            )
+
     async def update_runtime(
         self, runtime_id: str, descriptor: RuntimeDescriptor
     ) -> RuntimeInstance:
@@ -442,8 +524,11 @@ class DockerRuntimeDriver:
             image_refs.add(self._image_ref(desc))
         try:
             c = self._container(runtime_id)
-            if getattr(c, "image", None):
-                image_refs.add(c.image)
+            # Docker SDK >=7: container.image is an Image object, not a string.
+            # Use attrs['Config']['Image'] which is always the string tag.
+            image_str = c.attrs.get("Config", {}).get("Image", "") or ""
+            if image_str:
+                image_refs.add(image_str)
             c.stop(timeout=int(self._default_stop_timeout_s))
             c.remove(force=True)
         except RuntimeNotFound:

@@ -13,7 +13,7 @@
 # descriptor's spec.image.repository + tag; spec.image.digest
 # is set by the build script after a successful `docker build`).
 
-FROM pytorch/pytorch:2.4.0-cuda12.1-cudnn8-runtime
+FROM pytorch/pytorch:2.4.0-cuda12.4-cudnn9-runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1

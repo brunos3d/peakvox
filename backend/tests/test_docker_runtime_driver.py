@@ -71,13 +71,18 @@ class _MockContainer:
     def __init__(self, name: str, image_repo: str, image_tag: str,
                  labels: Optional[Dict] = None) -> None:
         self.name = name
-        self.image = f"{image_repo}:{image_tag}"
+        self.image = f"{image_repo}:{image_tag}"  # kept for legacy assertions
         self.id = f"container-{name}"
         self.status = "running"
         self.labels: Dict[str, str] = dict(labels or {})
         self._logs: List[str] = []
         self._stopped = False
         self._removed = False
+        # Docker SDK >=7 exposes container metadata via attrs; driver uses
+        # attrs['Config']['Image'] instead of the old string container.image.
+        self.attrs: Dict[str, Any] = {
+            "Config": {"Image": f"{image_repo}:{image_tag}"},
+        }
 
     def stop(self, timeout: int = 10) -> None:
         self._stopped = True
@@ -208,6 +213,13 @@ class _MockApi:
             },
         }
 
+    def inspect_distribution(self, name: str) -> Dict:
+        """Stub for preflight base-image check. Returns success by default;
+        raises when owner.manifest_not_found is True."""
+        if getattr(self._owner, "manifest_not_found", False):
+            raise _MockDockerError(f"manifest unknown: {name}")
+        return {"Descriptor": {"digest": "sha256:" + "a" * 64}}
+
 
 # Stand-in exception classes that mimic docker.errors.* names.
 class _MockDockerError(Exception):
@@ -245,6 +257,7 @@ class _MockDockerClient:
         self.image_pull_404 = False
         self.image_pull_auth_fail = False
         self.daemon_down = False
+        self.manifest_not_found = False
 
     def set_image_404(self, value: bool) -> None:
         self.image_pull_404 = value
@@ -254,6 +267,9 @@ class _MockDockerClient:
 
     def set_daemon_down(self, value: bool) -> None:
         self.daemon_down = value
+
+    def set_manifest_not_found(self, value: bool) -> None:
+        self.manifest_not_found = value
 
 
 # ---- Helpers ------------------------------------------------------------------

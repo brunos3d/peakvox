@@ -249,7 +249,7 @@ class RuntimeLifecycle(BaseModel):
     the autoscaler own lifecycle.
     """
 
-    install_policy: Literal["pull-on-start", "pull-on-install", "lazy"] = "pull-on-start"
+    install_policy: Literal["pull-on-start", "pull-on-install", "build-on-install", "lazy"] = "pull-on-start"
     health_interval_seconds: int = Field(default=10, gt=0)
     health_timeout_seconds: int = Field(default=3, gt=0)
     start_timeout_seconds: int = Field(default=60, gt=0)
