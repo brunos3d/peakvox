@@ -17,7 +17,8 @@
     "runtime_type": "docker",
     "image": {
       "repository": "peakvox/omnivoice-runtime",
-      "tag": "0.1.0"
+      "tag": "0.1.0",
+      "image_size_mb": 8704.0
     },
     "build": {
       "entrypoint": "server.py",

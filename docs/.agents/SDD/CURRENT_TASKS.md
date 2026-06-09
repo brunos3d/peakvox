@@ -3,19 +3,28 @@
 > Task breakdown for the active design. Template:
 > [`../SPECS/TEMPLATES/TASKS.md`](../SPECS/TEMPLATES/TASKS.md). Use TDD per task.
 
-**As of:** 2026-06-05
+**As of:** 2026-06-09
 
-## Active tasks
+## Completed this session (Task 18 — browser audio validation)
 
-The single active task is stabilization — see [`../NEXT_TASK.md`](../NEXT_TASK.md):
+- [x] Remove `KOKORO_RUNTIME_URL` env var from backend (architecture violation).
+- [x] Remove `peakvox-kokoro-runtime` from docker-compose (platform boots with no runtimes).
+- [x] Fix HTTPTransport.post_binary() for WAV binary responses.
+- [x] Fix KokoroAdapter dispatch: `runtime_endpoint is not None` (not env var).
+- [x] Fix request_id always provided to Kokoro server (UUID when job_id is None).
+- [x] All 665 tests pass.
+- [x] Browser validation: Models → Install Kokoro → Start → TTS → Alloy → Generate → audio plays (0:06).
+- [x] Update Task 16 and Task 17 VALIDATION.md + STATUS.md → VALIDATED.
+- [x] Update NEXT_TASK.md: P5 corrected, P6 ✅.
 
-- [ ] Run backend test suite; confirm green.
-- [ ] Resolve any failures from in-flight Fish-adapter / variant-schema / migration changes.
-- [ ] Commit with Conventional Commit messages.
+## Open
+
+- [ ] Commit all changes with Conventional Commit messages.
 - [ ] Update `IMPLEMENTATION_STATUS`, `PROJECT_STATE`, `CURRENT_CONTEXT`, `HANDOFF`, ledger.
-
-No feature-level task breakdown is open (no active feature spec).
+- [ ] Fix `voice_resource_service._build_library_map`: Python `and` → SQLAlchemy `and_()` (known bug).
+- [ ] Most Kokoro preset voices show "not compatible" in TTS UI (only 1 of 18 has proper variant). Root cause: ImportResolver creates variants with empty `model_id`. Fix needed.
+- [ ] Task 14 browser validation pass for OmniVoice and F5-TTS runtimes.
 
 ---
 
-**Related:** [`CURRENT_VALIDATION.md`](CURRENT_VALIDATION.md) · [`../ACTIVE_WORK.md`](../ACTIVE_WORK.md)
+**Related:** [`CURRENT_VALIDATION.md`](CURRENT_VALIDATION.md) · [`../ACTIVE_WORK.md`](../ACTIVE_WORK.md) · [`../NEXT_TASK.md`](../NEXT_TASK.md)

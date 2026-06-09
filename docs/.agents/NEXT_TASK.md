@@ -74,13 +74,13 @@
 >   Start / Stop / Update / Remove) for each runtime, real
 >   audio E2E generation. See
 >   [`docs/.agents/SPECS/FEATURES/runtime-canonical-models-page/TASKS.md`](SPECS/FEATURES/runtime-canonical-models-page/TASKS.md) §12.
-- **Status:** **P1–P5 + P8 done; P6, P7, P9 in progress.**
+- **Status:** **P1–P9 done; P7 (G7+G8) deferred.**
   - P1 ✅ peakvox/kokoro-runtime: self-contained
   - P2 ✅ RuntimeRegistry + RuntimeManager wired at startup
   - P3 ✅ Idle reaper background task
   - P4 ✅ Models page delegates to RuntimeManager
-  - P5 ✅ docker-compose runtime service
-  - P6 🟡 Real E2E generation through runtime service (gated; test surface in place)
+  - P5 ✅ docker-compose: runtime removed (user-installed, not platform infra)
+  - P6 ✅ Real E2E generation through runtime service (browser-validated 2026-06-09)
   - P7 🟡 Provider validation G6 + G9 + G10 reports written; G7 + G8 to follow
   - P8 ✅ Backend without Kokoro (R5 DoD test)
   - P9 🟡 State file updates (this file)
@@ -98,12 +98,12 @@
     preserved; the adapter communicates with the Runtime
     Service via `HTTPTransport`, not with Docker.
   - **No runtime service may bypass Adapter → RuntimeManager
-    → RuntimeDriver** — preserved; the in-process path
-    is the fallback when `KOKORO_RUNTIME_URL` is unset
-    and the legacy `kokoro` package is installed (the
-    `kokoro` package is no longer a hard backend
-    dependency as of P8; the legacy path is unavailable
-    in the model-free backend image).
+    → RuntimeDriver** — preserved; `KOKORO_RUNTIME_URL` and
+    all other hardcoded runtime URLs have been removed. Endpoint
+    injection is exclusively via `RuntimeManager.resolve()` →
+    `RuntimeResolution.endpoint` → `runtime_endpoint` kwarg.
+    The legacy in-process kokoro path remains only as a fallback
+    when `runtime_endpoint is None` (no manager wired).
   - **The canonical chain (Voice → VoiceVariant → Active
     Artifact → Adapter) must remain intact** — Phase 3
     does not change variant resolution, artifact
@@ -116,8 +116,8 @@
   | P2 | Wire `RuntimeRegistry` + `RuntimeManager` at startup | ✅ |
   | P3 | Wire idle reaper (R7) | ✅ |
   | P4 | Connect Models page to `RuntimeManager` (R4) | ✅ |
-  | P5 | Add `peakvox-kokoro-runtime` to `docker-compose.yml` | ✅ |
-  | P6 | Real E2E generation through runtime service | 🟡 (gated) |
+  | P5 | Remove `peakvox-kokoro-runtime` from `docker-compose.yml` (user-installed, not platform infra) | ✅ |
+  | P6 | Real E2E generation through runtime service | ✅ (browser-validated 2026-06-09) |
   | P7 | G6 (contract) + G9 (reaper) + G10 (no-Kokoro) reports | ✅ (3/5) |
   | P7 | G7 (performance) + G8 (error recovery) reports | 🟡 (deferred) |
   | P8 | Backend without Kokoro (R5 DoD) | ✅ |

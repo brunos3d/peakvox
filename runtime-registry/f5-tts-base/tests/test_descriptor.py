@@ -93,6 +93,12 @@ def test_descriptor_image_tag_present() -> None:
     assert d["spec"]["image"]["tag"] == "0.1.0"
 
 
+def test_descriptor_image_size_metadata_present() -> None:
+    d = _read_descriptor()
+    assert d["spec"]["image"].get("image_size_mb") is not None
+    assert d["spec"]["image"]["image_size_mb"] > 0
+
+
 # ---------------------------------------------------------------------------
 # Runtime Service Contract
 # ---------------------------------------------------------------------------

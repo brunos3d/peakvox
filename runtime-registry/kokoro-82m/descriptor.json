@@ -18,7 +18,8 @@
     "runtime_type": "docker",
     "image": {
       "repository": "peakvox/kokoro-runtime",
-      "tag": "0.1.0"
+      "tag": "0.1.0",
+      "image_size_mb": 1228.8
     },
     "build": {
       "entrypoint": "server.py",
