@@ -107,6 +107,13 @@ class _MockContainer:
 class _MockImagesAPI:
     def __init__(self, owner: "_MockDockerClient") -> None:
         self._owner = owner
+        self._local_images: set[str] = set()
+
+    def get(self, ref: str):
+        if ref not in self._local_images:
+            raise _MockImageNotFound(f"image not found: {ref}")
+        repo, tag = ref.rsplit(":", 1)
+        return _MockImage(repo=repo, tag=tag)
 
     def pull(self, repository: str, tag: Optional[str] = None,
             digest: Optional[str] = None):
@@ -123,11 +130,29 @@ class _MockImagesAPI:
         else:
             repo = repository
             tag = tag or "latest"
-        return _MockImage(repo=repo, tag=tag)
+        image = _MockImage(repo=repo, tag=tag)
+        if tag:
+            self._local_images.add(f"{repo}:{tag}")
+        return image
+
+    def build(self, path: str, dockerfile: str, tag: str, rm: bool = True):
+        if self._owner.daemon_down:
+            raise _MockAPIError("simulated daemon down")
+        repo, image_tag = tag.rsplit(":", 1)
+        image = _MockImage(repo=repo, tag=image_tag)
+        self._local_images.add(tag)
+        self._owner.built_images.append({
+            "path": path,
+            "dockerfile": dockerfile,
+            "tag": tag,
+        })
+        return image, []
 
     def remove(self, image: str, force: bool = False) -> None:
         if self._owner.daemon_down:
             raise _MockAPIError("simulated daemon down")
+        self._owner.removed_images.append(image)
+        self._local_images.discard(image)
         return None
 
 
@@ -214,6 +239,8 @@ class _MockDockerClient:
         self.images = _MockImagesAPI(self)
         self.containers = _MockContainersAPI(self)
         self.api = _MockApi(self)
+        self.built_images: List[Dict[str, str]] = []
+        self.removed_images: List[str] = []
         # Pluggable error injection
         self.image_pull_404 = False
         self.image_pull_auth_fail = False
@@ -247,6 +274,11 @@ def _good_descriptor(
             "image": {
                 "repository": "peakvox/kokoro-runtime", "tag": "1.4.2",
                 "digest": "sha256:" + "a" * 64,
+            },
+            "build": {
+                "entrypoint": "server.py",
+                "build_context": ".",
+                "dockerfile": "Dockerfile",
             },
             "service": {"protocol": "http", "port": 8000, "readiness_path": "/ready"},
             "capabilities": ["tts"],
@@ -347,11 +379,23 @@ def test_install_runtime_is_idempotent(probe_returns_ok) -> None:
     assert inst2.state == RuntimeState.INSTALLED
 
 
+def test_install_runtime_builds_when_pull_not_found_and_build_metadata_present(probe_returns_ok) -> None:
+    client = _MockDockerClient()
+    d = DockerRuntimeDriver(client=client)  # type: ignore[arg-type]
+    desc = _good_descriptor(runtime_id="kokoro-82m")
+    inst = asyncio.run(d.install_runtime("kokoro-82m", desc))
+    assert inst.state == RuntimeState.INSTALLED
+    assert client.built_images, "expected platform-managed docker build fallback"
+    assert client.built_images[0]["tag"] == "peakvox/kokoro-runtime:1.4.2"
+
+
 def test_install_runtime_raises_imagepullerror_on_404(probe_returns_ok) -> None:
     client = _MockDockerClient()
     client.set_image_404(True)
     d = DockerRuntimeDriver(client=client)  # type: ignore[arg-type]
-    desc = _good_descriptor()
+    desc_dict = _good_descriptor().model_dump()
+    desc_dict["spec"]["build"] = None
+    desc = RuntimeDescriptor.model_validate(desc_dict)
     with pytest.raises(ImagePullError):
         asyncio.run(d.install_runtime("kokoro-cpu", desc))
 
@@ -376,7 +420,7 @@ def test_start_runtime_brings_instance_to_active(probe_returns_ok) -> None:
     assert inst.state == RuntimeState.ACTIVE
     assert inst.health_state == HealthState.READY
     assert inst.port == 8000
-    assert inst.host == "localhost"
+    assert inst.host == "peakvox-runtime-kokoro-cpu"
 
 
 def test_start_runtime_raises_runtimehealthfailed_on_ready_timeout(probe_returns_fail) -> None:
@@ -435,6 +479,7 @@ def test_remove_runtime_stops_then_removes(probe_returns_ok) -> None:
     container = client._containers.get("peakvox-runtime-kokoro-cpu")
     assert container is not None
     assert container._removed is True
+    assert "peakvox/kokoro-runtime:1.4.2" in client.removed_images
 
 
 def test_remove_runtime_raises_notfound_when_container_missing(probe_returns_ok) -> None:

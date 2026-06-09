@@ -347,16 +347,17 @@ def test_manager_with_docker_driver_does_not_import_docker() -> None:
     assert not re.search(r"^from docker\b", text_clean, flags=re.MULTILINE)
 
 
-def test_bridge_in_2a10_still_falls_through_with_manager_wired() -> None:
-    """The bridge in 2A.10 (PeakVoxRuntime.generate) is unchanged in
-    2B. The runtime-service branch is still a literal ``pass``;
-    the bridge falls through to the existing in-process path
-    even when the manager is wired AND resolve() returns a
-    non-None resolution. The 2C+ branch is the runtime path;
-    that branch is added in sub-phase 2C, not 2B."""
-    from app.services.runtime import PeakVoxRuntime
+def test_bridge_injects_endpoint_when_manager_wired_and_runtime_active() -> None:
+    """When the manager is wired and the runtime is ACTIVE, the bridge
+    injects runtime_endpoint into the adapter kwargs. The adapter is
+    responsible for routing to the runtime service using that endpoint.
+
+    When the manager is wired but the runtime is NOT started,
+    ModelNotActive is raised — there is no silent fallback to in-process."""
+    from app.services.runtime import ModelNotActive, PeakVoxRuntime
     from app.services.model_adapter import ModelAdapter
     from app.models.registry_types import ModelCapabilities, ModelDescriptor
+    from pathlib import Path
 
     class _TrackingAdapter(ModelAdapter):
         def __init__(self, descriptor):
@@ -382,19 +383,37 @@ def test_bridge_in_2a10_still_falls_through_with_manager_wired() -> None:
     )
     rt.register_adapter(adapter)
 
-    desc = _good_descriptor()
+    desc = _good_descriptor()  # runtime_id="kokoro-cpu" by default in this file
     reg = RuntimeRegistry([desc])
-    mgr = RuntimeManager(registry=reg, driver=_RecordingDriver(), events=RuntimeEventBus())
+    driver = _RecordingDriver()
+    mgr = RuntimeManager(registry=reg, driver=driver, events=RuntimeEventBus())
+    # Install and start using the runtime_id from the descriptor.
+    runtime_id = desc.metadata.id
+    asyncio.run(mgr.install(runtime_id))
+    asyncio.run(mgr.start(runtime_id))
     rt.attach_runtime_manager(mgr)
 
-    # Generate; the adapter is the worker. The bridge is a
-    # pass-through even though the manager is wired and resolve()
-    # returns a non-None resolution.
     duration, logs = asyncio.run(
         rt.generate(
             None, text="hi", model_id="kokoro-base",
-            output_path=__import__("pathlib").Path("/tmp/x.wav"),
+            output_path=Path("/tmp/x.wav"),
         )
     )
     assert duration == 1.5
     assert "kokoro-base:hi" in logs[0]
+    # The runtime_endpoint was injected into the adapter.
+    assert adapter.captured_kwargs.get("runtime_endpoint") is not None
+
+    # Verify that NOT starting the runtime produces ModelNotActive.
+    rt2 = PeakVoxRuntime()
+    adapter2 = _TrackingAdapter(adapter.descriptor)
+    rt2.register_adapter(adapter2)
+    mgr2 = RuntimeManager(registry=reg, driver=_RecordingDriver(), events=RuntimeEventBus())
+    rt2.attach_runtime_manager(mgr2)
+    with pytest.raises(ModelNotActive):
+        asyncio.run(
+            rt2.generate(
+                None, text="hi", model_id="kokoro-base",
+                output_path=Path("/tmp/x.wav"),
+            )
+        )

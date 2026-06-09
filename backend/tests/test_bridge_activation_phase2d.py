@@ -1,42 +1,23 @@
-"""TDD: 2D bridge activation in PeakVoxRuntime.generate (Milestone 17).
+"""TDD: RuntimeManager bridge in PeakVoxRuntime.generate.
 
-The 2A bridge block in ``runtime.py`` is a literal ``pass`` when
-the resolution is non-None. In 2D the bridge is ACTIVATED:
+The bridge connects PeakVoxRuntime to RuntimeManager. Its behavior:
 
-  - When the manager is wired AND the resolution is non-None:
-    the bridge records an observability event (a structured
-    log + an in-process metric) confirming the runtime-service
-    path is reachable. The adapter's 2C.2 dispatch handles
-    the actual routing (KokoroAdapter dispatches on
-    KOKORO_RUNTIME_URL).
+  - When manager is wired AND the runtime is ACTIVE (resolve() non-None):
+    → inject runtime_endpoint into adapter kwargs
+    → log an observability event (debug)
+    → adapter routes to the runtime service
 
-  - When the manager is wired but the resolution is None:
-    the bridge falls through to the in-process path (existing
-    behavior).
+  - When manager is wired but runtime is NOT active (resolve() None):
+    → ModelNotActive is raised (the orchestration layer owns lifecycle;
+      there is no silent fallback to in-process when the manager is wired)
 
-  - When the manager is not wired: the in-process path is
-    taken (existing behavior).
+  - When manager is NOT wired (no runtime subsystem):
+    → runtime_endpoint=None is passed to adapter (in-process path)
 
-The activation does NOT change the adapter contract, does NOT
-change the in-process path, and does NOT change the bridge's
-position in the call chain. The activation is a
-documentation + observability change at the verification
-point between active-artifact resolution and the adapter
-call.
-
-Test surface (TDD):
-
-  - The bridge records an observability event when the
-    resolution is non-None.
-  - The bridge does NOT record an observability event when
-    the resolution is None.
-  - The bridge does NOT change the adapter's kwargs.
-  - The in-process path is preserved when the manager is not
-    wired.
-  - The in-process path is preserved when the manager is
-    wired but the runtime is not installed.
-  - The runtime-service path is the adapter's responsibility
-    (KokoroAdapter's 2C.2 dispatch on KOKORO_RUNTIME_URL).
+This reflects the architectural requirement that the RuntimeManager is
+the single authority for runtime operational state. When it is wired and
+knows about a runtime for a model, that model must be ACTIVE to generate.
+There is no silent fallback that would bypass the lifecycle contract.
 """
 
 from __future__ import annotations
@@ -44,11 +25,10 @@ from __future__ import annotations
 import asyncio
 import logging
 from pathlib import Path
-from typing import List
 
 import pytest
 
-from app.services.runtime import PeakVoxRuntime
+from app.services.runtime import ModelNotActive, PeakVoxRuntime
 from app.services.model_adapter import ModelAdapter
 from app.services.runtime_manager import RuntimeManager
 from app.services.runtime_registry import RuntimeRegistry
@@ -104,7 +84,7 @@ class _RecordingDriver:
         return inst
 
     async def start_runtime(self, runtime_id):
-        cur = self.instances.get(runtime_id) or _active(runtime_id)
+        cur = self.instances.get(runtime_id) or _active_instance(runtime_id)
         inst = RuntimeInstance(
             runtime_id=cur.runtime_id, state=RuntimeState.ACTIVE,
             host=cur.host, port=cur.port, image_identity=cur.image_identity,
@@ -115,7 +95,7 @@ class _RecordingDriver:
         return inst
 
     async def update_runtime(self, runtime_id, descriptor):
-        return self.instances.get(runtime_id) or _active(runtime_id)
+        return self.instances.get(runtime_id) or _active_instance(runtime_id)
 
     async def remove_runtime(self, runtime_id):
         self.instances.pop(runtime_id, None)
@@ -126,7 +106,7 @@ class _RecordingDriver:
         return await self.start_runtime(runtime_id)
 
     async def runtime_status(self, runtime_id):
-        return self.instances.get(runtime_id) or _active(runtime_id)
+        return self.instances.get(runtime_id) or _active_instance(runtime_id)
 
     async def runtime_logs(self, runtime_id, since=None):
         async def _empty():
@@ -148,7 +128,7 @@ class _RecordingDriver:
         return Metrics()
 
 
-def _active(runtime_id: str) -> RuntimeInstance:
+def _active_instance(runtime_id: str) -> RuntimeInstance:
     return RuntimeInstance(
         runtime_id=runtime_id, state=RuntimeState.ACTIVE,
         host="localhost", port=8000,
@@ -208,16 +188,15 @@ def _wire_manager(rt: PeakVoxRuntime, *, install: bool, start: bool) -> RuntimeM
     return mgr
 
 
-# ===== 2D bridge activation =====
+# ===== Bridge behavior: active runtime =====
 
 
-def test_bridge_records_observability_when_resolution_is_non_none(
+def test_bridge_injects_endpoint_when_runtime_is_active(
     runtime: PeakVoxRuntime, caplog
 ) -> None:
-    """When the manager is wired and the resolution is non-None
-    (runtime is installed + started), the bridge records an
-    observability event confirming the runtime-service path
-    is reachable."""
+    """When the manager is wired and the runtime is ACTIVE, the bridge
+    injects runtime_endpoint into the adapter kwargs and logs an
+    observability event."""
     _wire_manager(runtime, install=True, start=True)
     with caplog.at_level(logging.DEBUG, logger="app.services.runtime"):
         duration, _ = asyncio.run(
@@ -226,76 +205,20 @@ def test_bridge_records_observability_when_resolution_is_non_none(
                 output_path=Path("/tmp/x.wav"),
             )
         )
-    # The bridge activation logs a debug message about the
-    # runtime-service path. The message mentions "runtime-service"
-    # and the runtime id.
+    assert duration == 1.5
+    # Bridge logs an observability event with the runtime id and endpoint.
     assert any(
-        "runtime-service" in r.message and "kokoro-82m" in r.message
+        "kokoro-82m" in r.message
         for r in caplog.records
-    ), (
-        f"Expected runtime-service observability log; got: "
-        f"{[r.message for r in caplog.records]}"
-    )
+    ), f"Expected routing log with kokoro-82m; got: {[r.message for r in caplog.records]}"
+    # Adapter received runtime_endpoint.
+    adapter = runtime.get_adapter("kokoro-base")
+    assert adapter.captured_kwargs.get("runtime_endpoint") == "http://localhost:8000"
 
 
-def test_bridge_does_not_record_observability_when_resolution_is_none(
-    runtime: PeakVoxRuntime, caplog
-) -> None:
-    """When the manager is wired but the resolution is None
-    (runtime is not installed), the bridge does NOT record
-    the observability event. The in-process path is taken."""
-    _wire_manager(runtime, install=False, start=False)
-    with caplog.at_level(logging.DEBUG, logger="app.services.runtime"):
-        duration, _ = asyncio.run(
-            runtime.generate(
-                None, text="hi", model_id="kokoro-base",
-                output_path=Path("/tmp/x.wav"),
-            )
-        )
-    # No runtime-service observability log when the resolution
-    # is None.
-    assert not any(
-        "runtime-service" in r.message and "kokoro-82m" in r.message
-        for r in caplog.records
-    ), "Bridge must not log runtime-service path when resolution is None"
-
-
-def test_bridge_does_not_record_observability_when_manager_not_wired(
-    runtime: PeakVoxRuntime, caplog
-) -> None:
-    """When the manager is not wired, the bridge does NOT
-    record the observability event. The in-process path is
-    taken (existing behavior)."""
-    # No manager attached.
-    with caplog.at_level(logging.DEBUG, logger="app.services.runtime"):
-        duration, _ = asyncio.run(
-            runtime.generate(
-                None, text="hi", model_id="kokoro-base",
-                output_path=Path("/tmp/x.wav"),
-            )
-        )
-    assert not any("runtime-service" in r.message for r in caplog.records)
-
-
-def test_bridge_does_not_perturb_adapter_kwargs(
-    runtime: PeakVoxRuntime,
-) -> None:
-    """The bridge activation does NOT change the adapter's
-    kwargs. The adapter receives the same kwargs whether the
-    bridge is activated or not."""
-    # Without manager.
-    asyncio.run(
-        runtime.generate(
-            None, text="hi", model_id="kokoro-base",
-            output_path=Path("/tmp/x.wav"),
-        )
-    )
-    adapter_no_mgr = runtime.get_adapter("kokoro-base")
-    text_no_mgr = adapter_no_mgr.captured_text
-    path_no_mgr = adapter_no_mgr.captured_output_path
-    kwargs_no_mgr = dict(adapter_no_mgr.captured_kwargs)
-
-    # With manager + installed + started runtime.
+def test_bridge_passes_endpoint_to_adapter_kwargs(runtime: PeakVoxRuntime) -> None:
+    """When the manager is wired and the runtime is ACTIVE, the adapter
+    receives runtime_endpoint in its kwargs."""
     _wire_manager(runtime, install=True, start=True)
     asyncio.run(
         runtime.generate(
@@ -303,36 +226,65 @@ def test_bridge_does_not_perturb_adapter_kwargs(
             output_path=Path("/tmp/x.wav"),
         )
     )
-    text_with_mgr = adapter_no_mgr.captured_text
-    path_with_mgr = adapter_no_mgr.captured_output_path
-    kwargs_with_mgr = dict(adapter_no_mgr.captured_kwargs)
-
-    # The text, output_path, and kwargs must be identical
-    # (the bridge activation does not perturb them).
-    assert text_no_mgr == text_with_mgr
-    assert path_no_mgr == path_with_mgr
-    assert kwargs_no_mgr == kwargs_with_mgr
-
-
-def test_bridge_does_not_perturb_adapter_kwargs_when_resolution_is_none(
-    runtime: PeakVoxRuntime,
-) -> None:
-    """The bridge activation does NOT change the adapter's
-    kwargs even when the resolution is None. The in-process
-    path is taken unchanged."""
-    _wire_manager(runtime, install=False, start=False)
     adapter = runtime.get_adapter("kokoro-base")
-    asyncio.run(
-        runtime.generate(
-            None, text="hi", model_id="kokoro-base",
-            output_path=Path("/tmp/x.wav"),
-        )
-    )
-    # The text and output_path are passed through unchanged.
+    assert "runtime_endpoint" in adapter.captured_kwargs
+    assert adapter.captured_kwargs["runtime_endpoint"] == "http://localhost:8000"
     assert adapter.captured_text == "hi"
     assert adapter.captured_output_path == Path("/tmp/x.wav")
-    # No endpoint kwarg is added (the bridge does not inject
-    # a runtime endpoint into the adapter's kwargs).
-    assert "endpoint" not in adapter.captured_kwargs
-    assert "runtime_endpoint" not in adapter.captured_kwargs
-    assert "runtime_descriptor" not in adapter.captured_kwargs
+
+
+# ===== Bridge behavior: manager wired, runtime not active =====
+
+
+def test_bridge_raises_model_not_active_when_runtime_not_started(
+    runtime: PeakVoxRuntime,
+) -> None:
+    """When the manager is wired and knows about a runtime for this model
+    but the runtime is NOT started, ModelNotActive is raised.
+
+    There is no silent fallback to in-process when the orchestration
+    layer is wired. The user must start the runtime through the UI."""
+    _wire_manager(runtime, install=False, start=False)
+    with pytest.raises(ModelNotActive) as excinfo:
+        asyncio.run(
+            runtime.generate(
+                None, text="hi", model_id="kokoro-base",
+                output_path=Path("/tmp/x.wav"),
+            )
+        )
+    assert excinfo.value.model_id == "kokoro-base"
+
+
+def test_bridge_raises_model_not_active_when_installed_but_not_started(
+    runtime: PeakVoxRuntime,
+) -> None:
+    """Install without start → ModelNotActive. The runtime is installed
+    (image pulled) but not running; inference must be blocked."""
+    _wire_manager(runtime, install=True, start=False)
+    with pytest.raises(ModelNotActive):
+        asyncio.run(
+            runtime.generate(
+                None, text="hi", model_id="kokoro-base",
+                output_path=Path("/tmp/x.wav"),
+            )
+        )
+
+
+# ===== Bridge behavior: manager not wired =====
+
+
+def test_bridge_passes_none_endpoint_when_manager_not_wired(
+    runtime: PeakVoxRuntime, caplog
+) -> None:
+    """When no manager is attached, runtime_endpoint=None is injected
+    into the adapter kwargs (in-process path)."""
+    with caplog.at_level(logging.DEBUG, logger="app.services.runtime"):
+        asyncio.run(
+            runtime.generate(
+                None, text="hi", model_id="kokoro-base",
+                output_path=Path("/tmp/x.wav"),
+            )
+        )
+    adapter = runtime.get_adapter("kokoro-base")
+    assert adapter.captured_kwargs.get("runtime_endpoint") is None
+    assert not any("routing" in r.message for r in caplog.records)

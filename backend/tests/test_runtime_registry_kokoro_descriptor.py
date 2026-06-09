@@ -98,6 +98,15 @@ def test_kokoro_descriptor_edition_includes_ce() -> None:
     assert "ce" in desc.metadata.edition
 
 
+def test_kokoro_descriptor_has_image_size_metadata() -> None:
+    from app.services.runtime_types import RuntimeDescriptor
+
+    raw = KOKORO_DESCRIPTOR_PATH.read_text()
+    desc = RuntimeDescriptor.model_validate(json.loads(raw))
+    assert desc.spec.image.image_size_mb is not None
+    assert desc.spec.image.image_size_mb > 0
+
+
 def test_kokoro_descriptor_capabilities_subset_of_model_caps() -> None:
     """The descriptor's capabilities are a subset of the bound
     model's ModelCapabilities (no implicit capabilities)."""
