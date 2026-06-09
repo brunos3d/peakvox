@@ -6,7 +6,7 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { OutputFormatSelector } from "@/components/generation/OutputFormatSelector"
 import { fetchDeviceSettings, updateDeviceSettings } from "@/lib/api"
-import { useModelStatus } from "@/hooks/use-generation"
+import { useActiveModel } from "@/hooks/use-models"
 
 function SettingsCard({
   icon: Icon,
@@ -38,7 +38,7 @@ function SettingsCard({
 export function SettingsPanel() {
   const queryClient = useQueryClient()
   const { data: device } = useQuery({ queryKey: ["device-settings"], queryFn: fetchDeviceSettings })
-  const { data: model } = useModelStatus()
+  const { activeModel } = useActiveModel()
 
   const mutation = useMutation({
     mutationFn: (useGpu: boolean) => updateDeviceSettings(useGpu),
@@ -71,15 +71,13 @@ export function SettingsPanel() {
         <div className="divide-y divide-border text-sm">
           <div className="flex items-center justify-between py-2">
             <span className="text-muted-foreground">Model</span>
-            <span className="text-foreground/90">OmniVoice</span>
+            <span className="text-foreground/90">{activeModel?.name ?? "—"}</span>
           </div>
           <div className="flex items-center justify-between py-2">
             <span className="text-muted-foreground">Model status</span>
-            <span className="text-foreground/90">{model?.loaded ? "Ready" : model?.loading ? "Loading" : "Offline"}</span>
-          </div>
-          <div className="flex items-center justify-between py-2">
-            <span className="text-muted-foreground">Sampling rate</span>
-            <span className="text-foreground/90 tabular-nums">{model?.sampling_rate ? `${model.sampling_rate} Hz` : "—"}</span>
+            <span className="text-foreground/90">
+              {activeModel?.activation_status === "active" ? "Ready" : activeModel ? "Offline" : "—"}
+            </span>
           </div>
         </div>
       </SettingsCard>

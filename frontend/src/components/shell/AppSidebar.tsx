@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
 import { AudioLines, Library, Mic, History, Settings, LayoutDashboard, KeyRound, Code2, BarChart3, Cpu, type LucideIcon } from "lucide-react"
-import { useModelStatus } from "@/hooks/use-generation"
+import { useActiveModel } from "@/hooks/use-models"
 import { fetchDeviceSettings } from "@/lib/api"
 import { StatusRow } from "@/components/shell/StatusRow"
 import { cn } from "@/lib/utils"
@@ -38,16 +38,17 @@ function isActive(pathname: string, href: string): boolean {
 
 export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
-  const { data: model } = useModelStatus()
+  const { activeModel } = useActiveModel()
   const { data: device } = useQuery({
     queryKey: ["device-settings"],
     queryFn: fetchDeviceSettings,
     refetchInterval: 15000,
   })
 
-  const apiOnline = model !== undefined
-  const modelTone = model?.loaded ? "success" : model?.loading ? "warning" : "error"
-  const modelValue = model?.loaded ? "Ready" : model?.loading ? "Loading" : "Offline"
+  const apiOnline = true
+  const modelActive = activeModel?.activation_status === "active"
+  const modelTone = modelActive ? "success" : activeModel ? "error" : "muted"
+  const modelValue = modelActive ? "Ready" : activeModel ? "Offline" : "—"
   const gpuTone = device?.use_gpu && device?.cuda_available ? "success" : device?.cuda_available ? "info" : "muted"
   const gpuValue = !device
     ? "—"
@@ -119,7 +120,7 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
       {/* Status footer */}
       <div className="border-t border-border py-2">
         <StatusRow label="System" value={apiOnline ? "Online" : "Offline"} tone={apiOnline ? "success" : "error"} />
-        <StatusRow label="Model" value={modelValue} tone={modelTone} pulse={model?.loading} />
+        <StatusRow label="Model" value={modelValue} tone={modelTone} />
         <StatusRow label="GPU" value={gpuValue} tone={gpuTone} />
       </div>
     </div>

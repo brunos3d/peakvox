@@ -30,7 +30,8 @@ export function useModels() {
   return useQuery({
     queryKey: ["models"],
     queryFn: fetchModels,
-    staleTime: 60_000,
+    staleTime: 10_000,
+    refetchInterval: 15_000,
   });
 }
 
