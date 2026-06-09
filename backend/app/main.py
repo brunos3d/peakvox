@@ -20,7 +20,12 @@ from app.api.voice_resources import router as voice_resources_router
 from app.api.settings import router as settings_router
 from app.api.api_keys import router as api_keys_router
 from app.api.v1 import router as v1_router
-from app.api.runtime_api import router as runtimes_router, composed_router, no_prefix_router
+from app.api.runtime_api import (
+    router as runtimes_router,
+    operations_router as runtime_operations_router,
+    composed_router,
+    no_prefix_router,
+)
 from app.services.model_registry import model_registry
 from app.services.model_wiring import wire_registry_from_database, wire_runtime
 from app.services.runtime_wiring import start_idle_reaper, stop_idle_reaper, wire_runtime_services
@@ -196,6 +201,7 @@ app.include_router(platform.router, tags=["Platform"])
 # the path-parameter route `/api/models/{model_id}`.
 app.include_router(composed_router, tags=["Models (composed)"])
 app.include_router(no_prefix_router, tags=["Models (composed)"])
+app.include_router(runtime_operations_router, tags=["Runtime Operations"])
 app.include_router(runtimes_router, tags=["Runtimes"])
 app.include_router(models.router, tags=["Models"])
 app.include_router(media.router, tags=["Media"])

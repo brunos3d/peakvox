@@ -30,10 +30,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, AsyncIterator, Callable, Optional
 
 from app.services.runtime_driver import RuntimeDriver  # noqa: F401  (re-exported)
@@ -249,6 +251,18 @@ class DockerRuntimeDriver:
     def _image_ref(self, desc: RuntimeDescriptor) -> str:
         return f"{desc.spec.image.repository}:{desc.spec.image.tag}"
 
+    def _build_context_from_descriptor(self, desc: RuntimeDescriptor) -> Path:
+        """Resolve runtime build context from descriptor metadata.
+
+        Runtime descriptors live under ``<registry_root>/<runtime_id>/``.
+        ``spec.build.build_context`` is relative to that runtime directory.
+        """
+        if desc.spec.build is None:
+            raise RuntimeNotFound(desc.metadata.id, "descriptor has no build metadata")
+        registry_root = Path(os.getenv("RUNTIME_REGISTRY_PATH", "runtime-registry"))
+        runtime_root = registry_root / desc.metadata.id
+        return runtime_root / desc.spec.build.build_context
+
     def _container(self, runtime_id: str) -> Any:
         try:
             return self._ensure_client().containers.get(_container_name(runtime_id))
@@ -343,6 +357,23 @@ class DockerRuntimeDriver:
     async def install_runtime(
         self, runtime_id: str, descriptor: RuntimeDescriptor
     ) -> RuntimeInstance:
+        await asyncio.to_thread(self._install_image, runtime_id, descriptor)
+        # Cache the descriptor for later start_runtime; the manager
+        # always calls install before start, so the cache is hot
+        # at start time.
+        self._descriptor_cache[runtime_id] = descriptor
+        return RuntimeInstance(
+            runtime_id=runtime_id,
+            state=RuntimeState.INSTALLED,
+            host="",
+            port=0,
+            image_identity=self._image_identity_from_descriptor(descriptor),
+            started_at=None,
+            last_health_at=None,
+            health_state=HealthState.UNKNOWN,
+        )
+
+    def _install_image(self, runtime_id: str, descriptor: RuntimeDescriptor) -> None:
         client = self._ensure_client()
         image = descriptor.spec.image
         # T13 — check for the image locally first. Local
@@ -363,28 +394,31 @@ class DockerRuntimeDriver:
                 runtime_id, ref,
             )
         except Exception:
-            # Not local. Try to pull from a registry.
-            try:
-                if image.digest:
-                    client.images.pull(f"{image.repository}@{image.digest}")
-                else:
-                    client.images.pull(image.repository, tag=image.tag)
-            except BaseException as exc:
-                self._translate_install_error(exc, runtime_id)
-        # Cache the descriptor for later start_runtime; the manager
-        # always calls install before start, so the cache is hot
-        # at start time.
-        self._descriptor_cache[runtime_id] = descriptor
-        return RuntimeInstance(
-            runtime_id=runtime_id,
-            state=RuntimeState.INSTALLED,
-            host="",
-            port=0,
-            image_identity=self._image_identity_from_descriptor(descriptor),
-            started_at=None,
-            last_health_at=None,
-            health_state=HealthState.UNKNOWN,
-        )
+            # Not local. If the descriptor carries build metadata,
+            # build first (platform-managed install path). Otherwise
+            # pull from registry.
+            if descriptor.spec.build is not None:
+                try:
+                    build = descriptor.spec.build
+                    assert build is not None
+                    context = self._build_context_from_descriptor(descriptor)
+                    client.images.build(
+                        path=str(context),
+                        dockerfile=build.dockerfile,
+                        tag=ref,
+                        rm=True,
+                    )
+                except BaseException as build_exc:
+                    self._translate_install_error(build_exc, runtime_id)
+            else:
+                try:
+                    if image.digest:
+                        client.images.pull(f"{image.repository}@{image.digest}")
+                    else:
+                        client.images.pull(image.repository, tag=image.tag)
+                except BaseException as exc:
+                    self._translate_install_error(exc, runtime_id)
+        return None
 
     async def update_runtime(
         self, runtime_id: str, descriptor: RuntimeDescriptor
@@ -399,19 +433,24 @@ class DockerRuntimeDriver:
 
     async def remove_runtime(self, runtime_id: str) -> None:
         client = self._ensure_client()
+        desc = self._descriptor_cache.get(runtime_id)
+        image_refs: set[str] = set()
+        if desc is not None:
+            image_refs.add(self._image_ref(desc))
         try:
             c = self._container(runtime_id)
+            if getattr(c, "image", None):
+                image_refs.add(c.image)
             c.stop(timeout=int(self._default_stop_timeout_s))
             c.remove(force=True)
         except RuntimeNotFound:
             pass
         # Remove the image too (best effort; the image may be shared).
-        try:
-            c = self._container(runtime_id)
-            if c.image:
-                client.images.remove(c.image, force=True)
-        except BaseException:
-            pass
+        for image_ref in image_refs:
+            try:
+                client.images.remove(image_ref, force=True)
+            except BaseException:
+                pass
         # Clear the descriptor cache; the runtime is fully removed.
         self._descriptor_cache.pop(runtime_id, None)
 

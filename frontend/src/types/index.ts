@@ -489,6 +489,7 @@ export interface VoiceResourceResponse {
 // therefore use lowercase keys.
 export type RuntimePhase =
   | "notInstalled"
+  | "installing"
   | "pulling"
   | "installed"
   | "starting"
@@ -496,12 +497,30 @@ export type RuntimePhase =
   | "stopping"
   | "stopped"
   | "failed"
-  | "updating";
+  | "updating"
+  | "removing";
+
+export type RuntimeOperationType = "install" | "update" | "start" | "stop" | "remove" | "build"
+export type RuntimeOperationStatus = "pending" | "running" | "completed" | "failed" | "cancelled"
+
+export interface RuntimeOperation {
+  id: string;
+  runtime_id: string;
+  type: RuntimeOperationType;
+  status: RuntimeOperationStatus;
+  progress: number;
+  message: string;
+  started_at: string;
+  updated_at: string;
+  cancellable: boolean;
+  error: string | null;
+}
 
 export interface RuntimeImage {
   repository: string;
   tag: string;
   digest: string | null;
+  image_size_mb?: number | null;
 }
 
 export interface RuntimeBuild {
@@ -556,6 +575,7 @@ export interface RuntimeStatePayload {
   last_request_at: string | null;
   health_state: "ready" | "not_ready" | "unknown" | null;
   endpoint: string | null;
+  operation: RuntimeOperation | null;
 }
 
 export interface RuntimeCard {
@@ -577,6 +597,14 @@ export interface RuntimeCard {
 
 export interface RuntimesResponse {
   runtimes: RuntimeCard[];
+}
+
+export interface RuntimeOperationResponse {
+  operation: RuntimeOperation | null;
+}
+
+export interface RuntimeOperationsResponse {
+  operations: RuntimeOperation[];
 }
 
 // ---------------------------------------------------------------------------
@@ -612,6 +640,7 @@ export interface ComposedRuntimeImage {
   repository: string;
   tag: string;
   digest: string | null;
+  image_size_mb?: number | null;
 }
 
 export interface ComposedRuntimeBuild {

@@ -148,6 +148,7 @@ class RuntimeImage(BaseModel):
     repository: str = Field(..., min_length=1)
     tag: str = Field(..., min_length=1)
     digest: Optional[str] = None
+    image_size_mb: Optional[float] = Field(default=None, gt=0)
 
     @field_validator("digest")
     @classmethod

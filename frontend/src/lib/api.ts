@@ -27,12 +27,50 @@ import type {
   RuntimesResponse,
   RuntimeStatePayload,
   RuntimeImage,
+  RuntimeOperation,
+  RuntimeOperationResponse,
+  RuntimeOperationsResponse,
   ModelWithRuntimesCard,
   ModelsWithRuntimesResponse,
 } from "@/types"
 import { parseApiError, type ApiError } from "./api-error"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+function normalizeApiBaseUrl(raw: string): string {
+  const trimmed = raw.trim()
+  if (!trimmed) return "http://localhost:8000"
+
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return trimmed.replace(/\/+$/, "")
+  }
+
+  if (trimmed.startsWith("//")) {
+    const protocol = typeof window !== "undefined" ? window.location.protocol : "http:"
+    return `${protocol}${trimmed}`.replace(/\/+$/, "")
+  }
+
+  // Allow explicit same-origin proxy paths if configured (for example, "/api").
+  if (trimmed.startsWith("/")) {
+    return trimmed.replace(/\/+$/, "")
+  }
+
+  // Host[:port] values are treated as HTTP endpoints.
+  return `http://${trimmed}`.replace(/\/+$/, "")
+}
+
+function resolveApiBaseUrl(): string {
+  const configured = process.env.NEXT_PUBLIC_API_URL
+  if (configured && configured.trim()) {
+    return normalizeApiBaseUrl(configured)
+  }
+
+  if (typeof window !== "undefined") {
+    return `${window.location.protocol}//${window.location.hostname}:8000`
+  }
+
+  return "http://localhost:8000"
+}
+
+const API_URL = resolveApiBaseUrl()
 
 /** Base URL of the OmniVoice backend — used to render API examples. */
 export function getApiBaseUrl(): string {
@@ -322,6 +360,23 @@ export async function fetchRuntime(id: string): Promise<RuntimeCard> {
 
 export async function fetchRuntimeState(id: string): Promise<RuntimeStatePayload> {
   return request<RuntimeStatePayload>(`/runtimes/${id}/state`)
+}
+
+export async function fetchRuntimeOperation(id: string): Promise<RuntimeOperation | null> {
+  const data = await request<RuntimeOperationResponse>(`/runtimes/${id}/operation`)
+  return data.operation
+}
+
+export async function fetchRuntimeOperations(activeOnly = true): Promise<RuntimeOperation[]> {
+  const data = await request<RuntimeOperationsResponse>(`/runtime-operations?active_only=${activeOnly ? "true" : "false"}`)
+  return data.operations
+}
+
+export async function cancelRuntimeOperation(id: string, operationId: string): Promise<RuntimeOperation | null> {
+  const data = await request<RuntimeOperationResponse>(`/runtimes/${id}/operations/${operationId}/cancel`, {
+    method: "POST",
+  })
+  return data.operation
 }
 
 export async function installRuntime(

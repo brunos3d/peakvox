@@ -30,13 +30,23 @@ are added in sub-phases 2B and 2C respectively.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import asyncio
+from dataclasses import dataclass, replace
+from datetime import datetime, timezone
 from typing import List, Optional, Protocol, runtime_checkable
+from uuid import uuid4
 
 from app.services.runtime_driver import RuntimeDriver
 from app.services.runtime_errors import RuntimeDriverError
 from app.services.runtime_events import RuntimeEvent, RuntimeEventBus
 from app.services.runtime_instance import HealthState, ImageIdentity, RuntimeInstance, RuntimeState
+from app.services.runtime_operation import (
+    RuntimeOperation,
+    RuntimeOperationConflict,
+    RuntimeOperationNotFound,
+    RuntimeOperationStatus,
+    RuntimeOperationType,
+)
 from app.services.runtime_registry import RuntimeRegistry
 from app.services.runtime_types import RuntimeDescriptor
 
@@ -111,6 +121,9 @@ class RuntimeManager:
         # references Voice / VoiceVariant / VoiceVariantArtifact
         # (per the Runtime Activation Audit).
         self._instance_cache: dict[str, RuntimeInstance] = {}
+        # Task 15: operation state is backend-owned and globally visible.
+        self._operations: dict[str, RuntimeOperation] = {}
+        self._operation_tasks: dict[str, asyncio.Task[None]] = {}
 
     # --- Cache (2D.1-2D.3) -----------------------------------------------------
 
@@ -128,6 +141,47 @@ class RuntimeManager:
         """All cached ``RuntimeInstance`` objects (operational
         state only; no domain objects)."""
         return list(self._instance_cache.values())
+
+    def get_runtime_operation(self, runtime_id: str) -> Optional[RuntimeOperation]:
+        """Return the latest operation for a runtime."""
+        return self._operations.get(runtime_id)
+
+    def list_runtime_operations(self, *, active_only: bool = True) -> List[RuntimeOperation]:
+        """List runtime operations.
+
+        When ``active_only`` is true, return only pending/running operations.
+        """
+        items = list(self._operations.values())
+        if active_only:
+            items = [op for op in items if op.status in ("pending", "running")]
+        return sorted(items, key=lambda op: op.updated_at, reverse=True)
+
+    async def cancel_runtime_operation(self, runtime_id: str, operation_id: str) -> RuntimeOperation:
+        """Cancel a running operation if it is cancellable."""
+        op = self._operations.get(runtime_id)
+        if op is None or op.id != operation_id:
+            raise RuntimeOperationNotFound(
+                f"operation {operation_id} for runtime {runtime_id} not found"
+            )
+        if op.status not in ("pending", "running"):
+            return op
+        if not op.cancellable:
+            return self._set_operation(
+                runtime_id,
+                status="failed",
+                message="Operation cannot be cancelled",
+                error="operation_not_cancellable",
+            )
+        task = self._operation_tasks.get(runtime_id)
+        if task is not None and not task.done():
+            task.cancel()
+        return self._set_operation(
+            runtime_id,
+            status="cancelled",
+            progress=100,
+            message="Operation cancelled",
+            error="operation_cancelled",
+        )
 
     # --- Resolution ----------------------------------------------------------
 
@@ -201,6 +255,62 @@ class RuntimeManager:
             )
         return self._driver
 
+    def _utcnow(self) -> datetime:
+        return datetime.now(timezone.utc)
+
+    def _set_operation(
+        self,
+        runtime_id: str,
+        *,
+        status: Optional[RuntimeOperationStatus] = None,
+        progress: Optional[int] = None,
+        message: Optional[str] = None,
+        error: Optional[str] = None,
+    ) -> RuntimeOperation:
+        op = self._operations[runtime_id]
+        next_progress = op.progress if progress is None else max(0, min(100, progress))
+        next_message = op.message if message is None else message
+        next_status = op.status if status is None else status
+        op = replace(
+            op,
+            status=next_status,
+            progress=next_progress,
+            message=next_message,
+            updated_at=self._utcnow(),
+            error=error,
+        )
+        self._operations[runtime_id] = op
+        return op
+
+    def _begin_operation(
+        self,
+        runtime_id: str,
+        op_type: RuntimeOperationType,
+        *,
+        cancellable: bool = True,
+        initial_message: str,
+    ) -> RuntimeOperation:
+        existing = self._operations.get(runtime_id)
+        if existing is not None and existing.status in ("pending", "running"):
+            raise RuntimeOperationConflict(
+                f"runtime {runtime_id} already has an active {existing.type} operation"
+            )
+        now = self._utcnow()
+        op = RuntimeOperation(
+            id=uuid4().hex,
+            runtime_id=runtime_id,
+            type=op_type,
+            status="running",
+            progress=10,
+            message=initial_message,
+            started_at=now,
+            updated_at=now,
+            cancellable=cancellable,
+            error=None,
+        )
+        self._operations[runtime_id] = op
+        return op
+
     async def install(self, runtime_id: str) -> RuntimeInstance:
         driver = self._require_driver()
         self._publish_event("install_requested", runtime_id)
@@ -208,13 +318,42 @@ class RuntimeManager:
         if descriptor is None:
             from app.services.runtime_errors import RuntimeNotFound
             raise RuntimeNotFound(runtime_id, "not in registry")
+        self._begin_operation(
+            runtime_id,
+            "install",
+            initial_message="Installing runtime",
+        )
+        self._set_operation(runtime_id, progress=30, message="Pulling runtime image")
         try:
             inst = await driver.install_runtime(runtime_id, descriptor)
+        except asyncio.CancelledError:
+            self._set_operation(
+                runtime_id,
+                status="cancelled",
+                progress=100,
+                message="Install cancelled",
+                error="operation_cancelled",
+            )
+            raise
         except RuntimeDriverError as exc:
             self._publish_event("install_failed", runtime_id, error=str(exc))
+            self._set_operation(
+                runtime_id,
+                status="failed",
+                progress=100,
+                message="Install failed",
+                error=str(exc),
+            )
             raise
         # 2D.1: cache the installed instance.
         self._instance_cache[runtime_id] = inst
+        self._set_operation(
+            runtime_id,
+            status="completed",
+            progress=100,
+            message="Install completed",
+            error=None,
+        )
         self._publish_event("install_completed", runtime_id)
         return inst
 
@@ -224,30 +363,152 @@ class RuntimeManager:
         if descriptor is None:
             from app.services.runtime_errors import RuntimeNotFound
             raise RuntimeNotFound(runtime_id, "not in registry")
-        inst = await driver.update_runtime(runtime_id, descriptor)
+        self._begin_operation(
+            runtime_id,
+            "update",
+            initial_message="Updating runtime",
+        )
+        self._set_operation(runtime_id, progress=40, message="Applying runtime update")
+        try:
+            inst = await driver.update_runtime(runtime_id, descriptor)
+        except asyncio.CancelledError:
+            self._set_operation(
+                runtime_id,
+                status="cancelled",
+                progress=100,
+                message="Update cancelled",
+                error="operation_cancelled",
+            )
+            raise
+        except RuntimeDriverError as exc:
+            self._set_operation(
+                runtime_id,
+                status="failed",
+                progress=100,
+                message="Update failed",
+                error=str(exc),
+            )
+            raise
         # 2D.3: refresh the cache.
         self._instance_cache[runtime_id] = inst
+        self._set_operation(
+            runtime_id,
+            status="completed",
+            progress=100,
+            message="Update completed",
+            error=None,
+        )
         return inst
 
     async def remove(self, runtime_id: str) -> None:
         driver = self._require_driver()
-        await driver.remove_runtime(runtime_id)
+        self._begin_operation(
+            runtime_id,
+            "remove",
+            initial_message="Removing runtime",
+        )
+        self._set_operation(runtime_id, progress=50, message="Removing runtime resources")
+        try:
+            await driver.remove_runtime(runtime_id)
+        except asyncio.CancelledError:
+            self._set_operation(
+                runtime_id,
+                status="cancelled",
+                progress=100,
+                message="Remove cancelled",
+                error="operation_cancelled",
+            )
+            raise
+        except RuntimeDriverError as exc:
+            self._set_operation(
+                runtime_id,
+                status="failed",
+                progress=100,
+                message="Remove failed",
+                error=str(exc),
+            )
+            raise
         # 2D.3: clear the cache.
         self._instance_cache.pop(runtime_id, None)
+        self._set_operation(
+            runtime_id,
+            status="completed",
+            progress=100,
+            message="Remove completed",
+            error=None,
+        )
         self._publish_event("remove_completed", runtime_id)
 
     async def start(self, runtime_id: str) -> RuntimeInstance:
         driver = self._require_driver()
         self._publish_event("start_requested", runtime_id)
-        inst = await driver.start_runtime(runtime_id)
+        self._begin_operation(
+            runtime_id,
+            "start",
+            initial_message="Starting runtime",
+        )
+        self._set_operation(runtime_id, progress=50, message="Booting runtime container")
+        try:
+            inst = await driver.start_runtime(runtime_id)
+        except asyncio.CancelledError:
+            self._set_operation(
+                runtime_id,
+                status="cancelled",
+                progress=100,
+                message="Start cancelled",
+                error="operation_cancelled",
+            )
+            raise
+        except RuntimeDriverError as exc:
+            self._publish_event("start_failed", runtime_id, error=str(exc))
+            self._set_operation(
+                runtime_id,
+                status="failed",
+                progress=100,
+                message="Start failed",
+                error=str(exc),
+            )
+            raise
         # 2D.2: cache the started instance.
         self._instance_cache[runtime_id] = inst
+        self._set_operation(
+            runtime_id,
+            status="completed",
+            progress=100,
+            message="Start completed",
+            error=None,
+        )
         self._publish_event("start_completed", runtime_id)
         return inst
 
     async def stop(self, runtime_id: str) -> None:
         driver = self._require_driver()
-        await driver.stop_runtime(runtime_id)
+        self._begin_operation(
+            runtime_id,
+            "stop",
+            initial_message="Stopping runtime",
+        )
+        self._set_operation(runtime_id, progress=60, message="Stopping runtime container")
+        try:
+            await driver.stop_runtime(runtime_id)
+        except asyncio.CancelledError:
+            self._set_operation(
+                runtime_id,
+                status="cancelled",
+                progress=100,
+                message="Stop cancelled",
+                error="operation_cancelled",
+            )
+            raise
+        except RuntimeDriverError as exc:
+            self._set_operation(
+                runtime_id,
+                status="failed",
+                progress=100,
+                message="Stop failed",
+                error=str(exc),
+            )
+            raise
         # 2D.2: refresh the cache to the stopped state.
         # The driver may return a None in 2A; the cache holds
         # the last-known instance unless remove() is called.
@@ -263,6 +524,13 @@ class RuntimeManager:
                 last_health_at=cur.last_health_at,
                 health_state=HealthState.UNKNOWN,
             )
+        self._set_operation(
+            runtime_id,
+            status="completed",
+            progress=100,
+            message="Stop completed",
+            error=None,
+        )
         self._publish_event("stop_completed", runtime_id)
 
     async def status(self, runtime_id: str) -> RuntimeInstance:

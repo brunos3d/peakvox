@@ -50,12 +50,14 @@ from app.services.runtime_instance import (
 from app.services.runtime_types import RuntimeDescriptor
 from app.services.model_registry import model_registry
 from app.core.config import settings
+from app.services.runtime_operation import RuntimeOperationConflict, RuntimeOperationNotFound
 
 
 logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/api/runtimes", tags=["Runtimes"])
+operations_router = APIRouter(prefix="/api/runtime-operations", tags=["Runtime Operations"])
 
 # A second router for the composed view (Models + Runtimes + State).
 # Per R9, the Models page renders a composed view: the catalog
@@ -101,6 +103,7 @@ def _descriptor_to_payload(desc: RuntimeDescriptor) -> dict[str, Any]:
             "repository": desc.spec.image.repository,
             "tag": desc.spec.image.tag,
             "digest": desc.spec.image.digest,
+            "image_size_mb": desc.spec.image.image_size_mb,
         },
         "build": (
             None
@@ -146,12 +149,54 @@ def _descriptor_to_payload(desc: RuntimeDescriptor) -> dict[str, Any]:
     }
 
 
+def _phase_from_operation(op: Optional[dict[str, Any]]) -> Optional[str]:
+    if op is None:
+        return None
+    status = op["status"]
+    op_type = op["type"]
+    if status in ("pending", "running"):
+        if op_type == "install":
+            return "installing"
+        if op_type == "update":
+            return "updating"
+        if op_type == "start":
+            return "starting"
+        if op_type == "stop":
+            return "stopping"
+        if op_type == "remove":
+            return "removing"
+    if status == "failed":
+        return "failed"
+    return None
+
+
+def _operation_to_payload(op: Optional[Any]) -> Optional[dict[str, Any]]:
+    if op is None:
+        return None
+    return {
+        "id": op.id,
+        "runtime_id": op.runtime_id,
+        "type": op.type,
+        "status": op.status,
+        "progress": op.progress,
+        "message": op.message,
+        "started_at": op.started_at.isoformat(),
+        "updated_at": op.updated_at.isoformat(),
+        "cancellable": op.cancellable,
+        "error": op.error,
+    }
+
+
 def _state_to_payload(runtime_id: str, instance: Optional[RuntimeInstance]) -> dict[str, Any]:
     """Convert the manager's cached state to a Task 4 payload."""
+    manager = _get_manager()
+    op_payload = _operation_to_payload(manager.get_runtime_operation(runtime_id))
+    operation_phase = _phase_from_operation(op_payload)
+
     if instance is None:
         return {
             "runtime_id": runtime_id,
-            "phase": "notInstalled",
+            "phase": operation_phase or "notInstalled",
             "host": None,
             "port": None,
             "image_identity": None,
@@ -160,11 +205,12 @@ def _state_to_payload(runtime_id: str, instance: Optional[RuntimeInstance]) -> d
             "last_request_at": None,
             "health_state": None,
             "endpoint": None,
+            "operation": op_payload,
         }
     endpoint = f"http://{instance.host}:{instance.port}"
     return {
         "runtime_id": runtime_id,
-        "phase": instance.state.value,
+        "phase": operation_phase or instance.state.value,
         "host": instance.host,
         "port": instance.port,
         "image_identity": {
@@ -181,6 +227,7 @@ def _state_to_payload(runtime_id: str, instance: Optional[RuntimeInstance]) -> d
         ),
         "health_state": instance.health_state.value,
         "endpoint": endpoint,
+        "operation": op_payload,
     }
 
 
@@ -339,6 +386,8 @@ async def install_runtime(runtime_id: str) -> dict[str, Any]:
     manager = _get_manager()
     try:
         inst = await manager.install(runtime_id)
+    except RuntimeOperationConflict as exc:
+        raise HTTPException(status_code=409, detail={"message": str(exc), "category": "operation_conflict"})
     except Exception as exc:
         raise HTTPException(
             status_code=500,
@@ -360,6 +409,8 @@ async def start_runtime(runtime_id: str) -> dict[str, Any]:
     manager = _get_manager()
     try:
         inst = await manager.start(runtime_id)
+    except RuntimeOperationConflict as exc:
+        raise HTTPException(status_code=409, detail={"message": str(exc), "category": "operation_conflict"})
     except Exception as exc:
         raise HTTPException(
             status_code=500,
@@ -383,6 +434,8 @@ async def stop_runtime(runtime_id: str) -> dict[str, Any]:
     manager = _get_manager()
     try:
         await manager.stop(runtime_id)
+    except RuntimeOperationConflict as exc:
+        raise HTTPException(status_code=409, detail={"message": str(exc), "category": "operation_conflict"})
     except Exception as exc:
         raise HTTPException(
             status_code=500,
@@ -400,6 +453,8 @@ async def update_runtime(runtime_id: str) -> dict[str, Any]:
     manager = _get_manager()
     try:
         inst = await manager.update(runtime_id)
+    except RuntimeOperationConflict as exc:
+        raise HTTPException(status_code=409, detail={"message": str(exc), "category": "operation_conflict"})
     except Exception as exc:
         raise HTTPException(
             status_code=500,
@@ -421,6 +476,8 @@ async def remove_runtime(runtime_id: str) -> dict[str, Any]:
     manager = _get_manager()
     try:
         await manager.remove(runtime_id)
+    except RuntimeOperationConflict as exc:
+        raise HTTPException(status_code=409, detail={"message": str(exc), "category": "operation_conflict"})
     except Exception as exc:
         raise HTTPException(
             status_code=500,
@@ -430,6 +487,35 @@ async def remove_runtime(runtime_id: str) -> dict[str, Any]:
             },
         )
     return {"runtime_id": runtime_id, "phase": "notInstalled"}
+
+
+@router.get("/{runtime_id}/operation")
+async def get_runtime_operation(runtime_id: str) -> dict[str, Any]:
+    """Get the latest backend-owned operation for a runtime."""
+    manager = _get_manager()
+    desc = manager.registry.get(runtime_id)
+    if desc is None:
+        raise HTTPException(status_code=404, detail=f"Runtime {runtime_id!r} not found in registry")
+    return {"operation": _operation_to_payload(manager.get_runtime_operation(runtime_id))}
+
+
+@operations_router.get("")
+async def list_runtime_operations(active_only: bool = True) -> dict[str, Any]:
+    """List backend-owned runtime operations."""
+    manager = _get_manager()
+    operations = manager.list_runtime_operations(active_only=active_only)
+    return {"operations": [_operation_to_payload(op) for op in operations]}
+
+
+@router.post("/{runtime_id}/operations/{operation_id}/cancel")
+async def cancel_runtime_operation(runtime_id: str, operation_id: str) -> dict[str, Any]:
+    """Cancel a runtime operation when cancellable."""
+    manager = _get_manager()
+    try:
+        operation = await manager.cancel_runtime_operation(runtime_id, operation_id)
+        return {"operation": _operation_to_payload(operation)}
+    except RuntimeOperationNotFound as exc:
+        raise HTTPException(status_code=404, detail={"message": str(exc), "category": "operation_not_found"})
 
 
 # ---------------------------------------------------------------------------
@@ -580,3 +666,18 @@ async def list_runtimes_no_prefix() -> dict[str, Any]:
 @no_prefix_router.get("/runtimes/{runtime_id}/state")
 async def get_runtime_state_no_prefix(runtime_id: str) -> dict[str, Any]:
     return await get_runtime_state(runtime_id)
+
+
+@no_prefix_router.get("/runtimes/{runtime_id}/operation")
+async def get_runtime_operation_no_prefix(runtime_id: str) -> dict[str, Any]:
+    return await get_runtime_operation(runtime_id)
+
+
+@no_prefix_router.get("/runtime-operations")
+async def list_runtime_operations_no_prefix(active_only: bool = True) -> dict[str, Any]:
+    return await list_runtime_operations(active_only=active_only)
+
+
+@no_prefix_router.post("/runtimes/{runtime_id}/operations/{operation_id}/cancel")
+async def cancel_runtime_operation_no_prefix(runtime_id: str, operation_id: str) -> dict[str, Any]:
+    return await cancel_runtime_operation(runtime_id, operation_id)

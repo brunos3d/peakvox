@@ -1,13 +1,14 @@
 import { Download, PauseCircle, PlayCircle, RefreshCw, Trash2, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import type { RuntimePhase } from "@/types"
+import type { RuntimeOperation, RuntimePhase } from "@/types"
 import type { RuntimeLifecycleAction } from "@/hooks/use-runtimes"
 
-type PendingPhase = "pulling" | "starting" | "stopping" | "updating"
+type PendingPhase = "installing" | "pulling" | "starting" | "stopping" | "updating" | "removing"
 
 const OPERATIONS_BY_PHASE: Record<RuntimePhase, RuntimeLifecycleAction[]> = {
   notInstalled: ["install"],
+  installing: [],
   pulling: [],
   installed: ["start", "remove"],
   starting: [],
@@ -16,13 +17,16 @@ const OPERATIONS_BY_PHASE: Record<RuntimePhase, RuntimeLifecycleAction[]> = {
   stopped: ["start", "remove"],
   failed: ["remove"],
   updating: [],
+  removing: [],
 }
 
 const PENDING_LABELS: Record<PendingPhase, string> = {
+  installing: "Installing runtime...",
   pulling: "Pulling image...",
   starting: "Starting container...",
   stopping: "Stopping container...",
   updating: "Updating image...",
+  removing: "Removing runtime...",
 }
 
 const ACTION_ICON: Record<RuntimeLifecycleAction, typeof Download> = {
@@ -42,23 +46,46 @@ const ACTION_VARIANT: Record<RuntimeLifecycleAction, "default" | "outline" | "de
 }
 
 function isPendingPhase(phase: RuntimePhase): phase is PendingPhase {
-  return phase === "pulling" || phase === "starting" || phase === "stopping" || phase === "updating"
+  return (
+    phase === "installing" ||
+    phase === "pulling" ||
+    phase === "starting" ||
+    phase === "stopping" ||
+    phase === "updating" ||
+    phase === "removing"
+  )
 }
 
 export function OperationsRow({
   phase,
   pending,
   onAction,
+  operation,
+  canCancel,
+  onCancel,
 }: {
   phase: RuntimePhase
   pending: boolean
   onAction: (action: RuntimeLifecycleAction) => void
+  operation?: RuntimeOperation | null
+  canCancel?: boolean
+  onCancel?: () => void
 }) {
   if (isPendingPhase(phase)) {
     return (
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        {PENDING_LABELS[phase]}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          {operation?.message || PENDING_LABELS[phase]}
+          {typeof operation?.progress === "number" && (
+            <span className="text-[10px]">({operation.progress}%)</span>
+          )}
+        </div>
+        {canCancel && onCancel && (
+          <Button size="sm" variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+        )}
       </div>
     )
   }

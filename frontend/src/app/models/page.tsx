@@ -9,7 +9,13 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ModelRow, type ModelFilter, statusClasses } from "@/components/models/ModelRow"
 import { ModelSection } from "@/components/models/ModelSection"
 import { RuntimeSection } from "@/components/models/RuntimeSection"
-import { useModelsWithRuntimes, useRuntimeLifecycleAction, type RuntimeLifecycleAction } from "@/hooks/use-runtimes"
+import {
+  canCancelOperation,
+  useCancelRuntimeOperation,
+  useModelsWithRuntimes,
+  useRuntimeLifecycleAction,
+  type RuntimeLifecycleAction,
+} from "@/hooks/use-runtimes"
 import { cn } from "@/lib/utils"
 import type { Model } from "@/types"
 import type { ModelWithRuntimesCard } from "@/types"
@@ -38,6 +44,7 @@ function asLegacyModel(card: ModelWithRuntimesCard): Model {
 export default function ModelsPage() {
   const { data: composedCards = [], isLoading, error } = useModelsWithRuntimes()
   const runtimeLifecycle = useRuntimeLifecycleAction()
+  const cancelOperation = useCancelRuntimeOperation()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [filter, setFilter] = useState<ModelFilter>("all")
   const [query, setQuery] = useState("")
@@ -93,7 +100,17 @@ export default function ModelsPage() {
         onAction={(runtimeId, action: RuntimeLifecycleAction) =>
           runtimeLifecycle.mutate({ id: runtimeId, action })
         }
-        actionPending={runtimeLifecycle.isPending}
+        onCancel={(runtimeId, operationId) => {
+          cancelOperation.mutate({ runtimeId, operationId })
+        }}
+        canCancel={(runtimeId) => {
+          const card = composedCards.find((c) =>
+            c.runtimes.some((runtime) => runtime.runtime_id === runtimeId),
+          )
+          const runtime = card?.runtimes.find((r) => r.runtime_id === runtimeId)
+          return canCancelOperation(runtime?.state.operation)
+        }}
+        actionPending={runtimeLifecycle.isPending || cancelOperation.isPending}
       />
     </div>
   ) : null

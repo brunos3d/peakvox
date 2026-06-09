@@ -16,17 +16,20 @@ import {
   fetchRuntimes,
   fetchRuntime,
   fetchRuntimeState,
+  fetchRuntimeOperation,
+  fetchRuntimeOperations,
   fetchModelsWithRuntimes,
   installRuntime,
   startRuntime,
   stopRuntime,
   updateRuntime,
   removeRuntime,
+  cancelRuntimeOperation,
 } from "@/lib/api";
 import type {
-  RuntimeCard,
+  RuntimeOperation,
   RuntimeStatePayload,
-  ModelWithRuntimesCard,
+  RuntimeOperationStatus,
 } from "@/types";
 
 
@@ -39,7 +42,6 @@ const lifecycleFns: Record<RuntimeLifecycleAction, (id: string) => Promise<unkno
   update: updateRuntime,
   remove: removeRuntime,
 };
-
 
 export function useRuntimes() {
   return useQuery({
@@ -67,14 +69,47 @@ export function useRuntimeState(id: string | null) {
     queryKey: ["runtime-state", id],
     queryFn: () => fetchRuntimeState(id!),
     enabled: !!id,
-    staleTime: 5_000,
-    refetchInterval: 10_000,
+    staleTime: 1_000,
+    refetchInterval: 3_000,
+    refetchIntervalInBackground: true,
+  });
+}
+
+export function useRuntimeOperation(id: string | null) {
+  return useQuery<RuntimeOperation | null>({
+    queryKey: ["runtime-operation", id],
+    queryFn: () => fetchRuntimeOperation(id!),
+    enabled: !!id,
+    staleTime: 1_000,
+    refetchInterval: 3_000,
+    refetchIntervalInBackground: true,
+  });
+}
+
+export function useRuntimeOperations(activeOnly = true) {
+  return useQuery<RuntimeOperation[]>({
+    queryKey: ["runtime-operations", activeOnly],
+    queryFn: () => fetchRuntimeOperations(activeOnly),
+    staleTime: 1_000,
+    refetchInterval: 3_000,
+    refetchIntervalInBackground: true,
   });
 }
 
 
 export function useRuntimeLifecycleAction() {
   const queryClient = useQueryClient();
+
+  const invalidateRuntimeQueries = (runtimeId?: string) => {
+    queryClient.invalidateQueries({ queryKey: ["models-with-runtimes"] });
+    queryClient.invalidateQueries({ queryKey: ["runtimes"] });
+    queryClient.invalidateQueries({ queryKey: ["runtime-operations"] });
+    if (runtimeId) {
+      queryClient.invalidateQueries({ queryKey: ["runtime", runtimeId] });
+      queryClient.invalidateQueries({ queryKey: ["runtime-state", runtimeId] });
+      queryClient.invalidateQueries({ queryKey: ["runtime-operation", runtimeId] });
+    }
+  }
 
   return useMutation({
     mutationFn: ({ id, action }: { id: string; action: RuntimeLifecycleAction }) =>
@@ -84,12 +119,40 @@ export function useRuntimeLifecycleAction() {
       // subscribes to this via useModelsWithRuntimes). Without
       // this, the page state badge won't refresh after a
       // lifecycle operation.
-      queryClient.invalidateQueries({ queryKey: ["models-with-runtimes"] });
-      queryClient.invalidateQueries({ queryKey: ["runtimes"] });
-      queryClient.invalidateQueries({ queryKey: ["runtime", variables.id] });
-      queryClient.invalidateQueries({ queryKey: ["runtime-state", variables.id] });
+      invalidateRuntimeQueries(variables.id)
+    },
+    onError: (_error, variables) => {
+      // Roll back optimistic lifecycle badges by forcing a
+      // fresh read of runtime state from the backend.
+      invalidateRuntimeQueries(variables.id)
+    },
+    onSettled: (_data, _error, variables) => {
+      invalidateRuntimeQueries(variables?.id)
     },
   });
+}
+
+function isCancelable(status: RuntimeOperationStatus): boolean {
+  return status === "pending" || status === "running"
+}
+
+export function useCancelRuntimeOperation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ runtimeId, operationId }: { runtimeId: string; operationId: string }) =>
+      cancelRuntimeOperation(runtimeId, operationId),
+    onSuccess: (_op, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["runtime-operation", variables.runtimeId] });
+      queryClient.invalidateQueries({ queryKey: ["runtime-state", variables.runtimeId] });
+      queryClient.invalidateQueries({ queryKey: ["runtime-operations"] });
+      queryClient.invalidateQueries({ queryKey: ["models-with-runtimes"] });
+    },
+  });
+}
+
+export function canCancelOperation(op: RuntimeOperation | null | undefined): boolean {
+  return !!op && op.cancellable && isCancelable(op.status)
 }
 
 
@@ -118,7 +181,8 @@ export function useModelsWithRuntimes() {
   return useQuery({
     queryKey: ["models-with-runtimes"],
     queryFn: fetchModelsWithRuntimes,
-    staleTime: 30_000,
-    refetchInterval: 60_000,
+    staleTime: 1_000,
+    refetchInterval: 3_000,
+    refetchIntervalInBackground: true,
   });
 }

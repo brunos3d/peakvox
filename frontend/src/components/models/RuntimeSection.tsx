@@ -13,6 +13,7 @@ import type { RuntimeLifecycleAction } from "@/hooks/use-runtimes"
 
 const RUNTIME_PHASE_LABEL: Record<RuntimePhase, string> = {
   notInstalled: "Not Installed",
+  installing: "Installing runtime...",
   pulling: "Pulling image...",
   installed: "Installed (image present, container stopped)",
   starting: "Starting container...",
@@ -21,10 +22,12 @@ const RUNTIME_PHASE_LABEL: Record<RuntimePhase, string> = {
   stopped: "Stopped",
   failed: "Failed",
   updating: "Updating...",
+  removing: "Removing runtime...",
 }
 
 const RUNTIME_PHASE_BADGE: Record<RuntimePhase, string> = {
   notInstalled: "bg-muted text-muted-foreground",
+  installing: "bg-warning/15 text-warning",
   pulling: "bg-warning/15 text-warning",
   installed: "bg-muted text-muted-foreground",
   starting: "bg-warning/15 text-warning",
@@ -33,6 +36,13 @@ const RUNTIME_PHASE_BADGE: Record<RuntimePhase, string> = {
   stopped: "bg-muted text-muted-foreground",
   failed: "bg-error/15 text-error",
   updating: "bg-warning/15 text-warning",
+  removing: "bg-warning/15 text-warning",
+}
+
+function formatImageSize(sizeMb: number | null | undefined): string {
+  if (sizeMb == null || Number.isNaN(sizeMb)) return "n/a"
+  if (sizeMb >= 1024) return `${(sizeMb / 1024).toFixed(1)} GB`
+  return `${sizeMb.toFixed(0)} MB`
 }
 
 function InfoLine({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
@@ -154,6 +164,7 @@ function RuntimeDescriptorDetails({ descriptor }: { descriptor: ComposedRuntimeD
         <p className="text-caption uppercase tracking-wide flex items-center gap-1.5">
           <HardDrive className="h-3 w-3" /> Requirements
         </p>
+        <InfoLine label="Image size" value={formatImageSize(spec.image.image_size_mb)} />
         <InfoLine label="GPU" value={spec.requirements.gpu} />
         <InfoLine
           label="Min VRAM"
@@ -168,6 +179,17 @@ function RuntimeDescriptorDetails({ descriptor }: { descriptor: ComposedRuntimeD
           value={spec.requirements.memory_gb == null ? "n/a" : `${spec.requirements.memory_gb} GB`}
         />
         <InfoLine label="Edition" value={spec.requirements.edition.join(", ")} />
+        <InfoLine
+          label="Install source"
+          value={spec.build ? "Download image (fallback to platform build)" : "Download image"}
+        />
+        {spec.build && (
+          <InfoLine
+            label="Build source"
+            value={`${spec.build.build_context}/${spec.build.dockerfile}`}
+            mono
+          />
+        )}
       </div>
 
       <div className="rounded-md border border-border bg-surface-2 p-3 space-y-2">
@@ -192,10 +214,14 @@ export function RuntimeSection({
   card,
   onAction,
   actionPending,
+  onCancel,
+  canCancel,
 }: {
   card: ModelWithRuntimesCard | null | undefined
   onAction: (runtimeId: string, action: RuntimeLifecycleAction) => void
   actionPending: boolean
+  onCancel?: (runtimeId: string, operationId: string) => void
+  canCancel?: (runtimeId: string) => boolean
 }) {
   if (!card) return null
   const defaultRuntime = card.runtimes.find((r) => r.runtime_id === card.default_runtime_id) ?? card.runtimes[0]
@@ -215,8 +241,25 @@ export function RuntimeSection({
           <OperationsRow
             phase={defaultRuntime.state.phase}
             pending={actionPending}
+            operation={defaultRuntime.state.operation}
+            canCancel={
+              !!defaultRuntime.state.operation &&
+              !!onCancel &&
+              !!canCancel?.(defaultRuntime.runtime_id)
+            }
+            onCancel={() => {
+              const operation = defaultRuntime.state.operation
+              if (operation && onCancel) {
+                onCancel(defaultRuntime.runtime_id, operation.id)
+              }
+            }}
             onAction={(action) => onAction(defaultRuntime.runtime_id, action)}
           />
+          {defaultRuntime.state.operation?.status === "failed" && (
+            <p className="text-xs text-error">
+              {defaultRuntime.state.operation.error || defaultRuntime.state.operation.message}
+            </p>
+          )}
           <RuntimeStateDetails state={defaultRuntime.state} />
           <RuntimeDescriptorDetails descriptor={defaultRuntime.descriptor} />
         </div>
