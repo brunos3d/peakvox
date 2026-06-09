@@ -1,19 +1,16 @@
 "use client"
 
 import { useMemo } from "react"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import {
   CheckCircle2,
   Circle,
-  Hammer,
   Loader2,
-  MinusCircle,
   XCircle,
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { useAppStore } from "@/store/use-store"
 import { computeVoiceModelCompatibility } from "@/hooks/use-voice-model-compatibility"
-import { fetchVariantSummary, backfillMissingVariants } from "@/lib/api"
+import { fetchVariantSummary } from "@/lib/api"
 import type { RealizationState, VoiceModelCompatibility } from "@/types"
 
 interface VariantDashboardProps {
@@ -59,15 +56,6 @@ export function VariantDashboard({ onSelectVoice }: VariantDashboardProps) {
   const summaryQ = useQuery({
     queryKey: ["variant-summary"],
     queryFn: fetchVariantSummary,
-  })
-
-  const queryClient = useQueryClient()
-
-  const backfillMut = useMutation({
-    mutationFn: () => backfillMissingVariants(),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["variant-summary"] })
-    },
   })
 
   if (summaryQ.isLoading) {
@@ -142,22 +130,6 @@ export function VariantDashboard({ onSelectVoice }: VariantDashboardProps) {
             </p>
             <p className="text-xs text-muted-foreground">Failed</p>
           </div>
-        </div>
-        <div className="ml-4">
-          <Button
-            variant="secondary"
-            size="sm"
-            className="gap-1.5 text-xs shrink-0"
-            disabled={backfillMut.isPending}
-            onClick={() => backfillMut.mutate()}
-          >
-            {backfillMut.isPending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Hammer className="h-3.5 w-3.5" />
-            )}
-            Backfill Missing
-          </Button>
         </div>
       </div>
 

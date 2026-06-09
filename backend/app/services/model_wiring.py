@@ -10,6 +10,7 @@ import json
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services.model_adapters.f5_adapter import F5TTSAdapter
 from app.services.model_adapters.fish_adapter import FishAudioAdapter
 from app.services.model_adapters.kokoro_adapter import KokoroAdapter
 from app.services.model_adapters.omnivoice_adapter import (
@@ -35,6 +36,7 @@ _ADAPTER_BY_PROVIDER = {
     "omnivoice-singing": OmniVoiceSingingAdapter,
     "fish-audio": FishAudioAdapter,
     "kokoro": KokoroAdapter,
+    "f5-tts": F5TTSAdapter,
 }
 
 

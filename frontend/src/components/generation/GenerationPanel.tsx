@@ -17,7 +17,7 @@ import {
   AccordionContent,
 } from "@/components/ui/accordion";
 import { useAppStore, useActiveVoice } from "@/store/use-store";
-import { useSubmitGeneration, useModelStatus } from "@/hooks/use-generation";
+import { useSubmitGeneration } from "@/hooks/use-generation";
 import { useActiveModel, useRecommendedModelId, useModels } from "@/hooks/use-models";
 import { filterSettingsForModel } from "@/hooks/use-generation";
 import { useVoiceModelCompatibility } from "@/hooks/use-voice-model-compatibility";
@@ -42,7 +42,6 @@ export function GenerationPanel() {
   const setLanguage = useAppStore((s) => s.setTtsLanguage);
   const selectedModelId = useAppStore((s) => s.selectedModelId);
   const setSelectedModelId = useAppStore((s) => s.setSelectedModelId);
-  const { data: model } = useModelStatus();
   const { activeModel } = useActiveModel();
   const { data: allModels } = useModels();
   const generate = useSubmitGeneration();
@@ -53,7 +52,8 @@ export function GenerationPanel() {
   const [isImporting, setIsImporting] = useState(false);
   const [isImportingLibrary, setIsImportingLibrary] = useState(false);
 
-  const modelReady = !!model?.loaded;
+  const modelReady = activeModel?.activation_status === "active";
+  const supportsVoiceOptional = activeModel?.capabilities?.supports_voice_optional ?? false;
   const isGenerating = generate.isPending || !!activeJobId;
 
   const { getState: getModelState } = useVoiceModelCompatibility(activeVoice);
@@ -104,7 +104,7 @@ export function GenerationPanel() {
   const hasTagIssues = tagIssues.length > 0;
   const canGenerate =
     !!text.trim() &&
-    !!activeVoice &&
+    (!!activeVoice || supportsVoiceOptional) &&
     modelReady &&
     !isGenerating &&
     !isImporting &&
@@ -407,9 +407,15 @@ export function GenerationPanel() {
           </div>
         )}
 
-        {!activeVoice && (
+        {!activeVoice && !supportsVoiceOptional && (
           <p className="text-xs text-muted-foreground">
             Select a voice above to get started.
+          </p>
+        )}
+
+        {!activeVoice && supportsVoiceOptional && (
+          <p className="text-xs text-muted-foreground">
+            No voice selected — {activeModel?.name ?? "this model"} will use its built-in default voice.
           </p>
         )}
 

@@ -283,8 +283,33 @@ BUILTIN_MODELS: list[ModelDescriptor] = [
             supports_multilingual=True,
             supports_reference_audio=True,
             supports_api=True,
+            supports_voice_optional=True,
         ),
         requirements=ModelRequirements(gpu_required=True, runtime="torch"),
+        settings_schema=SettingsSchema(
+            properties={
+                "speed": ParameterSchema(
+                    type="number", label="Speed",
+                    default=1.0, minimum=0.3, maximum=2.0, step=0.05,
+                    description="Speaking speed multiplier.",
+                ),
+                "nfe_step": ParameterSchema(
+                    type="number", label="Inference Steps",
+                    default=32, minimum=8, maximum=64, step=4,
+                    description="Number of flow-matching steps. Higher = better quality, slower.",
+                ),
+                "cfg_strength": ParameterSchema(
+                    type="number", label="Guidance Strength",
+                    default=2.0, minimum=0.0, maximum=4.0, step=0.1,
+                    description="Classifier-free guidance strength. Higher = more faithful to reference voice.",
+                ),
+                "cross_fade_duration": ParameterSchema(
+                    type="number", label="Cross-fade Duration",
+                    default=0.15, minimum=0.0, maximum=0.5, step=0.05,
+                    description="Cross-fade in seconds between long-form audio chunks.",
+                ),
+            },
+        ),
         license=ModelLicense(
             name="MIT License (code) + CC-BY-NC (weights)",
             code="f5-tts-research",

@@ -42,6 +42,10 @@ class ModelCapabilities(BaseModel):
     supports_batch_generation: bool = False
     supports_speaker_embeddings: bool = False
     supports_custom_training: bool = False
+    # When True, the model can generate without a user-supplied voice (uses its
+    # own internal default). The generate button stays enabled with no voice
+    # selected. Reference-audio cloning remains available when a voice IS given.
+    supports_voice_optional: bool = False
 
 
 class ModelRequirements(BaseModel):

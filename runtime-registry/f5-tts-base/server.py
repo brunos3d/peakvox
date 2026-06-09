@@ -187,20 +187,36 @@ def _float32_to_wav_bytes(audio: np.ndarray, sample_rate: int) -> bytes:
 
 
 def _run_inference(req: GenerateRequest) -> tuple[np.ndarray, int]:
-    """Run F5-TTS inference. Returns (audio, sample_rate)."""
+    """Run F5-TTS inference. Returns (audio, sample_rate).
+
+    When ref_audio_path is absent or None, the model generates with its own
+    internal default voice (supports_voice_optional=True capability). This
+    allows F5-TTS to be used without a selected voice in the UI.
+    """
     if _pipeline is None:
         raise HTTPException(status_code=503, detail="pipeline not loaded")
-    # F5-TTS's API takes (text, ref_audio, ref_text). The
-    # adapter is responsible for translating PeakVox voice_id
-    # and the optional variant/artifact into F5-TTS's expected
-    # inputs; for Phase 3 the voice_id is the catalog voice id
-    # and ref_audio is read from the variant artifact.
-    wav, sample_rate, _spec = _pipeline.infer(
-        ref_audio=req.params.get("ref_audio_path"),
-        ref_text=req.params.get("ref_text", ""),
-        gen_text=req.text,
-        language=req.language,
-    )
+
+    ref_audio = req.params.get("ref_audio_path") or None
+    ref_text = req.params.get("ref_text") or ""
+
+    infer_kwargs: dict = {
+        "gen_text": req.text,
+        "ref_audio": ref_audio,
+        "ref_text": ref_text,
+    }
+
+    # Expose user-tunable generation parameters.
+    params = req.params or {}
+    if "speed" in params:
+        infer_kwargs["speed"] = float(params["speed"])
+    if "nfe_step" in params:
+        infer_kwargs["nfe_step"] = int(params["nfe_step"])
+    if "cfg_strength" in params:
+        infer_kwargs["cfg_strength"] = float(params["cfg_strength"])
+    if "cross_fade_duration" in params:
+        infer_kwargs["cross_fade_duration"] = float(params["cross_fade_duration"])
+
+    wav, sample_rate, _spec = _pipeline.infer(**infer_kwargs)
     if wav is None or len(wav) == 0:
         raise HTTPException(status_code=500, detail="inference produced no audio")
     return wav, int(sample_rate)

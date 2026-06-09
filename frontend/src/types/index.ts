@@ -232,6 +232,7 @@ export interface ModelCapabilities {
   supports_multilingual?: boolean
   supports_reference_audio?: boolean
   supports_batch_generation?: boolean
+  supports_voice_optional?: boolean
 }
 
 export interface SelectOption {
@@ -411,25 +412,6 @@ export interface ArtifactVersionResponse {
   model_version: string | null
   size_bytes: number | null
   storage_keys: Record<string, unknown> | null
-}
-
-export interface BackfillEntry {
-  voice_id: string
-  voice_name: string
-  model_id: string
-  model_name: string
-  error?: string
-  status?: string
-  note?: string
-}
-
-export interface BackfillResponse {
-  built: BackfillEntry[]
-  skipped: BackfillEntry[]
-  errors: BackfillEntry[]
-  total_built: number
-  total_skipped: number
-  total_errors: number
 }
 
 export interface ProviderVoiceResponse {

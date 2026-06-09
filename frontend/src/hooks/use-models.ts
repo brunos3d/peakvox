@@ -97,7 +97,11 @@ export function useActiveModel() {
   const selectedModelId = useAppStore((s) => s.selectedModelId);
   const { data: models } = useModels();
 
-  const activeId = selectedModelId ?? models?.find((m) => m.is_default)?.id ?? null;
+  const activeId =
+    selectedModelId ??
+    models?.find((m) => m.activation_status === "active")?.id ??
+    models?.find((m) => m.is_default)?.id ??
+    null;
   const activeModel = models?.find((m) => m.id === activeId) ?? null;
 
   const { data: tags } = useModelTags(activeId);

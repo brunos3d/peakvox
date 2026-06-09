@@ -102,6 +102,7 @@ export function useRuntimeLifecycleAction() {
 
   const invalidateRuntimeQueries = (runtimeId?: string) => {
     queryClient.invalidateQueries({ queryKey: ["models-with-runtimes"] });
+    queryClient.invalidateQueries({ queryKey: ["models"] });
     queryClient.invalidateQueries({ queryKey: ["runtimes"] });
     queryClient.invalidateQueries({ queryKey: ["runtime-operations"] });
     if (runtimeId) {

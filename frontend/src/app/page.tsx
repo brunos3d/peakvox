@@ -9,7 +9,7 @@ import { QuickPrompts } from "@/components/generation/QuickPrompts";
 import { PerformanceEditor } from "@/editor/PerformanceEditor";
 import { getLanguageLabel } from "@/lib/languages";
 import { useAppStore } from "@/store/use-store";
-import { useModelStatus } from "@/hooks/use-generation";
+import { useActiveModel } from "@/hooks/use-models";
 
 export default function TextToSpeechPage() {
   const text = useAppStore((s) => s.ttsText);
@@ -18,8 +18,8 @@ export default function TextToSpeechPage() {
 
   const showPrompts = text.length === 0;
 
-  const { data: model } = useModelStatus();
-  const modelReady = !!model?.loaded;
+  const { activeModel } = useActiveModel();
+  const modelReady = activeModel?.activation_status === "active";
 
   const insertPrompt = (prompt: string) => {
     setText(prompt);
@@ -33,12 +33,10 @@ export default function TextToSpeechPage() {
           description="Direct a voice performance."
         />
 
-        {!modelReady && (
+        {activeModel && !modelReady && (
           <div className="mt-5 flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
             <Loader2 className="h-4 w-4 animate-spin" />
-            {model?.loading
-              ? "Loading the voice model — this can take a few minutes on first run."
-              : "Model is offline."}
+            Model is offline. Start it from the Models page.
           </div>
         )}
 

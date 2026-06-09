@@ -32,7 +32,7 @@ export function ModelSelector({ compatibleModelIds: _deprecated }: ModelSelector
 
   const active = selectedModelId
     ? models?.find((m) => m.id === selectedModelId)
-    : models?.find((m) => m.is_default);
+    : models?.find((m) => m.activation_status === "active") ?? models?.find((m) => m.is_default);
 
   const activeModels = (models ?? []).filter(
     (m) => m.activation_status === "active",

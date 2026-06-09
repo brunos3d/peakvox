@@ -19,7 +19,6 @@ import type {
   VariantBuildResponse,
   VariantSummaryItem,
   ArtifactVersionResponse,
-  BackfillResponse,
   ProviderVoiceResponse,
   CreateFromPresetRequest,
   VoiceResourceResponse,
@@ -238,11 +237,6 @@ export async function fetchVariantSummary(): Promise<VariantSummaryItem[]> {
     throw Object.assign(new Error("Failed to fetch variant summary"), err)
   }
   return res.json()
-}
-
-export async function backfillMissingVariants(modelFilter?: string): Promise<BackfillResponse> {
-  const qs = modelFilter ? `?model_filter=${encodeURIComponent(modelFilter)}` : ""
-  return request<BackfillResponse>(`/voices/variants/backfill${qs}`, { method: "POST" })
 }
 
 // ── API keys (internal dashboard) ────────────────────────────────────────────
