@@ -73,6 +73,7 @@ class OmniVoiceFamilyAdapter(ModelAdapter):
         instruct: Optional[str] = None,
         params: Optional[dict] = None,
         job_id: Optional[str] = None,
+        runtime_endpoint: Optional[str] = None,
     ) -> tuple[float, list[str]]:
         # Delegate to the registry: reuses the single-flight lock, ensure_loaded (with
         # cross-model offload), and the provider's proven inference path.

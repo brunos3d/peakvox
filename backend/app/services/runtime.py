@@ -248,6 +248,27 @@ class PeakVoxRuntime:
             raise ModelNotAvailableInEdition(model_id, edition)
 
     def ensure_active(self, model_id: str) -> None:
+        # Task 17: runtime-enabled generation must gate on runtime operational
+        # state, not legacy model status. If the runtime subsystem is wired and
+        # the model has runtime descriptors, RuntimeManager.resolve(model_id)
+        # is authoritative.
+        if self._runtime_manager is not None:
+            descriptors = self._runtime_manager.registry.list_for_model(model_id)
+            if descriptors:
+                descriptors = sorted(
+                    descriptors,
+                    key=lambda d: (
+                        not d.spec.model_binding.is_default,
+                        d.spec.model_binding.priority,
+                    ),
+                )
+                runtime_id = descriptors[0].metadata.id
+                if self._runtime_manager.resolve(model_id) is None:
+                    instance = self._runtime_manager.get_cached_instance(runtime_id)
+                    runtime_status = instance.state.value if instance is not None else "notInstalled"
+                    raise ModelNotActive(model_id, runtime_status)
+                return
+
         descriptor = self.get_adapter(model_id).descriptor
         if descriptor.activation_status != "active":
             raise ModelNotActive(model_id, descriptor.status)
@@ -465,42 +486,23 @@ class PeakVoxRuntime:
         if variant_params:
             merged_params = {**variant_params, **(params or {})}
 
-        # === Phase 2A bridge: RuntimeManager (skeleton) ====================
-        # ADR-0017 §3.1 + architecture review guardrail: the manager is a
-        # pass-through orchestration boundary. In 2A its driver is None;
-        # ``resolve()`` returns ``None`` and the existing in-process path
-        # is taken unchanged. In 2C+, a non-None resolution would route
-        # to a runtime service — that branch is unreachable in 2A.
-        #
-        # The bridge sits between Active Artifact resolution and the
-        # adapter call. It does not perturb the adapter's kwargs; it
-        # does not execute inference; it does not communicate with
-        # Docker or with any runtime service in 2A.
-        #
-        # === Phase 2D bridge activation ==================================
-        # In 2D the bridge is ACTIVATED. When the manager is wired AND
-        # the resolution is non-None (the runtime is installed and
-        # ACTIVE in the manager's cache), the bridge records an
-        # observability event confirming the runtime-service path is
-        # reachable. The adapter (KokoroAdapter) dispatches on
-        # ``KOKORO_RUNTIME_URL`` (per 2C.2); the bridge does NOT
-        # perturb the adapter's kwargs, does NOT change the in-process
-        # path, and does NOT inject a runtime endpoint into the
-        # adapter's signature. The activation is a documentation +
-        # observability change at the verification point.
+        # Resolve runtime endpoint from RuntimeManager when wired.
+        # RuntimeManager.resolve() returns a RuntimeResolution (with
+        # .endpoint) ONLY when the runtime is installed AND ACTIVE in
+        # the manager's instance cache. The endpoint is injected into
+        # the adapter so that adapters never read environment variables
+        # to discover runtime URLs — that is the orchestration layer's
+        # job (ADR-0017 §3.1).
+        runtime_endpoint: Optional[str] = None
         if self._runtime_manager is not None:
             _resolution = self._runtime_manager.resolve(descriptor.id)
             if _resolution is not None:
-                # 2D activation: the runtime-service path is reachable.
-                # The adapter's 2C.2 dispatch handles the actual
-                # routing. The bridge records an observability event
-                # for operators and downstream telemetry.
+                runtime_endpoint = _resolution.endpoint
                 _logger.debug(
-                    "PeakVoxRuntime: runtime-service path available for model %s "
-                    "via runtime %s at %s",
+                    "PeakVoxRuntime: routing %s via runtime %s at %s",
                     descriptor.id,
                     _resolution.descriptor.metadata.id,
-                    _resolution.endpoint,
+                    runtime_endpoint,
                 )
 
         return await adapter.generate(
@@ -513,6 +515,7 @@ class PeakVoxRuntime:
             instruct=instruct,
             params=merged_params,
             job_id=job_id,
+            runtime_endpoint=runtime_endpoint,
         )
 
 

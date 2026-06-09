@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import base64
-import json
 import logging
-import os
 import uuid
 from pathlib import Path
 from typing import Any, Optional
@@ -27,12 +24,6 @@ try:
 except ImportError:
     _kokoro_mod = None  # type: ignore[assignment]
 
-
-# Env var that activates the runtime-service path. When set to a
-# non-empty string, the adapter routes all generation / variant
-# build requests to that URL via HTTPTransport. When empty (the CE
-# default), the adapter uses the in-process kokoro package.
-KOKORO_RUNTIME_URL_ENV = "KOKORO_RUNTIME_URL"
 
 # ── 54 preset voice definitions ──────────────────────────────────────────
 # Source: https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md
@@ -221,36 +212,26 @@ class KokoroAdapter(ModelAdapter, ProviderVoiceCatalog):
             lang_prefix = "a"
         return self._kokoro.KPipeline(lang_code=lang_prefix)
 
-    # --- Runtime-service path (Phase 2C, 2C.2) -----------------------------
+    # --- Runtime-service path -------------------------------------------
     #
-    # When KOKORO_RUNTIME_URL is set, the adapter routes all
-    # generation / variant-build requests to the runtime service
-    # via HTTPTransport. The in-process path (above) is preserved
-    # as a fallback for environments without the runtime service
-    # available. The dispatch is local to the adapter; the
-    # caller (PeakVoxRuntime) does not change.
+    # When PeakVoxRuntime resolves an ACTIVE RuntimeInstance for this
+    # adapter's model, it passes the endpoint URL via the
+    # ``runtime_endpoint`` kwarg. The adapter routes the request to
+    # that endpoint via HTTPTransport. The endpoint is NEVER read from
+    # an environment variable — it is injected by the orchestration
+    # layer (PeakVoxRuntime → RuntimeManager → RuntimeDriver), which
+    # is the only component that owns runtime operational state.
     #
     # The runtime-service path does NOT import Docker, does NOT
     # reference RuntimeDescriptor / RuntimeInstance / RuntimeRegistry /
     # RuntimeManager, and does NOT add any new contract surface
-    # to the adapter. It is a single allowed seam: HTTPTransport.
-    # Per the Transport Boundary Audit, this is the ONLY allowed
-    # seam; any other runtime-related import in this file is a
-    # violation.
-
-    def _runtime_service_enabled(self) -> bool:
-        """True iff KOKORO_RUNTIME_URL is set to a non-empty value."""
-        url = os.environ.get(KOKORO_RUNTIME_URL_ENV, "").strip()
-        return bool(url)
+    # beyond what the ModelAdapter base defines. It is a single
+    # allowed seam: HTTPTransport. Per the Transport Boundary Audit,
+    # this is the ONLY allowed seam; any other runtime-related import
+    # in this file is a violation.
 
     def _get_runtime_transport(self, base_url: str) -> HTTPTransport:
-        """Return a cached HTTPTransport for the given runtime URL.
-
-        The transport is constructed lazily on first use; cached
-        for subsequent calls. The bearer token is empty in CE
-        (the OPEN_DECISIONS Decision 10 §5 default); Cloud
-        authentication is set by the Cloud ADR.
-        """
+        """Return a cached HTTPTransport for the given runtime URL."""
         existing = getattr(self, "_runtime_transport", None)
         if existing is not None and existing.base_url == base_url:
             return existing
@@ -261,6 +242,7 @@ class KokoroAdapter(ModelAdapter, ProviderVoiceCatalog):
     async def _generate_via_runtime(
         self,
         *,
+        runtime_endpoint: str,
         text: str,
         output_path: Path,
         voice_profile_id: Optional[str],
@@ -274,45 +256,41 @@ class KokoroAdapter(ModelAdapter, ProviderVoiceCatalog):
     ) -> tuple[float, list[str]]:
         """Route a generation request to the runtime service.
 
-        Translates the existing kwargs to the Runtime Service
-        Contract (ADR-0017 §6.3). The response is a JSON body with
-        ``duration_seconds``, ``logs``, and ``audio_b64`` (the
-        audio is base64-encoded in JSON for non-streaming
-        responses; streaming via ``post_stream`` is the
-        2D+ path). The audio bytes are written to
-        ``output_path``.
+        Translates kwargs to the Runtime Service Contract (ADR-0017
+        §6.3). The runtime returns ``audio/wav`` binary bytes; the
+        audio is written to ``output_path`` and the duration is read
+        from the ``X-Peakvox-Duration-Ms`` response header.
         """
-        base_url = os.environ[KOKORO_RUNTIME_URL_ENV].strip()
-        transport = self._get_runtime_transport(base_url)
+        transport = self._get_runtime_transport(runtime_endpoint)
+        preset_name = (params or {}).get("preset_name")
         request_body: dict[str, Any] = {
             "text": text,
-            "voice_id": voice_id or voice_profile_id,
+            "voice_id": preset_name or voice_id or voice_profile_id,
             "language": language,
-            "ref_audio_path": ref_audio_path,
-            "ref_text": ref_text,
-            "instruct": instruct,
             "params": params or {},
-            "request_id": job_id,
+            "request_id": job_id or str(uuid.uuid4()),
         }
         # Strip None entries for a cleaner request body.
         request_body = {k: v for k, v in request_body.items() if v is not None}
-        try:
-            response = await transport.post("/v1/generate", request_body)
-        except HTTPTransportError:
-            # The transport already maps to the canonical PeakVox
-            # error envelope; re-raise so the caller sees the
-            # standard error shape.
-            raise
-        # Map the response back to the existing (duration, logs)
-        # contract. The audio is base64-encoded in the response.
-        duration = float(response.get("duration_seconds", 0.0))
-        logs = list(response.get("logs", []))
-        audio_b64 = response.get("audio_b64")
-        if audio_b64:
-            output_path.write_bytes(base64.b64decode(audio_b64))
-        logs.append(
-            f"Kokoro: routed via runtime service {base_url} -> {output_path.name}"
-        )
+        # The runtime returns audio/wav binary (ADR-0017 §6.3); use
+        # post_binary() to receive raw bytes and response headers.
+        wav_bytes, headers = await transport.post_binary("/v1/generate", request_body)
+        output_path.write_bytes(wav_bytes)
+        # Duration comes from the X-Peakvox-Duration-Ms header (ms →
+        # seconds). Fall back to parsing the WAV if the header is absent.
+        duration_ms_str = headers.get("x-peakvox-duration-ms")
+        if duration_ms_str is not None:
+            duration = float(duration_ms_str) / 1000.0
+        else:
+            import wave as _wave
+            try:
+                with _wave.open(str(output_path)) as wf:
+                    duration = wf.getnframes() / wf.getframerate()
+            except Exception:
+                duration = 0.0
+        logs: list[str] = [
+            f"Kokoro: routed via runtime service {runtime_endpoint} -> {output_path.name}",
+        ]
         return duration, logs
 
     async def generate(
@@ -328,12 +306,15 @@ class KokoroAdapter(ModelAdapter, ProviderVoiceCatalog):
         instruct: Optional[str] = None,
         params: Optional[dict] = None,
         job_id: Optional[str] = None,
+        runtime_endpoint: Optional[str] = None,
     ) -> tuple[float, list[str]]:
-        # Dispatch (Phase 2C, 2C.2): if KOKORO_RUNTIME_URL is set,
-        # route to the runtime service via HTTPTransport. Otherwise,
-        # use the in-process path.
-        if self._runtime_service_enabled():
+        # Dispatch: when PeakVoxRuntime injects a runtime_endpoint
+        # (the RuntimeManager found an ACTIVE instance), route to
+        # the runtime service via HTTPTransport. Otherwise, use the
+        # in-process kokoro package (for local dev / testing).
+        if runtime_endpoint is not None:
             return await self._generate_via_runtime(
+                runtime_endpoint=runtime_endpoint,
                 text=text,
                 output_path=output_path,
                 voice_profile_id=voice_profile_id,

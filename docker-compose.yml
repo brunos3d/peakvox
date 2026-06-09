@@ -28,20 +28,15 @@ services:
       - MINIO_SECRET_KEY=minioadmin
       - MINIO_BUCKET=omnivoice
       - MINIO_SECURE=false
-      # Phase 3 — runtime subsystem wiring (R3, R6).
+      # Runtime subsystem wiring (R3, R6). Runtimes are managed
+      # by RuntimeManager → RuntimeDriver; they are never started
+      # automatically at platform boot. The user installs and
+      # starts runtimes through the Models page.
       - RUNTIME_SERVICE_ENABLED=true
-      # Phase 3 — adapter data-plane config. Set to the runtime
-      # service endpoint so KokoroAdapter dispatches to the
-      # runtime via HTTPTransport instead of the in-process path.
-      - KOKORO_RUNTIME_URL=http://peakvox-kokoro-runtime:8000
-      # Path to the on-disk runtime-registry/ directory. The
-      # Kokoro descriptor at runtime-registry/kokoro-82m/descriptor.json
-      # is loaded at backend startup.
+      # Path to the on-disk runtime-registry/ directory.
       - RUNTIME_REGISTRY_PATH=/app/runtime-registry
     depends_on:
       minio:
-        condition: service_healthy
-      peakvox-kokoro-runtime:
         condition: service_healthy
     restart: unless-stopped
     deploy:
@@ -57,32 +52,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 120s
-
-  # Phase 3 — the first concrete Runtime Service (R8 reference).
-  # The Kokoro 82M TTS model runs inside this container; the
-  # backend orchestrates but never imports kokoro. The container
-  # is built from runtime-registry/kokoro-82m/Dockerfile (R8
-  # canonical reference shape). The backend reaches it over the
-  # compose network on http://peakvox-kokoro-runtime:8000.
-  # NO backend code imports kokoro; the runtime container owns
-  # the model weights, the framework, and the inference loop (R5).
-  peakvox-kokoro-runtime:
-    build:
-      context: ./runtime-registry/kokoro-82m
-      dockerfile: Dockerfile
-    image: peakvox/kokoro-runtime:0.1.0
-    profiles: ["production", "dev"]
-    ports:
-      - "8001:8000"
-    environment:
-      - PYTHONUNBUFFERED=1
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-      start_period: 30s
 
   minio:
     image: minio/minio:latest

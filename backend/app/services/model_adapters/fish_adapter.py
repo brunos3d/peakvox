@@ -114,6 +114,7 @@ class FishAudioAdapter(ModelAdapter):
         instruct: Optional[str] = None,
         params: Optional[dict] = None,
         job_id: Optional[str] = None,
+        runtime_endpoint: Optional[str] = None,
     ) -> tuple[float, list[str]]:
         logs: list[str] = []
 

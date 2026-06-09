@@ -203,6 +203,20 @@ class HTTPTransport:
             return response.json()
         return response.text
 
+    async def post_binary(self, path: str, body: dict) -> tuple[bytes, dict[str, str]]:
+        """POST and return ``(raw_bytes, response_headers)`` for binary responses.
+
+        Use for endpoints that return audio data (``audio/wav``, etc.)
+        per the Runtime Service Contract (ADR-0017 §6.3). The caller
+        writes the bytes to the output path and extracts duration from
+        the ``X-Peakvox-Duration-Ms`` header.
+        """
+        response = await self._do_request("POST", path, body=body)
+        if not (200 <= response.status_code < 300):
+            body_json = self._safe_json(response)
+            raise HTTPTransportError(response.status_code, body_json)
+        return response.content, dict(response.headers)
+
     async def post_stream(self, path: str, body: dict) -> AsyncIterator[bytes]:
         """Stream the response body. Yields raw bytes (audio data
         or server-sent events, depending on the runtime service)."""

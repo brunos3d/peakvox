@@ -115,8 +115,15 @@ class ModelAdapter(ABC):
         instruct: Optional[str] = None,
         params: Optional[dict] = None,
         job_id: Optional[str] = None,
+        runtime_endpoint: Optional[str] = None,
     ) -> tuple[float, list[str]]:
-        """Run inference, write audio to ``output_path``, return ``(duration_seconds, logs)``."""
+        """Run inference, write audio to ``output_path``, return ``(duration_seconds, logs)``.
+
+        ``runtime_endpoint`` is injected by ``PeakVoxRuntime`` when the
+        RuntimeManager has an ACTIVE instance for this adapter's model.
+        Adapters that support a runtime-service path use it to route
+        the request via HTTPTransport; those that do not ignore it.
+        """
 
     @abstractmethod
     async def clone_voice(
