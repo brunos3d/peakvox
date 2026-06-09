@@ -1,12 +1,11 @@
-"""OmniVoice-family ModelAdapters — the first real adapters proving the multi-model runtime.
+"""OmniVoice-family ModelAdapters.
 
 ``OmniVoiceAdapter`` (Base) and ``OmniVoiceSingingAdapter`` (Singing + Emotion) share
-one engine and one variant shape (reference-audio cloning) but advertise different capabilities
-and tags via their descriptors. Both implement the same :class:`ModelAdapter` contract, so the
-Runtime treats them identically — the difference is *declared data*, not branching code.
+one variant shape (reference-audio cloning) but advertise different capabilities
+and tags via their descriptors. Both implement the same :class:`ModelAdapter` contract.
 
-Data + variant methods are torch-free. Lifecycle/inference delegate to the proven registry /
-``omnivoice_service`` path (lazy imports keep this module import-safe without a GPU stack).
+Lifecycle is managed exclusively by the RuntimeManager → DockerRuntimeDriver → OmniVoice
+runtime container. There is no in-process execution path. Data/variant methods are torch-free.
 """
 
 from __future__ import annotations
@@ -27,27 +26,19 @@ logger = logging.getLogger(__name__)
 class OmniVoiceFamilyAdapter(ModelAdapter):
     """Shared behavior for OmniVoice-family models."""
 
-    # --- Lifecycle (delegates to the proven registry/service path) ----------------
+    # --- Lifecycle (owned by RuntimeManager → runtime container) -----------------
 
     async def install(self) -> None:
-        # Built-ins ship with the platform; weights are fetched on first load by the service.
-        # (Community models use the HF installer; nothing to do here.)
         return None
 
     async def load(self) -> None:
-        from app.services.model_registry import model_registry
-
-        await model_registry.ensure_loaded(self.model_id)
+        return None
 
     def unload(self) -> None:
-        from app.services.omnivoice_service import omnivoice_service
-
-        omnivoice_service.offload()
+        return None
 
     async def health_check(self) -> bool:
-        from app.services.omnivoice_service import omnivoice_service
-
-        return bool(omnivoice_service.is_loaded)
+        return False
 
     @staticmethod
     def get_build_strategies() -> list[VariantBuildStrategy]:
@@ -75,22 +66,9 @@ class OmniVoiceFamilyAdapter(ModelAdapter):
         job_id: Optional[str] = None,
         runtime_endpoint: Optional[str] = None,
     ) -> tuple[float, list[str]]:
-        # Delegate to the registry: reuses the single-flight lock, ensure_loaded (with
-        # cross-model offload), and the provider's proven inference path.
-        from app.services.model_registry import model_registry
-
-        resolved_voice_id = voice_id or voice_profile_id
-        return await model_registry.generate(
-            self.model_id,
-            text=text,
-            output_path=output_path,
-            voice_profile_id=resolved_voice_id,
-            ref_audio_path=ref_audio_path,
-            ref_text=ref_text,
-            language=language,
-            instruct=instruct,
-            params=params or {},
-            job_id=job_id,
+        raise RuntimeError(
+            f"OmniVoice in-process execution is not available. "
+            f"Start the '{self.model_id}' runtime container via the Models page."
         )
 
     # --- Voice realization (torch-free: reference-audio reuse) ---------------------

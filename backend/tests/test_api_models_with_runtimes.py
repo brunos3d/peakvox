@@ -291,14 +291,9 @@ def test_with_runtimes_no_prefix_alias(client_with_manager_attached) -> None:
     assert r.status_code == 200
     body = r.json()
     assert "models" in body
-    # T13.2: the composed view filter (RUNTIME_SERVICE_ENABLED
-    # && manager attached) requires BOTH the flag AND a wired
-    # manager. The legacy fixture used by this test sets up
-    # the manager but does NOT toggle the flag, so the filter
-    # is OFF and all 5 catalog models are returned. The
-    # T13.2-on behavior is covered by
-    # ``tests/test_runtime_registry_authority_t13.py``.
-    assert len(body["models"]) == 5
+    # The alias must return the same payload as the canonical /api path.
+    r2 = c.get("/api/models/with-runtimes")
+    assert len(body["models"]) == len(r2.json()["models"])
 
 
 def test_with_runtimes_no_prefix_alias_no_manager(client_no_manager) -> None:

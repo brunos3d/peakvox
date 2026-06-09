@@ -26,11 +26,6 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = "sqlite+aiosqlite:////data/omnivoice.db"
 
-    OMNIVOICE_MODEL: str = "k2-fsa/OmniVoice"
-    LOAD_ASR: bool = False
-    ASR_MODEL: str = "openai/whisper-large-v3-turbo"
-    HF_HOME: str = "/data/models"
-
     DATA_DIR: Path = Path("/data")
     VOICES_DIR: Path = Path("/data/voices")
     UPLOADS_DIR: Path = Path("/data/uploads")
@@ -58,14 +53,6 @@ class Settings(BaseSettings):
     # model disabled when no Fish backend is available.
     FISH_AUDIO_SERVER_URL: str = "http://localhost:8080"
 
-    # Kokoro runtime service URL. When empty (the CE default), the
-    # KokoroAdapter uses the in-process kokoro package (lazy
-    # import). When set to a non-empty URL, the adapter routes all
-    # generation / variant-build requests to that URL via
-    # HTTPTransport. Bearer token defaults to empty in CE; Cloud
-    # authentication is set by the Cloud ADR.
-    KOKORO_RUNTIME_URL: str = ""
-
     # Path to the runtime-registry/ directory. The default points
     # to the in-repo runtime-registry/ directory. The CE
     # descriptor for Kokoro lives at
@@ -74,25 +61,12 @@ class Settings(BaseSettings):
     # mount or to a custom location.
     RUNTIME_REGISTRY_PATH: Path = Path(__file__).resolve().parent.parent.parent.parent / "runtime-registry"
 
-    # Phase 3 — runtime subsystem wiring (R3).
-    #
-    # When False (CE default), the backend does NOT instantiate
-    # the runtime subsystem at startup: no RuntimeRegistryLoader,
-    # no DockerRuntimeDriver, no RuntimeManager, no
-    # attach_runtime_manager() call. The Models page uses the
-    # legacy DB-status mock. The in-process adapter path is the
-    # only path.
-    #
-    # When True, the backend startup constructs the registry, the
-    # driver, and the manager, attaches the manager to
-    # PeakVoxRuntime, and starts the idle reaper task. The
-    # in-process fallback remains available (KOKORO_RUNTIME_URL
-    # unset) for environments without a runtime container.
-    #
-    # This flag governs infrastructure wiring (control plane).
-    # KOKORO_RUNTIME_URL is adapter data-plane configuration
-    # (where the adapter sends HTTP). The two are independent.
-    RUNTIME_SERVICE_ENABLED: bool = False
+    # Runtime subsystem wiring (R3). When True (the CE default since Task 21),
+    # startup constructs RuntimeRegistryLoader, DockerRuntimeDriver, RuntimeManager,
+    # attaches the manager to PeakVoxRuntime, and starts the idle reaper. Runtime
+    # containers are never started automatically — the user installs and activates
+    # models via the Models page (R6 — lazy activation).
+    RUNTIME_SERVICE_ENABLED: bool = True
 
     @property
     def features(self) -> Features:

@@ -91,14 +91,14 @@ async def models_status_aggregate():
     """Back-compat aggregate: the default model's load state.
 
     Preserves the original ``/models/status`` contract used by the sidebar status row.
+    Model execution now lives in runtime containers; loaded/loading are derived from
+    the in-memory registry's resident model (set when a runtime becomes active).
     """
-    from app.services.omnivoice_service import omnivoice_service
-
     return {
-        "loaded": omnivoice_service.is_loaded,
-        "loading": omnivoice_service.is_loading,
-        "error": omnivoice_service.load_error,
-        "sampling_rate": omnivoice_service.sampling_rate,
+        "loaded": model_registry.resident_model_id is not None,
+        "loading": False,
+        "error": None,
+        "sampling_rate": None,
         "resident_model_id": model_registry.resident_model_id,
     }
 

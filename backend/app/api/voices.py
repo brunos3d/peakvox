@@ -41,7 +41,6 @@ from app.services.audio_preprocessing_service import (
     MAX_REFERENCE_DURATION,
 )
 from app.services.compatibility_resolver import CompatibilityResolver
-from app.services.omnivoice_service import omnivoice_service
 from app.services.runtime import runtime
 from app.services.storage import storage
 from app.utils.streaming import stream_object
@@ -460,7 +459,6 @@ async def update_voice(
         profile.audio_filename = "reference.wav"
         profile.audio_duration = meta["duration"]
         profile.meta = meta
-        omnivoice_service.invalidate_voice_cache(profile.id)
         logger.info(
             "Updated audio for profile %s (%.2fs, src=%s)",
             profile_id, meta["duration"], meta["source_format"],
@@ -518,7 +516,6 @@ async def delete_voice(profile_id: str, db: AsyncSession = Depends(get_db)):
     if not profile:
         raise HTTPException(status_code=404, detail="Voice profile not found")
     await storage.delete_prefix(f"voices/{profile.id}/")
-    omnivoice_service.invalidate_voice_cache(profile.id)
     await db.delete(profile)
     await db.commit()
     # PeakVox Phase 3: remove the mirrored Voice + variants (ADR-0001).

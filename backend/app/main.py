@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import uuid
 from contextlib import asynccontextmanager
@@ -98,23 +97,13 @@ async def lifespan(app: FastAPI):
     await init_db()
     storage.ensure_bucket()
     await run_migration()
-    # Wire the model registry (persisted descriptors + provider factories), the PeakVox Runtime
-    # (model adapters), and warm the default model.
+    # Wire the model registry (persisted descriptors) and the PeakVox Runtime (model adapters).
     async with AsyncSessionLocal() as session:
         await wire_registry_from_database(session)
     wire_runtime()
-    default_id = model_registry.resolve_default().id
-    asyncio.create_task(model_registry.ensure_loaded(default_id))
 
-    # Phase 3: wire the runtime subsystem (R3, R6, R7).
-    #
-    # Gated on Settings.RUNTIME_SERVICE_ENABLED. When the flag is
-    # False (CE default), the runtime subsystem is not constructed
-    # and the in-process adapter path is the only path. When the
-    # flag is True, the registry is loaded, the driver is built,
-    # the manager is attached to PeakVoxRuntime, and the idle
-    # reaper background task is started. NO runtime container is
-    # started at boot (R6 — lazy activation).
+    # Wire the runtime subsystem (R3, R6, R7): registry loader, Docker driver, RuntimeManager.
+    # No runtime container is started at boot — user installs and activates via Models page (R6).
     runtime_manager = wire_runtime_services(settings)
     await resync_runtime_cache(runtime_manager)
     idle_reaper_task = await start_idle_reaper(runtime_manager)

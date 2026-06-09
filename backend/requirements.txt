@@ -6,13 +6,10 @@ sqlalchemy==2.0.36
 aiosqlite==0.20.0
 python-multipart==0.0.20
 soundfile==0.12.1
-librosa==0.10.2
 numpy==1.26.4
 loguru==0.7.2
 httpx==0.28.1
-pydub==0.25.1
 minio==7.2.12
-huggingface_hub
 
 # Phase 3 (R5) — ``kokoro`` is no longer a backend dependency.
 # The runtime container at

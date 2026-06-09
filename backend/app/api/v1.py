@@ -27,7 +27,6 @@ from app.schemas.api import (
 from app.services.api_keys import extract_api_token, verify_api_key
 from app.services.storage import storage
 from app.services.model_registry import model_registry
-from app.services.omnivoice_service import omnivoice_service
 from app.services.voice_metadata import characteristics_from_defaults
 from app.services.voice_repository import get_voice_by_public_id, list_voices_page
 from app.utils.streaming import stream_object
@@ -159,7 +158,6 @@ async def v1_delete_voice(
     if voice is None:
         raise HTTPException(status_code=404, detail="Voice not found")
     await storage.delete_prefix(f"voices/{voice.id}/")
-    omnivoice_service.invalidate_voice_cache(voice.id)
     await db.delete(voice)
     await db.commit()
     return {"deleted": voice_id}
@@ -178,9 +176,6 @@ async def v1_text_to_speech(
     The pipeline is the same job-based generation used by the app, so a voice's saved
     generation defaults (and voice design) are applied automatically.
     """
-    if not omnivoice_service.is_loaded:
-        raise HTTPException(status_code=503, detail="Model is still loading")
-
     voice = await get_voice_by_public_id(db, payload.voiceId)
     if voice is None:
         raise HTTPException(status_code=404, detail="Voice not found")
