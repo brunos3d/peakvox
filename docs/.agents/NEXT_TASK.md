@@ -74,7 +74,7 @@
 >   Start / Stop / Update / Remove) for each runtime, real
 >   audio E2E generation. See
 >   [`docs/.agents/SPECS/FEATURES/runtime-canonical-models-page/TASKS.md`](SPECS/FEATURES/runtime-canonical-models-page/TASKS.md) §12.
-- **Status:** **P1–P9 done; P7 (G7+G8) deferred.**
+- **Status:** **P1–P9 done; P7 (G7+G8) deferred. Task 19 (compatibility) VALIDATED 2026-06-09.**
   - P1 ✅ peakvox/kokoro-runtime: self-contained
   - P2 ✅ RuntimeRegistry + RuntimeManager wired at startup
   - P3 ✅ Idle reaper background task

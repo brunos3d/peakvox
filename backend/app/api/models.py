@@ -32,9 +32,18 @@ def _descriptor_payload(descriptor) -> dict:
     data = descriptor.model_dump()
     data.update(model_registry.status(descriptor.id))
 
-    # Derive voice_features from adapter build strategies + capabilities
     from app.models.registry_types import derive_voice_features
     from app.services.runtime import runtime
+
+    # For Runtime-Registry-managed models, RuntimeManager.resolve() is the authoritative
+    # source of "active" state (ADR-0017 §3.4). The legacy descriptor.status / activation_status
+    # computed field is never updated by RuntimeManager lifecycle operations, so we override it
+    # here at serialization time. Models with no runtime registry entries use the legacy path.
+    if runtime._runtime_manager is not None:
+        registry_descriptors = runtime._runtime_manager.registry.list_for_model(descriptor.id)
+        if registry_descriptors:
+            is_active = runtime._runtime_manager.resolve(descriptor.id) is not None
+            data["activation_status"] = "active" if is_active else "inactive"
 
     try:
         adapter = runtime.get_adapter(descriptor.id)

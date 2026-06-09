@@ -145,9 +145,12 @@ class VoiceResourceService:
         if not pairs:
             return {}
 
+        from sqlalchemy import and_ as sa_and_
         clauses = [
-            func.json_extract(VoiceProfile.meta, "$.provider") == pid
-            and func.json_extract(VoiceProfile.meta, "$.preset_name") == eid
+            sa_and_(
+                func.json_extract(VoiceProfile.meta, "$.provider") == pid,
+                func.json_extract(VoiceProfile.meta, "$.preset_name") == eid,
+            )
             for pid, eid in pairs
         ]
 

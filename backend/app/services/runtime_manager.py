@@ -142,6 +142,31 @@ class RuntimeManager:
         state only; no domain objects)."""
         return list(self._instance_cache.values())
 
+    async def resync_from_substrate(self) -> int:
+        """Re-populate the instance cache from the substrate (e.g. Docker).
+
+        Called once at startup to recover operational state from containers
+        that survived a backend restart. The manager's instance cache is
+        in-memory only; without this call, ``resolve()`` would return None
+        for every runtime until each is explicitly started through the
+        manager's lifecycle methods. Returns the count of recovered instances.
+        """
+        if self._driver is None:
+            return 0
+        recovered = 0
+        for desc in self._registry.list():
+            runtime_id = desc.metadata.id
+            if runtime_id in self._instance_cache:
+                continue
+            try:
+                inst = await self._driver.runtime_status(runtime_id)
+                if inst.state == RuntimeState.ACTIVE:
+                    self._instance_cache[runtime_id] = inst
+                    recovered += 1
+            except Exception:  # noqa: BLE001
+                pass
+        return recovered
+
     def get_runtime_operation(self, runtime_id: str) -> Optional[RuntimeOperation]:
         """Return the latest operation for a runtime."""
         return self._operations.get(runtime_id)

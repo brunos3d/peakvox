@@ -313,8 +313,11 @@ class DockerRuntimeDriver:
         """
         c = self._container(runtime_id)
         labels = c.labels
-        repo = (c.image.split(":")[0] if ":" in c.image else c.image) if c.image else runtime_id
-        tag = c.image.split(":", 1)[1] if c.image and ":" in c.image else "latest"
+        # Docker SDK >=7 returns container.image as an Image object, not a string.
+        # Use attrs['Config']['Image'] which is always the string tag.
+        image_str = c.attrs.get("Config", {}).get("Image", "") or ""
+        repo = (image_str.split(":")[0] if ":" in image_str else image_str) if image_str else runtime_id
+        tag = image_str.split(":", 1)[1] if image_str and ":" in image_str else "latest"
         return RuntimeDescriptor.model_validate({
             "api_version": "peakvox.io/v1",
             "kind": "Runtime",
@@ -542,14 +545,17 @@ class DockerRuntimeDriver:
         # port mapping is read for diagnostics but is not
         # the addressable endpoint.
         host_port = self._port_for_container(c)
+        # Docker SDK >=7 returns container.image as an Image object, not a string.
+        # Use attrs['Config']['Image'] which is always the string tag.
+        image_str = c.attrs.get("Config", {}).get("Image", "") or ""
         return RuntimeInstance(
             runtime_id=runtime_id,
             state=RuntimeState.ACTIVE if is_running else RuntimeState.STOPPED,
             host=_container_name(runtime_id),
             port=self._descriptor_for_runtime(runtime_id).spec.service.port,
             image_identity=ImageIdentity(
-                repository=c.image.split(":")[0] if c.image and ":" in c.image else (c.image or ""),
-                tag=c.image.split(":", 1)[1] if c.image and ":" in c.image else "",
+                repository=image_str.split(":")[0] if image_str and ":" in image_str else (image_str or ""),
+                tag=image_str.split(":", 1)[1] if image_str and ":" in image_str else "",
                 digest=None,
             ),
             started_at=None,

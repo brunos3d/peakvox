@@ -132,6 +132,26 @@ def wire_runtime_services(settings: Settings) -> Optional[RuntimeManager]:
     return manager
 
 
+async def resync_runtime_cache(manager: Optional[RuntimeManager]) -> None:
+    """Re-populate the instance cache from the substrate after a backend restart.
+
+    The manager's instance cache is in-memory only (non-persistent). Calling this
+    at startup recovers state from any runtime containers that are already running
+    (e.g. survived the backend restart). Without this, ``resolve()`` would return
+    None for every runtime until each is explicitly started through the manager.
+    """
+    if manager is None:
+        return
+    try:
+        recovered = await manager.resync_from_substrate()
+        if recovered:
+            logger.info("Runtime cache resynced: %d active container(s) recovered.", recovered)
+        else:
+            logger.info("Runtime cache resynced: no active containers found.")
+    except Exception:
+        logger.warning("Runtime cache resync failed; starting with empty cache.", exc_info=True)
+
+
 async def start_idle_reaper(manager: Optional[RuntimeManager]) -> Optional[asyncio.Task]:
     """Start the idle reaper background task (R7).
 

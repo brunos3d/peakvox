@@ -28,7 +28,7 @@ from app.api.runtime_api import (
 )
 from app.services.model_registry import model_registry
 from app.services.model_wiring import wire_registry_from_database, wire_runtime
-from app.services.runtime_wiring import start_idle_reaper, stop_idle_reaper, wire_runtime_services
+from app.services.runtime_wiring import start_idle_reaper, stop_idle_reaper, wire_runtime_services, resync_runtime_cache
 from app.services.storage import storage
 from app.services.migration import run_migration
 
@@ -116,6 +116,7 @@ async def lifespan(app: FastAPI):
     # reaper background task is started. NO runtime container is
     # started at boot (R6 — lazy activation).
     runtime_manager = wire_runtime_services(settings)
+    await resync_runtime_cache(runtime_manager)
     idle_reaper_task = await start_idle_reaper(runtime_manager)
 
     try:
