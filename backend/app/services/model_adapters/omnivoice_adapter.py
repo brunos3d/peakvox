@@ -11,13 +11,16 @@ runtime container. There is no in-process execution path. Data/variant methods a
 from __future__ import annotations
 
 import logging
+import uuid
+import wave as _wave
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.db import Voice, VoiceVariant
+from app.services.adapter_transport.http_transport import HTTPTransport, HTTPTransportError
 from app.services.model_adapter import ModelAdapter, VariantBuildStrategy
 
 logger = logging.getLogger(__name__)
@@ -51,6 +54,18 @@ class OmniVoiceFamilyAdapter(ModelAdapter):
             ),
         ]
 
+    # --- Runtime-service generation ──────────────────────────────────────────
+
+    def _get_transport(self, base_url: str) -> HTTPTransport:
+        existing = getattr(self, "_transport", None)
+        if existing is not None and existing.base_url == base_url:
+            return existing
+        # 600s: OmniVoice is a 0.6B LLM that runs on CPU in CE — inference can take
+        # minutes per request. The default 30s transport timeout is far too short.
+        transport = HTTPTransport(base_url=base_url, bearer_token="", timeout_seconds=600.0)
+        self._transport = transport  # type: ignore[attr-defined]
+        return transport
+
     async def generate(
         self,
         *,
@@ -66,10 +81,51 @@ class OmniVoiceFamilyAdapter(ModelAdapter):
         job_id: Optional[str] = None,
         runtime_endpoint: Optional[str] = None,
     ) -> tuple[float, list[str]]:
-        raise RuntimeError(
-            f"OmniVoice in-process execution is not available. "
-            f"Start the '{self.model_id}' runtime container via the Models page."
-        )
+        if runtime_endpoint is None:
+            raise RuntimeError(
+                f"OmniVoice in-process execution is not available. "
+                f"Start the '{self.model_id}' runtime container via the Models page."
+            )
+
+        transport = self._get_transport(runtime_endpoint)
+        merged_params: dict[str, Any] = dict(params or {})
+        if ref_audio_path is not None:
+            merged_params["ref_audio_path"] = ref_audio_path
+        if ref_text is not None:
+            merged_params["ref_text"] = ref_text
+        if instruct is not None:
+            merged_params["instruct"] = instruct
+
+        request_body: dict[str, Any] = {
+            "text": text,
+            "voice_id": voice_id or voice_profile_id or "default",
+            "language": language or "auto",
+            "params": merged_params,
+            "request_id": job_id or str(uuid.uuid4()),
+        }
+
+        try:
+            wav_bytes, headers = await transport.post_binary("/v1/generate", request_body)
+        except HTTPTransportError as exc:
+            raise RuntimeError(f"OmniVoice runtime error: {exc}") from exc
+
+        output_path.write_bytes(wav_bytes)
+
+        duration_ms_str = headers.get("x-peakvox-duration-ms")
+        if duration_ms_str is not None:
+            duration = float(duration_ms_str) / 1000.0
+        else:
+            try:
+                with _wave.open(str(output_path)) as wf:
+                    duration = wf.getnframes() / wf.getframerate()
+            except Exception:
+                duration = 0.0
+
+        logs = [
+            f"OmniVoice: routed via runtime {runtime_endpoint} → {output_path.name} "
+            f"({'cloning' if ref_audio_path else 'voice design' if instruct else 'default'})"
+        ]
+        return duration, logs
 
     # --- Voice realization (torch-free: reference-audio reuse) ---------------------
 
