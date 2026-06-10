@@ -1,0 +1,16 @@
+# Development override — opt-in only, never used by production.
+#
+# Activated by scripts/start-dev.sh:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile dev up -d
+#
+# The backend keeps every production mount (shared /data volume, docker.sock for
+# the DockerRuntimeDriver, read-only runtime-registry) and additionally bind-mounts
+# the application source over the image copy. uvicorn runs with --reload, so every
+# saved .py file restarts the app in-place — no image rebuild, no container
+# recreation. The runtime containers are driver-managed (not compose services)
+# and are unaffected by this file.
+services:
+  backend:
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/app --log-level info
+    volumes:
+      - ./backend/app:/app/app

@@ -165,3 +165,58 @@ SUPERSEDED
 ARCHIVED
 
 This becomes the feature-level implementation state.
+
+---
+
+# DEVELOPMENT WORKFLOW (HOT RELOAD)
+
+Use this instead of rebuilding Docker images during development. The
+edit → save → see-the-change loop requires **no image rebuilds**.
+
+## Start development mode
+
+```bash
+scripts/start-dev.sh
+```
+
+What it does:
+
+- **Backend + MinIO** run in Docker via `docker-compose.yml` +
+  `docker-compose.dev.yml` (`--profile dev`). The override bind-mounts
+  `backend/app/` into the container and runs uvicorn with `--reload`
+  (watchfiles): saving any `.py` file under `backend/app/` reloads the
+  API in a few seconds. All production mounts are preserved (shared
+  `/data` volume, `docker.sock` for the DockerRuntimeDriver, read-only
+  `runtime-registry/`), so the Runtime Registry lifecycle works
+  identically in dev.
+- **Frontend** runs on the host with `next dev` (http://localhost:3000)
+  for native HMR — component changes appear in the browser on save.
+  `NEXT_PUBLIC_API_URL` falls back to `http://localhost:8000`.
+- **Ctrl-C** stops the frontend and brings the compose services down.
+  Runtime containers (`peakvox-runtime-*`) are driver-managed, not
+  compose services — start-dev never touches them.
+
+## When a rebuild IS needed
+
+- `backend/requirements.txt` or `backend/Dockerfile` changed:
+  `scripts/start-dev.sh --build`
+- `frontend/package.json` changed: `cd frontend && npm install`
+  (the script auto-installs only when `node_modules/` is missing)
+- Runtime server code (`runtime-registry/*/server.py`) changed: rebuild
+  that runtime image via the Models page (Remove + Install) — runtime
+  containers are intentionally immutable in dev.
+
+## Production (unchanged)
+
+```bash
+docker compose --profile production up -d --build
+```
+
+The dev override file is opt-in only; production compose, Dockerfiles,
+and deployment behavior are unaffected.
+
+## Rule for agents
+
+When iterating on `backend/app/` or `frontend/src/`, use development
+mode. Do **not** run `docker compose build` per change — that is the
+expensive path this workflow replaces.
