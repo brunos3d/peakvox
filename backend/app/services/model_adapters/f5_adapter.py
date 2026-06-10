@@ -78,7 +78,12 @@ class F5TTSAdapter(ModelAdapter):
         existing = getattr(self, "_transport", None)
         if existing is not None and existing.base_url == base_url:
             return existing
-        transport = HTTPTransport(base_url=base_url, bearer_token="")
+        # 600s: long texts split into many small batches (especially when the
+        # reference transcript is the short cloning placeholder), so a generation
+        # can far exceed the 30s default. Worse, a timeout makes the transport
+        # retry while the runtime is still busy — the overlapping samples race
+        # f5-tts's DiT text-embed cache and fail with a tensor-size mismatch.
+        transport = HTTPTransport(base_url=base_url, bearer_token="", timeout_seconds=600.0)
         self._transport = transport  # type: ignore[attr-defined]
         return transport
 

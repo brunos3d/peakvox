@@ -70,6 +70,14 @@ _load_state: Literal["unloaded", "loading", "ready", "failed"] = "unloaded"
 _load_error: Optional[str] = None
 _load_lock = threading.Lock()
 
+# Serializes inference (enforces max_concurrent_requests: 1). The f5-tts DiT
+# backbone caches the text embedding on the module (dit.py: self.text_cond)
+# and only clears it after a successful sample, so concurrent samples race
+# the cache and crash with "Sizes of tensors must match except in dimension 2"
+# whenever their durations differ. FastAPI runs sync handlers in a threadpool,
+# so without this lock overlapping requests genuinely run in parallel.
+_inference_lock = threading.Lock()
+
 
 # ---------------------------------------------------------------------------
 # Request/response models
@@ -228,7 +236,15 @@ def _run_inference(req: GenerateRequest) -> tuple[np.ndarray, int]:
     if params.get("cross_fade_duration") is not None:
         infer_kwargs["cross_fade_duration"] = float(params["cross_fade_duration"])
 
-    wav, sample_rate, _spec = _pipeline.infer(**infer_kwargs)
+    with _inference_lock:
+        # Defensive cache reset: a sample that crashed (or was abandoned by a
+        # client timeout) leaves a stale text embedding on the DiT module —
+        # cfm.py only clears it after a successful odeint. A stale entry makes
+        # every following request fail with the same tensor-size mismatch.
+        transformer = getattr(getattr(_pipeline, "ema_model", None), "transformer", None)
+        if transformer is not None and hasattr(transformer, "clear_cache"):
+            transformer.clear_cache()
+        wav, sample_rate, _spec = _pipeline.infer(**infer_kwargs)
     if wav is None or len(wav) == 0:
         raise HTTPException(status_code=500, detail="inference produced no audio")
     return wav, int(sample_rate)

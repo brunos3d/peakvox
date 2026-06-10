@@ -85,12 +85,37 @@ class _MockF5Pipeline:
 
     def __init__(self) -> None:
         self.calls: list[dict[str, Any]] = []
+        self.clear_cache_calls = 0
+        self._active = False
+        self.overlap_detected = False
+
+        outer = self
+
+        class _Transformer:
+            def clear_cache(self) -> None:
+                outer.clear_cache_calls += 1
+
+        class _EmaModel:
+            transformer = _Transformer()
+
+        self.ema_model = _EmaModel()
 
     def infer(self, **kwargs: Any):
-        self.calls.append(kwargs)
-        wav = np.zeros(self.SAMPLE_RATE, dtype=np.float32)
-        wav[: self.SAMPLE_RATE // 2] = 0.1
-        return wav, self.SAMPLE_RATE, None
+        # Reentrancy probe: f5-tts's DiT text-embed cache is not thread-safe,
+        # so the server must never run two infers concurrently.
+        if self._active:
+            self.overlap_detected = True
+        self._active = True
+        try:
+            import time as _time
+
+            _time.sleep(0.05)
+            self.calls.append(kwargs)
+            wav = np.zeros(self.SAMPLE_RATE, dtype=np.float32)
+            wav[: self.SAMPLE_RATE // 2] = 0.1
+            return wav, self.SAMPLE_RATE, None
+        finally:
+            self._active = False
 
 
 @pytest.fixture
@@ -304,3 +329,55 @@ def test_null_tunable_params_are_omitted(client, pipeline) -> None:
     assert "speed" not in call
     assert "nfe_step" not in call
     assert "cfg_strength" not in call
+
+
+# ---------------------------------------------------------------------------
+# Concurrency: inference is serialized (max_concurrent_requests: 1)
+# ---------------------------------------------------------------------------
+
+
+def test_concurrent_generates_never_overlap(client, pipeline) -> None:
+    """Two simultaneous /v1/generate requests must not run inference in
+    parallel. f5-tts's DiT backbone caches the text embedding on the module
+    (dit.py: self.text_cond) and clears it only after a successful sample;
+    overlapping samples with different durations race the cache and crash with
+    "Sizes of tensors must match except in dimension 2". The server holds
+    _inference_lock around pipeline.infer to enforce the declared
+    max_concurrent_requests: 1."""
+    import threading
+
+    statuses: list[int] = []
+
+    def fire(req_id: str) -> None:
+        r = client.post("/v1/generate", json=_payload(request_id=req_id))
+        statuses.append(r.status_code)
+
+    threads = [threading.Thread(target=fire, args=(f"req_conc_{i}",)) for i in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert statuses == [200, 200, 200, 200]
+    assert len(pipeline.calls) == 4
+    assert pipeline.overlap_detected is False, (
+        "two inferences ran concurrently — the DiT text-embed cache race is back"
+    )
+
+
+def test_dit_cache_cleared_before_each_inference(client, pipeline) -> None:
+    """The server clears the DiT text-embed cache before every infer. A sample
+    that crashed (or was abandoned by a client timeout) leaves a stale,
+    wrong-length text embedding on the module; without the reset every
+    subsequent request fails with the same tensor-size mismatch."""
+    for i in range(3):
+        r = client.post("/v1/generate", json=_payload(request_id=f"req_cache_{i}"))
+        assert r.status_code == 200
+    assert pipeline.clear_cache_calls == 3
+
+
+def test_inference_lock_exists_at_module_level() -> None:
+    """The lock is module state (one per process), not per-request."""
+    import threading
+
+    assert isinstance(srv._inference_lock, type(threading.Lock()))

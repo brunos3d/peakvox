@@ -193,3 +193,36 @@ def test_omnivoice_does_not_declare_voice_optional():
 
     caps = OmniVoiceAdapter(builtin_by_id("omnivoice-base")).get_capabilities()
     assert getattr(caps, "supports_voice_optional", False) is False
+
+
+# ---------------------------------------------------------------------------
+# Transport timeout
+# ---------------------------------------------------------------------------
+
+
+def test_transport_timeout_is_600s():
+    """HTTPTransport must be created with timeout_seconds=600 for F5-TTS.
+
+    Long texts are split into many small batches (especially with the short
+    cloning-placeholder ref_text), so a generation can far exceed the 30s
+    default. A timeout makes the transport retry while the runtime is still
+    busy; the overlapping samples race f5-tts's DiT text-embed cache and fail
+    with "Sizes of tensors must match except in dimension 2".
+    """
+    adapter = _adapter()
+    created = []
+
+    class CapturingTransport:
+        def __init__(self, base_url, bearer_token, timeout_seconds=30.0):
+            self.base_url = base_url
+            self.timeout_seconds = timeout_seconds
+            created.append(self)
+
+    with patch(
+        "app.services.model_adapters.f5_adapter.HTTPTransport",
+        CapturingTransport,
+    ):
+        adapter._get_transport("http://localhost:9300")
+
+    assert len(created) == 1
+    assert created[0].timeout_seconds == 600.0
