@@ -105,9 +105,22 @@ def _load_omnivoice_pipeline() -> Any:
     ``_load_state`` to inject a mock without exercising this code.
     """
     global _pipeline, _sample_rate
+    import torch
     from omnivoice import OmniVoice  # type: ignore  # correct class (not OmniVoicePipeline)
 
-    _pipeline = OmniVoice.from_pretrained("k2-fsa/OmniVoice")
+    # Use the documentation-recommended loading pattern for optimal GPU usage.
+    # device_map="cuda:0" handles the placement, and float16 reduces VRAM usage.
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+    
+    _pipeline = OmniVoice.from_pretrained(
+        "k2-fsa/OmniVoice",
+        device_map=device,
+        dtype=dtype
+    )
+    
+    logger.info(f"OmniVoice model loaded on {device} with dtype={dtype}")
+
     # Prefer the model's declared sampling rate; fall back to 24kHz.
     try:
         _sample_rate = _pipeline.config.sampling_rate
@@ -217,9 +230,10 @@ def _run_inference(req: GenerateRequest) -> tuple[np.ndarray, int]:
     if not audio_tensors:
         raise HTTPException(status_code=500, detail="inference produced no audio")
 
-    # Squeeze batch dimension: OmniVoice returns (1, N) tensors; flatten to (N,)
-    # so that len(audio) == number of samples (required for correct duration calc).
-    audio = torch.cat(audio_tensors).cpu().float().squeeze().numpy()
+    # Squeeze batch dimension: OmniVoice returns a list of np.ndarrays (v0.1.5);
+    # concatenate them and ensure float32 format for the WAV converter.
+    import numpy as np
+    audio = np.concatenate(audio_tensors).astype(np.float32).squeeze()
     sample_rate = _sample_rate or 24000
     return audio, sample_rate
 
@@ -230,9 +244,9 @@ def _run_inference(req: GenerateRequest) -> tuple[np.ndarray, int]:
 
 app = FastAPI(
     title="peakvox/omnivoice-runtime",
-    version="0.1.0",
+    version="0.1.5",
     description=(
-        "Runtime service for the OmniVoice 0.6B TTS model. "
+        "Runtime service for the OmniVoice 0.6B TTS model (v0.1.5). "
         "Implements the 5-endpoint Runtime Service Contract "
         "(ADR-0017 §6). Mirrors the Kokoro reference shape (R8)."
     ),

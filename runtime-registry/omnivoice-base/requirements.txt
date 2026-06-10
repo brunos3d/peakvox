@@ -25,4 +25,4 @@ pydantic==2.9.2
 # share the same load. If the framework is unavailable in the
 # deployment environment, the runtime reports "load_failed" on
 # /ready and the manager reaps it on idle_timeout.
-omnivoice==0.1.0
+omnivoice==0.1.5

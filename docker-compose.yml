@@ -26,6 +26,13 @@ services:
       - MINIO_SECURE=false
       # Path to the on-disk runtime-registry/ directory (mounted read-only above).
       - RUNTIME_REGISTRY_PATH=/app/runtime-registry
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     depends_on:
       minio:
         condition: service_healthy

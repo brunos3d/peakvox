@@ -562,6 +562,28 @@ class DockerRuntimeDriver:
         # Clear the descriptor cache; the runtime is fully removed.
         self._descriptor_cache.pop(runtime_id, None)
 
+    def _device_requests(self, desc: RuntimeDescriptor) -> Optional[list]:
+        """Return device requests (e.g. GPUs) for the container.
+
+        Checks the descriptor's spec.requirements.gpu and the global
+        use_gpu setting.
+        """
+        from app.services.settings_service import get_device_settings
+        
+        gpu_req = desc.spec.requirements.gpu
+        if gpu_req == "none":
+            return None
+            
+        use_gpu = get_device_settings().get("use_gpu", True)
+        if not use_gpu:
+            return None
+            
+        # Request all GPUs. The host must have the nvidia-container-runtime installed.
+        import docker
+        return [
+            docker.types.DeviceRequest(count=-1, capabilities=[["gpu"]])
+        ]
+
     async def start_runtime(self, runtime_id: str) -> RuntimeInstance:
         client = self._ensure_client()
         # Recover the descriptor from the install cache. The manager
@@ -588,6 +610,8 @@ class DockerRuntimeDriver:
                 environment=self._environment(desc),
                 labels=self._labels(desc),
                 restart_policy=self._restart_policy_arg(desc.spec.lifecycle.restart_policy),
+                # GPU support (ADR-0017 §5 extension)
+                device_requests=self._device_requests(desc),
                 # T13 — attach the container to the same docker
                 # network the backend is on so the adapter can
                 # reach it via ``<container-name>:<internal-port>``.

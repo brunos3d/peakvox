@@ -17,7 +17,7 @@
     "runtime_type": "docker",
     "image": {
       "repository": "peakvox/omnivoice-runtime",
-      "tag": "0.1.0",
+      "tag": "0.1.5",
       "image_size_mb": 8704.0
     },
     "build": {
@@ -43,8 +43,8 @@
       "reference_audio"
     ],
     "requirements": {
-      "gpu": "optional",
-      "min_vram_gb": 0,
+      "gpu": "required",
+      "min_vram_gb": 8,
       "cpu_cores": 4,
       "memory_gb": 16,
       "edition": ["ce", "cloud"]
