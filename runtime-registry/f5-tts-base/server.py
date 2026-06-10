@@ -205,6 +205,12 @@ def _run_inference(req: GenerateRequest) -> tuple[np.ndarray, int]:
         ref_file = "/opt/conda/lib/python3.11/site-packages/f5_tts/infer/examples/basic/basic_ref_en.wav"
         ref_text = ref_text or "Some call me nature, others call me mother nature."
 
+    # Voice-cloning mode with missing transcript: use a neutral English fallback to prevent
+    # f5-tts from triggering Whisper ASR auto-transcription (crashes on torch 2.12 with
+    # meta-tensor initialization error when no transcript is stored for the variant).
+    if ref_file and not ref_text:
+        ref_text = "Voice cloning reference audio sample."
+
     infer_kwargs: dict = {
         "gen_text": req.text,
         "ref_file": ref_file,  # f5-tts 1.0.3: ref_audio → ref_file

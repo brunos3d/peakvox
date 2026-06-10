@@ -107,8 +107,21 @@ class F5TTSAdapter(ModelAdapter):
         merged_params: dict[str, Any] = dict(params or {})
         if ref_audio_path is not None:
             merged_params["ref_audio_path"] = ref_audio_path
-        if ref_text is not None:
-            merged_params["ref_text"] = ref_text
+
+        # Determine the effective reference transcript: prefer the explicit arg, then
+        # the stored variant "transcript" param, then any upstream "ref_text" in params.
+        # When ref audio is present but no transcript is found, inject a placeholder to
+        # prevent f5-tts from triggering Whisper ASR auto-transcription, which crashes on
+        # torch 2.12 with a meta-tensor initialization error.
+        effective_ref_text = (
+            ref_text
+            or (merged_params.get("transcript") or None)
+            or (merged_params.get("ref_text") or None)
+        )
+        if effective_ref_text:
+            merged_params["ref_text"] = effective_ref_text
+        elif ref_audio_path is not None:
+            merged_params["ref_text"] = "Voice cloning reference audio sample."
 
         request_body: dict[str, Any] = {
             "text": text,
