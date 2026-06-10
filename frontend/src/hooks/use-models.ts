@@ -98,11 +98,9 @@ export function useActiveModel() {
   const selectedModelId = useAppStore((s) => s.selectedModelId);
   const { data: models } = useModels();
 
-  const activeId =
-    selectedModelId ??
-    models?.find((m) => m.activation_status === "active")?.id ??
-    models?.find((m) => m.is_default)?.id ??
-    null;
+  // No fallback to the active runtime or catalog default: a null selection is
+  // a real empty state and must never be auto-filled on the user's behalf.
+  const activeId = selectedModelId ?? null;
   const activeModel = models?.find((m) => m.id === activeId) ?? null;
 
   const { data: tags } = useModelTags(activeId);

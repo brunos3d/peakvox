@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { Mic, ChevronRight, Plus, Search, AlertCircle } from "lucide-react"
+import { Mic, ChevronRight, Plus, Search, AlertCircle, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
@@ -61,6 +61,15 @@ export function VoiceSelector() {
       discardTemporaryVoice()
     }
     setSelectedProfile(voice)
+    setOpen(false)
+  }
+
+  const handleClearVoice = () => {
+    if (isTemporaryVoice(activeVoice)) {
+      discardTemporaryVoice()
+    } else {
+      setSelectedProfile(null)
+    }
     setOpen(false)
   }
 
@@ -124,6 +133,20 @@ export function VoiceSelector() {
             )}
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {activeVoice && (
+              <button
+                onClick={handleClearVoice}
+                className="flex w-full items-center gap-3 rounded-xl border border-dashed border-border bg-transparent p-3 text-left transition-colors hover:bg-surface-2"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                  <X className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-card-title">No voice selected</p>
+                  <p className="text-caption">Clear the current selection</p>
+                </div>
+              </button>
+            )}
             {flatFiltered.length > 0 ? (
               flatFiltered.map((voice) => (
                 <VoiceCard

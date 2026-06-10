@@ -57,7 +57,9 @@ export function GenerationPanel() {
   const isGenerating = generate.isPending || !!activeJobId;
 
   const { getState: getModelState } = useVoiceModelCompatibility(activeVoice);
-  const modelState = selectedModelId && activeModel ? getModelState(selectedModelId) : null;
+  // Compatibility is only defined when a voice is selected; without one every
+  // model would compute as "incompatible" and wrongly block voice-optional use.
+  const modelState = activeVoice && selectedModelId && activeModel ? getModelState(selectedModelId) : null;
   const selectedModelIncompatible = modelState === "incompatible";
   const selectedModelBuildable = modelState === "buildable";
 
@@ -168,10 +170,8 @@ export function GenerationPanel() {
       setIsImporting(false);
     }
 
-    // Submit the RESOLVED model id (useActiveModel: selected → active → default).
-    // The readiness/capability gates above were evaluated against this resolution;
-    // sending the raw store value desyncs the payload from the UI when no model
-    // was manually selected (backend would fall back to the catalog default).
+    // activeModelId is the user's explicit selection (no fallback); canGenerate
+    // requires modelReady, so it is non-null here and matches the gated UI.
     const currentModel = allModels?.find((m) => m.id === activeModelId);
     const filteredParams = filterSettingsForModel(
       modelSettings[activeModelId ?? "__default__"] ?? {},
@@ -411,15 +411,21 @@ export function GenerationPanel() {
           </div>
         )}
 
-        {!activeVoice && !supportsVoiceOptional && (
+        {!activeModel && (
+          <p className="text-xs text-muted-foreground">
+            Select a model above to generate speech.
+          </p>
+        )}
+
+        {activeModel && !activeVoice && !supportsVoiceOptional && (
           <p className="text-xs text-muted-foreground">
             Select a voice above to get started.
           </p>
         )}
 
-        {!activeVoice && supportsVoiceOptional && (
+        {activeModel && !activeVoice && supportsVoiceOptional && (
           <p className="text-xs text-muted-foreground">
-            No voice selected — {activeModel?.name ?? "this model"} will use its built-in default voice.
+            No voice selected — {activeModel.name} will use its built-in default voice.
           </p>
         )}
 

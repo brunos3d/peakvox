@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Cpu, ChevronRight, Search, Loader2, AlertCircle } from "lucide-react";
+import { Cpu, ChevronRight, Search, Loader2, AlertCircle, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Sheet,
@@ -30,9 +30,8 @@ export function ModelSelector({ compatibleModelIds: _deprecated }: ModelSelector
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
-  const active = selectedModelId
-    ? models?.find((m) => m.id === selectedModelId)
-    : models?.find((m) => m.activation_status === "active") ?? models?.find((m) => m.is_default);
+  // Only an explicit selection renders as selected — no active/default fallback.
+  const active = selectedModelId ? models?.find((m) => m.id === selectedModelId) : undefined;
 
   const activeModels = (models ?? []).filter(
     (m) => m.activation_status === "active",
@@ -120,6 +119,24 @@ export function ModelSelector({ compatibleModelIds: _deprecated }: ModelSelector
             )}
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {active && (
+              <button
+                onClick={() => {
+                  setSelectedModelId(null);
+                  setOpen(false);
+                  setQuery("");
+                }}
+                className="flex w-full items-center gap-3 rounded-xl border border-dashed border-border bg-transparent p-3 text-left transition-colors hover:bg-surface-2"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                  <X className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-card-title">No model selected</p>
+                  <p className="text-caption">Clear the current selection</p>
+                </div>
+              </button>
+            )}
             {isLoading ? (
               <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground justify-center">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -137,7 +154,7 @@ export function ModelSelector({ compatibleModelIds: _deprecated }: ModelSelector
                   isPrimary={model.id === activeVoice?.primary_model_id}
                   isRecommended={model.id === activeVoice?.recommended_model_id && model.id !== activeVoice?.primary_model_id}
                   onSelect={(m) => {
-                    setSelectedModelId(m.is_default ? null : m.id);
+                    setSelectedModelId(m.id);
                     setOpen(false);
                     setQuery("");
                   }}
