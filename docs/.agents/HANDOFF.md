@@ -9,53 +9,86 @@
 
 ## Current handoff
 
-**From:** Kokoro Preset Voice — Phase 2 · **Date:** 2026-06-05 ·
+**From:** Task 24 — TTS Generation Regression Investigation · **Date:** 2026-06-10 ·
 **Branch:** `feat/peakvox-phase-1`
 
 ### Last completed work
 
-- **Kokoro Preset Voice — Phase 2, complete.** Preset voices are now first-class Voice entities.
-  1. **A1 — Two-tier resolution removed.** `runtime.generate()` now always resolves through DB (Voice→VoiceVariant→Artifact). ProviderVoiceRegistry is catalog-only.
-  2. **A2 — Metadata-only build_variant.** `KokoroAdapter.build_variant()` creates VoiceVariant with params={provider, preset_name}, artifacts={}, status=pending. All providers participate identically in ADR-0008 lifecycle.
-  3. **A3 — Provider-voices API.** `GET /api/provider-voices` (list/filter/search) and `GET /api/provider-voices/{id}` (single detail).
-  4. **A4 — From-preset creation.** `POST /voices/from-preset` materializes presets into VoiceProfile + VoiceVariant + VoiceVariantArtifact.
-  5. **B5–B7 — Frontend.** PresetVoicesTab with provider/language/gender/search filters, PresetVoiceCard with "Use Now" (create+select+navigate to TTS) and "+ Library" (create+switch to My Voices).
-- **347/347 tests passing** (8 new Phase 2 + 339 Phase 1 baseline). Frontend: 0 new TS errors.
-- All Phase 2 spec docs updated: SPEC.md, DESIGN.md, TASKS.md, STATUS.md (→ IMPLEMENTED), VALIDATION.md (Phase 2 table).
+- **T24 complete and VALIDATED.** Both real TTS providers (OmniVoice, F5-TTS) generate
+  reliably through the Runtime Registry architecture. Five root causes fixed:
+  1. **OmniVoice adapter never routed to the runtime** — `generate()` unconditionally
+     raised the "in-process execution not available" error even with the container
+     Active (T21 decontamination removed torch but never added the HTTP path). Now
+     routes via `HTTPTransport.post_binary("/v1/generate", …)`.
+  2. **30 s transport timeout vs ~3.5 min CPU inference** — OmniVoice adapter now
+     constructs its transport with `timeout_seconds=600.0`.
+  3. **F5-TTS meta-tensor crash** — `transcript: null` variants sent `ref_text=""`,
+     which makes f5-tts 1.0.3 run Whisper ASR (crashes on torch 2.12). Fixed twice:
+     adapter resolves an effective ref_text (arg → variant transcript → upstream
+     param → placeholder); the f5 runtime server applies the same placeholder fallback.
+  4. **OmniVoice runtime server used a nonexistent API** — `OmniVoicePipeline` → real
+     class `OmniVoice` (`from_pretrained("k2-fsa/OmniVoice")`), `generate()` surface,
+     voice_design tag lists joined into one instruct string (arity rule).
+  5. **Duration 0.0 for valid OmniVoice audio** — `(1, N)` batch tensors squeezed
+     before WAV encoding so `X-Peakvox-Duration-Ms` is correct.
+- **Issues 3–4 from the task confirmed by-design:** voice-optional UI differences are
+  capability-driven (`supports_voice_optional` on F5-TTS only, Constitution Art. III
+  §10); sample-voice compatibility already reports `['f5-tts-base']` for all
+  SOURCE_ASSET voices.
+- **Live validation:** F5-TTS — Fireship 8.10 s (the crashing voice), Donald Trump
+  6.87 s, Bruno PT-BR 3.46 s, voice-optional 5.75 s; OmniVoice — 5.92 s via container
+  with correct duration. Consecutive generations succeeded.
+- **Tests:** 53 new regression tests across 4 suites; backend full suite 680 passed,
+  1 skipped; runtime suites 41/41/19 passed.
 
 ### Files changed (this session)
 
-- **Modified (backend):** `services/runtime.py`, `model_adapters/kokoro_adapter.py`, `api/voices.py`, `main.py`, `tests/test_runtime_provider_voice.py`, `tests/test_kokoro_adapter.py`
-- **New (backend):** `schemas/provider_voice.py`, `api/provider_voices.py`, `tests/test_runtime_single_path.py`, `tests/test_provider_voices_api.py`, `tests/test_voices_from_preset.py`
-- **Modified (frontend):** `types/index.ts`, `lib/api.ts`, `app/voices/page.tsx`, `hooks/use-generation.ts`
-- **New (frontend):** `components/voice/PresetVoicesTab.tsx`
-- **Docs:** Phase 2 implementation plan, updated VALIDATION/STATUS/IMPLEMENTATION_STATUS/EXECUTION_LEDGER/HANDOFF
+- **Modified (backend):** `app/services/model_adapters/omnivoice_adapter.py`,
+  `app/services/model_adapters/f5_adapter.py`
+- **Modified (runtime-registry):** `omnivoice-base/server.py`, `f5-tts-base/server.py`
+- **New (tests):** `backend/tests/test_t24_omnivoice_adapter_routing.py`,
+  `backend/tests/test_t24_f5_adapter_ref_text.py`,
+  `runtime-registry/omnivoice-base/tests/test_server.py`,
+  `runtime-registry/f5-tts-base/tests/test_server.py`
+- **Docs:** `SPECS/FEATURES/task24-tts-generation-regression/` (SPEC/DESIGN/TASKS/
+  VALIDATION/STATUS), `CURRENT_CONTEXT.md`, `HANDOFF.md`
 
 ### Architectural decisions taken
 
-- `ProviderVoiceRegistry` is catalog-only — no longer participates in generation resolution (ADR-0001/0004/0008/0009/0010/0011 aligned).
-- `KokoroAdapter.build_variant()` creates metadata-only VoiceVariant — no audio, no embedding, no checkpoint. All providers participate identically in ADR-0008 lifecycle.
-- Provider metadata stored as `{provider, preset_name}` (not `{provider_voice_id}`).
-- Single generation endpoint (`POST /generate`). No `/from-preset/use` shortcut. Client orchestrates: `POST /voices/from-preset` → `POST /generate`.
-- `voice_` prefix for all voice IDs (both persisted and provider) — no `provider_voice_` internal prefix leak.
+- The cloning-without-transcript path injects a neutral placeholder ref_text rather
+  than depending on any ASR — ASR is the crashing component, and a transcription
+  dependency would reintroduce the failure class. Stored real transcripts always win
+  the precedence chain and remain the quality-preferred path.
+- Per-model latency knowledge lives in the adapter (600 s OmniVoice timeout), not in
+  the shared HTTPTransport default.
+- Runtime server tests load `server.py` via `importlib` under unique module names and
+  stub `torch` in `sys.modules` — runnable in the torch-free backend venv, no
+  cross-suite `import server` collisions.
 
 ### Risks (updated)
 
-- ✅ **Kokoro real inference validated.** `kokoro` pip package installed (0.7.16). Real audio generated: 4.05s WAV (24kHz) via `af_heart` voice. First non-OmniVoice provider to pass G5.
-- **Fish Audio real inference still blocked.** S2 Pro server needs 24GB+ VRAM.
-- **Kokoro build_variant creates metadata-only variants.** The runtime's `_run_build()` still calls `append_artifact()` + `set_active()` after `build_variant()`. For Kokoro, this creates empty artifacts. This is correct behavior but untested for the Kokoro-specific path.
-- **Cloud readiness gate is OPEN.** Kokoro validation unblocks Cloud architecture planning.
+- **Running containers carry server fixes via `docker commit`**, not a rebuilt image.
+  The registry sources contain the canonical fixes; the next image rebuild supersedes
+  the committed layers. Until then, removing + reinstalling a runtime through the UI
+  rebuilds from sources and keeps the fixes.
+- Placeholder ref_text slightly weakens cloning conditioning vs a true transcript
+  (validated acceptable by ear on Fireship/Trump).
+- Fish Audio real inference still blocked (24 GB+ VRAM). No GPU in CI.
 
 ### Open issues
 
-- Phase 3 work items (provider voice marketplace / community presets, multi-provider preset merging) not started.
-- `test_voices.py` requires `torch` — not runnable in local venv.
-- `VariantDashboard.tsx` has a pre-existing TypeScript error (unrelated).
-- Kokoro G7 (performance) and G8 (error recovery) not measured.
+- Jarvis / Lucas Montano have no F5-TTS variant yet — build via Voice Library UI.
+- Rebuild `peakvox/omnivoice-runtime` + `peakvox/f5-tts-runtime` images from registry
+  sources and re-run the T24 live matrix.
+- Two `runtime-registry/*/tests/test_descriptor.py` tests need the backend on
+  `PYTHONPATH` (pre-existing harness property).
 
 ### Recommended next task
 
-**Determine next workstream.** Cloud architecture planning (auth/billing/marketplace ADRs) or CE hardening (error recovery tests, performance measurement, Fish server deployment). Provider-validation gate is no longer blocking.
+**Rebuild both runtime images from `runtime-registry/` sources and re-validate the T24
+live matrix**, then build the missing F5-TTS variants (Jarvis, Lucas Montano) through
+the Voice Library. After that, return to the roadmap queue
+([`ROADMAP/BACKLOG.md`](ROADMAP/BACKLOG.md)).
 
 ---
 
@@ -65,3 +98,4 @@
 - 2026-06-05 — Documentation Operating System created under `docs/.agents/`; `AGENTS.md` updated. Application code unchanged. Next: stabilize the dirty working tree.
 - 2026-06-05 — Kokoro Preset Voice Phase 2 complete. 8 new tests, 347/347 all pass. Frontend Preset Voices tab added.
 - 2026-06-05 — **Kokoro provider validation complete (G5 passed).** Real audio E2E through Runtime. `kokoro` added to requirements.txt. Cloud readiness gate open.
+- 2026-06-10 — **T24 TTS generation regression complete (VALIDATED).** OmniVoice routed through its runtime container; F5-TTS meta-tensor crash eliminated (ASR bypass at adapter + server); OmniVoice server API corrected. 53 new regression tests; backend 680 passed.

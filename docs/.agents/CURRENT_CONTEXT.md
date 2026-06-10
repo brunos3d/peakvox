@@ -3,52 +3,54 @@
 > Operational memory. Changes frequently — update at the start and end of every working
 > session. Keep it short and current; move history to the execution ledger.
 
-**As of:** 2026-06-08
+**As of:** 2026-06-10
 
-- **Current focus:** **T13 (Runtime Registry as the Single
-  Source of Truth + Fully Functional Runtime Lifecycle)**
-  is **VALIDATED** (2026-06-08). The browser-driven
-  Install / Start / Stop / Update / Remove buttons now
-  actually execute against the runtime registry. The
-  full chain works end-to-end: browser → React Query
-  → backend → RuntimeManager → DockerRuntimeDriver →
-  docker SDK → host Docker daemon → driver-managed
-  container. Verified via 13 new regression tests +
-  Chrome DevTools browser E2E + 266,444 bytes of
-  generated audio. The Runtime Registry is the
-  authoritative source — when the runtime subsystem is
-  enabled, only models with a runtime descriptor
-  render. All three Phase 3 workstreams are now
-  complete and validated.
+- **Current focus:** **T24 (TTS Generation Regression
+  Investigation — OmniVoice + F5-TTS)** is **VALIDATED**
+  (2026-06-10). Both real providers generate reliably
+  through the Runtime Registry architecture. Root causes
+  fixed: the OmniVoice adapter never consumed
+  `runtime_endpoint` (T21 left it without the HTTP path —
+  now routes via HTTPTransport, 600 s timeout for CPU
+  inference); the F5-TTS "meta tensor" crash was empty
+  `ref_text` triggering f5-tts's Whisper ASR on torch 2.12
+  (fixed at adapter + runtime server with an
+  effective-ref_text chain and a neutral placeholder); the
+  OmniVoice runtime server shipped against a nonexistent
+  API (`OmniVoicePipeline` → `OmniVoice`, `generate()`
+  surface, instruct list→string join, batch-dim squeeze
+  for correct duration). Issues "voice-optional
+  inconsistency" and "sample-voice compatibility" were
+  confirmed by-design (capability contract). 53 new
+  regression tests; backend 680 passed. See
+  `SPECS/FEATURES/task24-tts-generation-regression/`.
+  Predecessors T17–T23 (activation unification, F5-TTS
+  install/integration/production-validation) are VALIDATED
+  in their spec folders.
 - **Current branch:** `feat/peakvox-phase-1`
-- **Current ADRs in play:** ADR-0008/0009/0010/0011/0012
-  (variant lifecycle, artifacts, source assets, creation
-  sources, catalog resources) — the surface touched by the
-  Runtime-Service architecture. ADR-0016 and ADR-0017
-  preserve all five. ADR-0017 is the implementation
-  architecture; both are now Accepted+Implemented.
+- **Current ADRs in play:** ADR-0016/0017 (runtime
+  services — implemented and refined), ADR-0003
+  (capability contract — governs voice-optional UI),
+  ADR-0008/0009/0010/0011 (variants, artifacts, sources).
 - **Current specs:**
-  `docs/.agents/SPECS/FEATURES/models-as-runtime-services/`
-  (ADR-0016) and
-  `docs/.agents/SPECS/FEATURES/runtime-services-implementation/`
-  (ADR-0017), plus existing specs.
-- **Current blockers:** Fish Audio real inference deferred
-  (codec/VRAM); no GPU in CI. These predate Phase 2A and
-  are unaffected. Phase 3 requires a real
-  `peakvox/kokoro-runtime` container in the docker-compose
-  CI lane; the E2E scaffold is in place but gated.
-- **Current validation goal:** Phase 3 lands the
-  E2E-validated Kokoro G6 report (real audio E2E through
-  the runtime service in the docker-compose CI lane), G7
-  (Performance) and G8 (Error recovery) reports. Phase 3
-  makes the runtime-service path the DEFAULT for Kokoro in
-  CE; the in-process path is preserved as a fallback.
+  `docs/.agents/SPECS/FEATURES/task24-tts-generation-regression/`
+  (latest), plus task17–task23 folders for the runtime
+  activation + F5-TTS lineage.
+- **Current blockers:** none for CE generation. Running
+  OmniVoice/F5-TTS containers carry the T24 server fixes
+  via `docker commit`; the next image rebuild from
+  `runtime-registry/` sources supersedes them. Fish Audio
+  real inference still deferred (codec/VRAM); no GPU in CI.
+- **Current validation goal:** rebuild the two runtime
+  images from registry sources and re-run the T24 live
+  matrix; build F5-TTS variants for the remaining sample
+  voices (Jarvis, Lucas Montano) via the Voice Library.
 
 ---
 
 **Related:** [`ACTIVE_WORK.md`](ACTIVE_WORK.md) · [`NEXT_TASK.md`](NEXT_TASK.md) ·
 [`HANDOFF.md`](HANDOFF.md) · [`PROJECT_STATE.md`](PROJECT_STATE.md) ·
-[`docs/.agents/SPECS/FEATURES/models-as-runtime-services/`](SPECS/FEATURES/models-as-runtime-services/) ·
-[`docs/.agents/SPECS/FEATURES/runtime-services-implementation/`](SPECS/FEATURES/runtime-services-implementation/) ·
-[`docs/.agents/DECISIONS/adr-0016-models-as-runtime-services.md`](DECISIONS/adr-0016-models-as-runtime-services.md) ·
-[`docs/.agents/DECISIONS/adr-0017-runtime-services-implementation.md`](DECISIONS/adr-0017-runtime-services-implementation.md)
+[`SPECS/FEATURES/task24-tts-generation-regression/`](SPECS/FEATURES/task24-tts-generation-regression/) ·
+[`SPECS/FEATURES/task23-f5tts-production-validation/`](SPECS/FEATURES/task23-f5tts-production-validation/) ·
+[`DECISIONS/adr-0017-runtime-services-implementation.md`](DECISIONS/adr-0017-runtime-services-implementation.md) ·
+[`DECISIONS/adr-0003-model-capability-contract.md`](DECISIONS/adr-0003-model-capability-contract.md)

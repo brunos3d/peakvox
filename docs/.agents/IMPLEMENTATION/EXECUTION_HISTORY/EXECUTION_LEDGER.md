@@ -128,3 +128,23 @@
 - **Validation:** 347/347 backend tests pass (with real kokoro installed). Real audio generated: 4.05s WAV (24kHz, 194KB) via `af_heart`.
 - **State change:** OPEN_DECISIONS Decision 1 → RESOLVED. Cloud readiness gate → OPEN.
 - **Branch:** `feat/peakvox-phase-1`. All changes committed.
+
+### 2026-06-10 · T24 — TTS Generation Regression Investigation (OmniVoice + F5-TTS)
+- **Task:** Root-cause and eliminate the production generation failures of both real TTS providers; validate live; add regression tests.
+- **Spec/Plan:** `docs/.agents/SPECS/FEATURES/task24-tts-generation-regression/` (SPEC/DESIGN/TASKS/VALIDATION/STATUS → VALIDATED).
+- **ADRs:** 0017 (runtime service contract — generation routing), 0003 (capability contract — voice-optional classification), 0004 (variant internals stay internal).
+- **Root causes fixed:**
+  1. `OmniVoiceAdapter.generate()` unconditionally raised — never consumed `runtime_endpoint` (T21 gap). Now routes via `HTTPTransport.post_binary("/v1/generate")` with a 600 s timeout (CPU inference ~3.5 min).
+  2. F5-TTS meta-tensor crash: `transcript: null` → `ref_text=""` → f5-tts Whisper ASR → torch 2.12 crash. Effective-ref_text chain + neutral placeholder at the adapter AND the runtime server.
+  3. OmniVoice runtime server used a nonexistent API: `OmniVoicePipeline` → `OmniVoice.from_pretrained("k2-fsa/OmniVoice")`, `generate()` surface, voice_design list joined to one instruct string, `(1, N)` batch tensors squeezed (duration was 0 ms).
+- **By-design confirmations:** voice-optional UI differences are capability-driven (`supports_voice_optional` only on F5-TTS); sample-voice compatibility already reports `['f5-tts-base']` for all SOURCE_ASSET voices (Jarvis/Lucas Montano just lack a built variant).
+- **Files:**
+  - `backend/app/services/model_adapters/omnivoice_adapter.py` — HTTP routing + 600 s transport
+  - `backend/app/services/model_adapters/f5_adapter.py` — effective-ref_text + ASR-bypass placeholder
+  - `runtime-registry/omnivoice-base/server.py` — correct class/API, instruct join, squeeze
+  - `runtime-registry/f5-tts-base/server.py` — cloning-mode transcript fallback
+  - NEW tests: `backend/tests/test_t24_omnivoice_adapter_routing.py` (11), `backend/tests/test_t24_f5_adapter_ref_text.py` (10), `runtime-registry/omnivoice-base/tests/test_server.py` (17), `runtime-registry/f5-tts-base/tests/test_server.py` (15)
+  - Docs: T24 spec folder; `CURRENT_CONTEXT.md`, `ACTIVE_WORK.md`, `NEXT_TASK.md`, `HANDOFF.md`, this ledger
+- **Validation:** Live — F5-TTS: Fireship 8.10 s (the crashing voice), Donald Trump 6.87 s, Bruno PT-BR 3.46 s, voice-optional 5.75 s; OmniVoice: 5.92 s via container with correct duration. Tests — backend 680 passed, 1 skipped; runtime suites 41/41/19 passed.
+- **Deployment note:** running containers patched via `docker exec` + `docker commit` + restart; registry sources are canonical and supersede on next image build.
+- **Branch:** `feat/peakvox-phase-1`.
