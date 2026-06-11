@@ -195,11 +195,22 @@ class DockerRuntimeDriver:
         }
 
     def _environment(self, desc: RuntimeDescriptor) -> dict:
-        return {
+        env = {
             "PEAKVOX_RUNTIME_ID": desc.metadata.id,
             "PEAKVOX_RUNTIME_PROVIDER": desc.metadata.provider,
             "PEAKVOX_RUNTIME_VERSION": desc.metadata.version,
         }
+        # CE canonical HF auth: when the user has configured a Hugging Face
+        # token in Settings, every runtime container receives it so weight
+        # downloads from the Hub are authenticated (higher rate limits, faster
+        # downloads). The token is never logged. huggingface_hub reads both
+        # HF_TOKEN and the legacy HUGGING_FACE_HUB_TOKEN.
+        from app.services.settings_service import get_huggingface_token
+        hf_token = get_huggingface_token()
+        if hf_token:
+            env["HF_TOKEN"] = hf_token
+            env["HUGGING_FACE_HUB_TOKEN"] = hf_token
+        return env
 
     def _restart_policy_arg(self, policy: str) -> dict:
         # docker SDK expects {"Name": "on-failure"|"always"|"no"}.
