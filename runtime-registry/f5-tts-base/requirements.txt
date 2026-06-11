@@ -25,6 +25,21 @@ pydantic==2.9.2
 # unavailable (no CUDA, weights download fails), the runtime
 # reports "load_failed" on /ready and the manager reaps it
 # on idle_timeout.
+#
+# VERSION HOLD — do NOT bump without a full re-validation pass.
+# Upstream latest is 1.1.20 (as of 2026-06), but this runtime is
+# deliberately pinned to 1.0.3. The server (server.py) carries
+# workarounds validated specifically against 1.0.3:
+#   - inference is serialized because the 1.0.3 DiT text-embed
+#     cache is not thread-safe (concurrent calls corrupt it and
+#     raise tensor-size-mismatch errors);
+#   - the adapter uses a 600s HTTP timeout to avoid retry-induced
+#     cache races;
+#   - voice-cloning falls back to a sample reference when none is
+#     supplied.
+# A 1.0.x -> 1.1.x jump (11 releases) may change the inference API
+# and cache internals and invalidate these fixes. Runtime stability
+# wins here: hold 1.0.3 until a dedicated upgrade+revalidation task.
 f5-tts==1.0.3
 
 # The F5-TTS vocoder (Vocos). The model is loaded alongside
