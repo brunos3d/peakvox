@@ -3,12 +3,15 @@
 Lifecycle position in the SDD flow:
 `Brainstorm → Specification → Design → Tasks → Implementation → Validation → Review → Merge`
 
-- **Feature status:** `PARTIAL` — architecture ACCEPTED; Phase 0 primitive
-  IMPLEMENTED + VALIDATED; Phases 1–6 PLANNED.
+- **Feature status:** `PARTIAL` — architecture ACCEPTED; Phase 0 + Phase 1 +
+  Phase 3 (presentation) IMPLEMENTED + VALIDATED; Phase 6 *validate* shipped;
+  Phases 2 (image work), 4, 5, 6-tail PLANNED.
 - **ADR:** [ADR-0018](../../../DECISIONS/adr-0018-runtime-variants-architecture.md)
   — Accepted (architecture only), 2026-06-11. Amends ADR-0016's `RuntimeVariant`
-  forbidden-pattern entry.
-- **Owner / last update:** Task 26, 2026-06-11.
+  forbidden-pattern entry. Extended by
+  [ADR-0019](../../../DECISIONS/adr-0019-variant-trust-and-community-imports.md)
+  (trust tiers + community imports), 2026-06-11.
+- **Owner / last update:** Task 27, 2026-06-11 (built on Task 26).
 
 | Allowed status | This feature |
 |---|---|
@@ -19,12 +22,13 @@ Lifecycle position in the SDD flow:
 | Phase | Scope | Status |
 |---|---|---|
 | 0 | Descriptor primitive (`RuntimeVariantDescriptor` + loader + tests, non-wired) | **IMPLEMENTED + VALIDATED** |
-| 1 | RuntimeVariant domain wiring (resolution) | PLANNED |
-| 2 | Registry structure evolution (`<runtime>/variants/`) | PLANNED |
-| 3 | UI support (family grouping + variant chips) | PLANNED |
+| 1 | RuntimeVariant resolution wiring (`select_variant`, `runtime_variant_id`, implicit base) | **IMPLEMENTED + VALIDATED** (Task 27) |
+| 2 | Registry structure evolution (`<runtime>/variants/`) | **PARTIAL** — `variants/base.json` shipped per runtime; directory consolidation + shared base image PLANNED |
+| 3 | UI support (variant chips + trust badges + import dialog) | **IMPLEMENTED + VALIDATED** (Task 27); family grouping PLANNED |
 | 4 | Runtime service (load/switch without restart) | PLANNED |
 | 5 | Marketplace (Cloud) | PLANNED |
-| 6 | Hugging Face imports | PLANNED |
+| 6 | Hugging Face imports | **PARTIAL** — validate-only shipped; download+register PLANNED |
+| H | Verified vs Community trust tiers (`trust` field + badge + import gate) | **IMPLEMENTED + VALIDATED** (Task 27; [ADR-0019](../../../DECISIONS/adr-0019-variant-trust-and-community-imports.md)) |
 
 ## Evidence
 

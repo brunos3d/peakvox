@@ -89,5 +89,42 @@ failure — `test_docker_runtime_driver.py::test_docker_driver_does_not_communic
 ## Verdict
 
 Phase 0 is **VALIDATED**: additive, backward-compatible, tested, non-wired.
-The architecture (ADR-0018) meets every Task 26 success criterion. Phases 1–6
-remain PLANNED.
+The architecture (ADR-0018) meets every Task 26 success criterion.
+
+---
+
+## Task 27 increment (2026-06-11) — Phases 1, 3 (partial), trust, import
+
+> **Audit:** [`../../../VALIDATION/AUDITS/task-27-runtime-variants-audit.md`](../../../VALIDATION/AUDITS/task-27-runtime-variants-audit.md)
+> **Findings (E/F/G):** [`../../../VALIDATION/RESEARCH/task-27-model-ecosystem-findings.md`](../../../VALIDATION/RESEARCH/task-27-model-ecosystem-findings.md)
+> **ADR:** [ADR-0019 Variant Trust Tiers & Community Imports](../../../DECISIONS/adr-0019-variant-trust-and-community-imports.md)
+
+The pre-existing `device_runtime_driver` substring-lint failure flagged above
+was **fixed** this session (match real import statements, not the
+`device_requests` substring) — see commit `fix(runtime): persist HF cache and
+enforce GPU/CPU execution contract`.
+
+What Task 27 added on top of Phase 0 (all additive, all unit-tested):
+
+| Item | Migration phase | Evidence |
+|---|---|---|
+| `select_variant()` resolver (model-bound → default → implicit base) | 1 | `runtime_registry.py`; `tests/test_runtime_variant_resolution.py` |
+| `RuntimeResolution.runtime_variant_id` (additive, `None` = implicit base) | 1 | `runtime_manager.py` |
+| `trust` (verified\|community) + `source_url` on variant metadata | H | `runtime_types.py`; resolution tests |
+| Concrete `variants/base.json` for all 3 runtimes | 2 (repr.) | `runtime-registry/*/variants/base.json` |
+| Public-safe `variants[]` in `/models/with-runtimes` (no checkpoint internals) | 3 | `runtime_api.py`; `tests/test_api_models_with_runtimes.py` |
+| Validate-only HF import + `POST …/variants/validate-import` | 6 (validate) | `runtime_variant_import.py`; `tests/test_runtime_variant_import.py` |
+| Frontend Variants section + trust badges + import dialog | 3 | `components/models/VariantsSection.tsx` |
+
+**Test evidence:** `732 passed, 1 skipped` (full backend suite, +29 new); frontend
+`tsc --noEmit` and `eslint` clean.
+
+**Invariants preserved:** public `/api/v1` byte-identical; generation stays
+`voice + model + text`; no Voice/VoiceVariant reference in runtime code; variant
+capabilities ⊆ runtime capabilities (ADR-0003); no checkpoint internals on the
+public surface (ADR-0004 §6); implicit-base runtimes resolve byte-identically.
+
+**Still PLANNED:** download+register (Phase 6 tail), runtime-service multi-checkpoint
+load/switch (Phase 4), registry directory consolidation + shared base image
+(Phase 2 image work), marketplace (Phase 5). Phases 4/6-tail require a no-GPU
+session's out-of-scope Docker rebuilds; the path is recorded in the findings doc.

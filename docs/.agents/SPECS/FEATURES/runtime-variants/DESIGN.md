@@ -128,3 +128,59 @@ generate(req):       vid = req.runtime_variant or _default; load_variant(vid); i
   `list_variants_for_runtime`; registry **without** `variants/` is identical to
   today (existing descriptor tests unchanged).
 - Bad variant file is skipped-and-logged, does not block the runtime.
+
+---
+
+## 8. Model Ecosystem UX (Task 27 Phase I)
+
+The Models page evolves from *runtime-oriented* to *model-ecosystem* while
+staying understandable to non-technical users. The change is **additive
+presentation**, not a new information architecture.
+
+### Before → After (the runtime card)
+
+```
+BEFORE (runtime catalog)                AFTER (model ecosystem)
+┌─────────────────────────────┐         ┌─────────────────────────────┐
+│ F5-TTS                       │         │ F5-TTS                       │
+│ image: peakvox/f5-tts:0.1    │         │ image: peakvox/f5-tts:0.1    │
+│ [Install] [Start] [Stop]     │         │ [Install] [Start] [Stop]     │
+│ Service / Requirements / Caps│         │ ── Variants (2) ──── [+ HF]  │
+└─────────────────────────────┘         │  ◆ Base        ✓ Verified ★  │
+                                         │    tts, voice_cloning        │
+                                         │  ◆ PT-BR       ⚠ Community    │
+                                         │    tts · huggingface.co/...  │
+                                         │ Service / Requirements / Caps│
+                                         └─────────────────────────────┘
+```
+
+### Principles
+
+1. **One card per runtime; variants are *inside* it.** Importing a checkpoint
+   does **not** create a new card/runtime entry — it adds a chip. This is the
+   visible payoff of the Runtime/RuntimeVariant split.
+2. **Trust is always visible.** Every variant shows a Verified (green ✓) or
+   Community (amber ⚠) badge. The default variant shows a ★.
+3. **Capability-driven, never model-internal.** Chips show *declared
+   capabilities* (ADR-0003); the UI never shows checkpoint paths/formats/digests
+   (ADR-0004 §6). `source_type` shows as a friendly label ("Bundled with
+   runtime", "Hugging Face"), `source_url` as a link.
+4. **Import is guided and honest.** "Add variant from Hugging Face" opens a
+   dialog that *validates compatibility first* and reports reasons/warnings;
+   it is explicit that download+register is a follow-up. No fake buttons.
+5. **Simplicity preserved.** A single-`base` runtime shows a one-line "no
+   additional variants — import one to add a specialization" instead of an empty
+   grid. Nothing new to learn until the user wants a variant.
+
+### Future UX (PLANNED, not this task)
+
+- **Family grouping**: collapse `f5-tts-base` / future `f5-tts` aliases into one
+  "F5-TTS" family header (migration Phase 2 directory consolidation).
+- **Installed vs Available**: once download+register lands, variants gain an
+  install state (chip Add/Remove) and an "Available" catalog distinct from
+  "Installed" (migration Phase 4/6).
+- **Compatibility indicators** on community variants (probe-derived; findings
+  Phase E/G), shown as a non-binding hint, never as a trust upgrade.
+
+See [`../../../VALIDATION/RESEARCH/task-27-model-ecosystem-findings.md`](../../../VALIDATION/RESEARCH/task-27-model-ecosystem-findings.md)
+for the feasibility analysis behind the future items.
