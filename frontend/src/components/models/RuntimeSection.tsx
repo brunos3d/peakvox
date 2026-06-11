@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { OperationsRow } from "@/components/models/OperationsRow"
 import { NotMigratedEmptyState } from "@/components/models/NotMigratedEmptyState"
+import { VariantsSection } from "@/components/models/VariantsSection"
 import type {
   ComposedRuntimeDescriptor,
   ModelWithRuntimesCard,
@@ -261,6 +262,10 @@ export function RuntimeSection({
             </p>
           )}
           <RuntimeStateDetails state={defaultRuntime.state} />
+          <VariantsSection
+            runtimeId={defaultRuntime.runtime_id}
+            variants={defaultRuntime.variants}
+          />
           <RuntimeDescriptorDetails descriptor={defaultRuntime.descriptor} />
         </div>
       ) : (

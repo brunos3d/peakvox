@@ -31,6 +31,7 @@ import type {
   RuntimeOperationsResponse,
   ModelWithRuntimesCard,
   ModelsWithRuntimesResponse,
+  VariantImportValidation,
 } from "@/types"
 import { parseApiError, type ApiError } from "./api-error"
 
@@ -397,6 +398,27 @@ export async function updateRuntime(
 
 export async function removeRuntime(id: string): Promise<{ runtime_id: string; phase: string }> {
   return request(`/runtimes/${id}/remove`, { method: "POST" })
+}
+
+// ADR-0018 Phase 6 (Task 27 D): validate-only community variant import.
+// Parses the HF reference and runs declared-and-checked compatibility gates;
+// performs NO download/registration (the safe first step of the import flow).
+export async function validateVariantImport(
+  runtimeId: string,
+  body: {
+    url: string
+    declared_provider?: string
+    declared_model_family?: string
+    declared_capabilities?: string[]
+    declared_format?: string
+    variant_id?: string
+  },
+): Promise<VariantImportValidation> {
+  return request(`/runtimes/${runtimeId}/variants/validate-import`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  })
 }
 
 // ---------------------------------------------------------------------------

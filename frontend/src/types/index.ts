@@ -690,8 +690,41 @@ export interface ComposedRuntimeDescriptor {
   spec: ComposedRuntimeSpec;
 }
 
+// ---------------------------------------------------------------------------
+// RuntimeVariant (ADR-0018) — a checkpoint/specialization attached to a
+// runtime. Public-safe: the API never exposes checkpoint internals
+// (source_ref/format/digest) per ADR-0004 §6. NEVER the domain VoiceVariant.
+// ---------------------------------------------------------------------------
+
+export type RuntimeVariantTrust = "verified" | "community";
+
+export interface ComposedRuntimeVariant {
+  id: string;
+  name: string;
+  description: string;
+  trust: RuntimeVariantTrust;
+  source_url: string | null;
+  source_type: "hf" | "url" | "local" | "bundled";
+  model_id: string;
+  is_default: boolean;
+  capabilities: string[];
+}
+
 export interface ComposedRuntimeEntry {
   runtime_id: string;
   descriptor: ComposedRuntimeDescriptor | null;
   state: RuntimeStatePayload;
+  variants?: ComposedRuntimeVariant[];
+}
+
+// Result of POST /runtimes/{id}/variants/validate-import (validate-only).
+export interface VariantImportValidation {
+  runtime_id: string;
+  repo_id: string;
+  source_url: string;
+  compatible: boolean;
+  proposed_variant_id: string;
+  trust: RuntimeVariantTrust;
+  reasons: string[];
+  warnings: string[];
 }
