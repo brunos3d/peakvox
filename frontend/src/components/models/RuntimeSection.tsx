@@ -264,6 +264,9 @@ export function RuntimeSection({
           <RuntimeStateDetails state={defaultRuntime.state} />
           <VariantsSection
             runtimeId={defaultRuntime.runtime_id}
+            runtimeProvider={defaultRuntime.descriptor.metadata.provider}
+            runtimeName={defaultRuntime.descriptor.metadata.name}
+            runtimeCapabilities={defaultRuntime.descriptor.spec.capabilities}
             variants={defaultRuntime.variants}
           />
           <RuntimeDescriptorDetails descriptor={defaultRuntime.descriptor} />
