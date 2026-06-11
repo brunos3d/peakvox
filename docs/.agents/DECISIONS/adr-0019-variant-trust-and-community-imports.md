@@ -40,22 +40,32 @@ existing **architecture-validated vs provider-validated** distinction
 
 ### 1. A RuntimeVariant has a `trust` tier
 
-Add `trust: "verified" | "community"` to `RuntimeVariantMetadata`, defaulting to
-`verified` (so first-party `variants/*.json` are curated-by-default and existing
-descriptors stay valid). Optional `source_url` records a human-facing origin
-(e.g. the HF repo) — never a model-internal artifact path.
+Add `trust: "verified" | "community" | "private"` to `RuntimeVariantMetadata`,
+defaulting to `verified` (so first-party `variants/*.json` are curated-by-default
+and existing descriptors stay valid). Optional `source_url` records a
+human-facing origin (e.g. the HF repo) — never a model-internal artifact path.
 
-| | **Verified** | **Community** |
-|---|---|---|
-| Curated by PeakVox | yes | no |
-| Provider-validated (ran end-to-end) | yes | no |
-| Checkpoint source | pinned / known | user-supplied |
-| Compatibility | checked **and** tested | checked only |
-| UI | green ✓ badge | amber ⚠ badge |
+> **Amended Task 27.1:** the `private` tier was added (originally
+> `verified | community`). It distinguishes a *public-but-unaudited* import
+> (`community`) from a *user-owned local* checkpoint (`private`) the owner never
+> wants shared. `private` is the explicit publish opt-out and lives only in the
+> writable `/data` overlay, never in the shipped registry.
 
-**Mapping:** Verified ≙ provider-validated; Community ≙ architecture-validated
-(compatibility checked) but not provider-validated. An imported variant is
-**always** `community` until someone runs it end-to-end.
+| | **Verified** | **Community** | **Private** |
+|---|---|---|---|
+| Curated by PeakVox | yes | no | no |
+| Provider-validated (ran end-to-end) | yes | no | no |
+| Checkpoint source | pinned / known | public (HF/URL) | local / user-owned |
+| Compatibility | checked **and** tested | checked only | checked only |
+| Publishable (Cloud marketplace) | yes (policy) | yes (policy) | **never** |
+| UI | green ✓ badge | amber ⚠ badge | neutral 🔒 badge |
+
+**Mapping:** Verified ≙ provider-validated; Community/Private ≙
+architecture-validated (compatibility checked) but not provider-validated. A
+public import is **always** `community`; a local import is **always** `private`;
+neither becomes `verified` without curation + end-to-end validation. **Trust is
+provenance only — it never affects variant resolution** (`select_variant`
+ignores it); it governs UI badging and publish eligibility.
 
 ### 2. Community import is a gated, staged flow; *validate* is decided first
 
