@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label"
 import { OutputFormatSelector } from "@/components/generation/OutputFormatSelector"
 import { fetchDeviceSettings, updateDeviceSettings } from "@/lib/api"
 import { useActiveModel } from "@/hooks/use-models"
+import { HuggingFaceSettingsCard } from "@/components/settings/HuggingFaceSettingsCard"
 
-function SettingsCard({
+export function SettingsCard({
   icon: Icon,
   title,
   description,
@@ -62,6 +63,8 @@ export function SettingsPanel() {
           />
         </div>
       </SettingsCard>
+
+      <HuggingFaceSettingsCard />
 
       <SettingsCard icon={FileAudio} title="Output" description="Default format used for downloads.">
         <OutputFormatSelector />

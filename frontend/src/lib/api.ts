@@ -424,6 +424,22 @@ export async function updateDeviceSettings(useGpu: boolean): Promise<{ use_gpu: 
   })
 }
 
+export async function fetchHuggingFaceStatus(): Promise<{ configured: boolean }> {
+  return request("/settings/huggingface")
+}
+
+export async function saveHuggingFaceToken(token: string): Promise<{ configured: boolean }> {
+  return request("/settings/huggingface", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  })
+}
+
+export async function deleteHuggingFaceToken(): Promise<{ configured: boolean }> {
+  return request("/settings/huggingface", { method: "DELETE" })
+}
+
 export async function uploadAudio(file: File): Promise<{ filename: string }> {
   const formData = new FormData()
   formData.append("file", file)
