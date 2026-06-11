@@ -91,6 +91,14 @@ class RuntimeResolution:
     descriptor: RuntimeDescriptor
     instance: RuntimeInstance
     endpoint: str
+    # ADR-0018 Phase 1 (additive). The RuntimeVariant the manager selected
+    # for this (model, runtime), or ``None`` when the runtime has no explicit
+    # variants — the *implicit base* case, identical to pre-variant behavior.
+    # The adapter passes this as ``runtime_variant`` to ``/v1/generate`` when
+    # present; omitting it is valid (the service falls back to its default).
+    # This is NEVER the domain ``variant_id`` (VoiceVariant) — that stays the
+    # Voice×Model selector on the public API.
+    runtime_variant_id: Optional[str] = None
 
 
 class RuntimeManager:
@@ -264,10 +272,17 @@ class RuntimeManager:
         if cached is None or cached.state != RuntimeState.ACTIVE:
             return None
         endpoint = f"http://{cached.host}:{cached.port}"
+        # ADR-0018 Phase 1: select the RuntimeVariant for this (model, runtime).
+        # ``None`` for every runtime that ships no ``variants/`` folder, so the
+        # resolution is byte-identical to pre-variant behavior.
+        selected_variant = self._registry.select_variant(chosen.metadata.id, model_id)
         return RuntimeResolution(
             descriptor=chosen,
             instance=cached,
             endpoint=endpoint,
+            runtime_variant_id=(
+                selected_variant.metadata.id if selected_variant is not None else None
+            ),
         )
 
     # --- Lifecycle (raise when no driver; delegate when wired) ---------------

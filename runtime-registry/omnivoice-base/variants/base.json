@@ -1,0 +1,22 @@
+{
+  "api_version": "peakvox.io/v1",
+  "kind": "RuntimeVariant",
+  "metadata": {
+    "id": "base",
+    "name": "OmniVoice Base",
+    "runtime_id": "omnivoice-base",
+    "description": "The default OmniVoice 0.6B checkpoint bundled with the runtime image. The base variant is what the runtime loads when no explicit variant is selected (the implicit-base case the resolver synthesizes for runtimes with no other variants).",
+    "trust": "verified",
+    "labels": {"model_family": "omnivoice-0.6b"}
+  },
+  "spec": {
+    "model_binding": {"model_id": "omnivoice-base", "is_default": true, "priority": 100},
+    "checkpoint": {
+      "source_type": "bundled",
+      "source_ref": "k2-fsa/OmniVoice",
+      "format": "safetensors"
+    },
+    "is_default": true,
+    "capabilities": ["tts", "voice_cloning", "multilingual", "emotion_tags", "voice_design", "reference_audio"]
+  }
+}

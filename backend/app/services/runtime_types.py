@@ -66,6 +66,22 @@ def parse_idle_timeout_to_seconds(value: str) -> Optional[int]:
     )
 
 
+# ---- variant trust vocabulary (ADR-0018 ext; Task 27 Phase H) -----------------
+#
+# A RuntimeVariant's *trust* is provenance, orthogonal to its *compatibility*
+# (which is the model_binding + capabilities + checkpoint contract). It governs
+# how the UI badges the variant and how strict the import gates are, never what
+# the runtime can technically load.
+#
+#   verified  — curated by PeakVox: tested end-to-end, the checkpoint source is
+#               pinned/known, capabilities are provider-validated. The default
+#               for first-party `variants/*.json` shipped in this repo.
+#   community — user-imported (e.g. a Hugging Face checkpoint): compatibility is
+#               *declared and checked* but never provider-validated by PeakVox;
+#               "use at your own risk".
+RUNTIME_VARIANT_TRUST_VOCABULARY: FrozenSet[str] = frozenset({"verified", "community"})
+
+
 RUNTIME_CAPABILITY_VOCABULARY: FrozenSet[str] = frozenset({
     # Maps 1:1 to ModelCapabilities fields (ADR-0003).
     "tts",                       # supports_tts
@@ -455,6 +471,15 @@ class RuntimeVariantMetadata(BaseModel):
     name: str = Field(..., min_length=1)
     runtime_id: str = Field(..., min_length=1)
     description: str = ""
+    # Provenance (Task 27 Phase H). Defaults to ``verified`` so every
+    # first-party variant shipped in this repo is curated-by-default and
+    # existing/hand-authored descriptors stay valid without the field. A
+    # Hugging Face / user import sets ``community``.
+    trust: Literal["verified", "community"] = "verified"
+    # Optional human-facing origin (e.g. the HF repo a community variant was
+    # imported from). Never a model-internal artifact path — that lives on the
+    # checkpoint and is never exposed on the public API (ADR-0004 §6).
+    source_url: Optional[str] = None
     labels: dict[str, str] = Field(default_factory=dict)
 
     @field_validator("id", "runtime_id")

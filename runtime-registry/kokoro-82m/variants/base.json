@@ -1,0 +1,22 @@
+{
+  "api_version": "peakvox.io/v1",
+  "kind": "RuntimeVariant",
+  "metadata": {
+    "id": "base",
+    "name": "Kokoro Base",
+    "runtime_id": "kokoro-82m",
+    "description": "The default Kokoro 82M checkpoint bundled with the runtime image. The reference-shape runtime used to validate the RuntimeVariant contract end-to-end first (cheapest to port).",
+    "trust": "verified",
+    "labels": {"model_family": "kokoro-82m"}
+  },
+  "spec": {
+    "model_binding": {"model_id": "kokoro-base", "is_default": true, "priority": 100},
+    "checkpoint": {
+      "source_type": "bundled",
+      "source_ref": "hexgrad/Kokoro-82M",
+      "format": "safetensors"
+    },
+    "is_default": true,
+    "capabilities": ["tts"]
+  }
+}

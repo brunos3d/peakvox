@@ -403,6 +403,69 @@ async def install_runtime(runtime_id: str) -> dict[str, Any]:
     }
 
 
+@router.post("/{runtime_id}/variants/validate-import")
+async def validate_variant_import_endpoint(
+    runtime_id: str, body: dict[str, Any]
+) -> dict[str, Any]:
+    """Validate a community checkpoint against a runtime (ADR-0018 Phase 6; Task 27 D).
+
+    Validate-only: parses the Hugging Face reference and runs the
+    declared-and-checked compatibility gates. It performs **no download and no
+    registration** — it is the safe first step of the
+    ``Add Variant → paste URL → VALIDATE → download → register`` flow. The body
+    is ``{"url": "<hf url or owner/name>", ...optional declared metadata}``.
+    """
+    from app.services.runtime_variant_import import (
+        VariantImportCandidate,
+        parse_hf_reference,
+        validate_variant_import,
+    )
+
+    manager = _get_manager()
+    runtime = manager.registry.get(runtime_id)
+    if runtime is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"message": f"runtime {runtime_id!r} not found", "category": "runtime_not_found"},
+        )
+
+    raw_url = str(body.get("url", "")).strip()
+    repo_id = parse_hf_reference(raw_url)
+    if repo_id is None:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": (
+                    "could not parse a Hugging Face reference from the input; "
+                    "expected a huggingface.co URL or an 'owner/name' repo id"
+                ),
+                "category": "invalid_source_url",
+            },
+        )
+
+    declared_caps = body.get("declared_capabilities") or []
+    candidate = VariantImportCandidate(
+        source_ref=repo_id,
+        source_type="hf",
+        declared_provider=body.get("declared_provider"),
+        declared_model_family=body.get("declared_model_family"),
+        declared_capabilities=list(declared_caps),
+        declared_format=str(body.get("declared_format", "safetensors")),
+        requested_variant_id=body.get("variant_id"),
+    )
+    result = validate_variant_import(runtime, candidate)
+    return {
+        "runtime_id": result.runtime_id,
+        "repo_id": repo_id,
+        "source_url": raw_url if "huggingface.co" in raw_url else f"https://huggingface.co/{repo_id}",
+        "compatible": result.compatible,
+        "proposed_variant_id": result.proposed_variant_id,
+        "trust": result.trust,
+        "reasons": result.reasons,
+        "warnings": result.warnings,
+    }
+
+
 @router.post("/{runtime_id}/start")
 async def start_runtime(runtime_id: str) -> dict[str, Any]:
     """Activate a runtime (Task 6). Delegates to RuntimeManager.start."""
@@ -537,6 +600,36 @@ async def cancel_runtime_operation(runtime_id: str, operation_id: str) -> dict[s
 # ---------------------------------------------------------------------------
 
 
+def _variants_payload(manager: Any, runtime_id: str) -> list[dict[str, Any]]:
+    """Public-safe RuntimeVariant view for the composed Models page (ADR-0018).
+
+    Exposes provenance (id, name, trust, source_type, source_url), the bound
+    catalog model id, the default flag, and declared capabilities. It NEVER
+    exposes checkpoint internals — ``source_ref`` (the weights path/repo
+    artifact), ``format``, or ``digest`` — per ADR-0004 §6 (no model internals
+    on the public surface). A runtime with no ``variants/`` folder returns an
+    empty list (the implicit-base case is presented by the runtime card itself).
+    """
+    out: list[dict[str, Any]] = []
+    for v in manager.registry.list_variants_for_runtime(runtime_id):
+        out.append(
+            {
+                "id": v.metadata.id,
+                "name": v.metadata.name,
+                "description": v.metadata.description,
+                "trust": v.metadata.trust,
+                "source_url": v.metadata.source_url,
+                "source_type": v.spec.checkpoint.source_type,
+                "model_id": v.spec.model_binding.model_id,
+                "is_default": v.spec.is_default,
+                "capabilities": list(v.spec.capabilities),
+            }
+        )
+    # Default variant first, then by id for a stable order.
+    out.sort(key=lambda d: (not d["is_default"], d["id"]))
+    return out
+
+
 @composed_router.get("/with-runtimes")
 async def list_models_with_runtimes() -> dict[str, Any]:
     """List catalog models, each joined with its runtimes + state.
@@ -594,6 +687,9 @@ async def list_models_with_runtimes() -> dict[str, Any]:
                         "runtime_id": desc.metadata.id,
                         "descriptor": desc.model_dump(),
                         "state": _state_to_payload(desc.metadata.id, instance),
+                        # ADR-0018 Phase 3 (additive): the RuntimeVariants this
+                        # runtime offers, public-safe (no checkpoint internals).
+                        "variants": _variants_payload(manager, desc.metadata.id),
                     }
                 )
             if runtimes:
@@ -656,6 +752,13 @@ async def update_runtime_no_prefix(runtime_id: str) -> dict[str, Any]:
 @no_prefix_router.post("/runtimes/{runtime_id}/remove")
 async def remove_runtime_no_prefix(runtime_id: str) -> dict[str, Any]:
     return await remove_runtime(runtime_id)
+
+
+@no_prefix_router.post("/runtimes/{runtime_id}/variants/validate-import")
+async def validate_variant_import_no_prefix(
+    runtime_id: str, body: dict[str, Any]
+) -> dict[str, Any]:
+    return await validate_variant_import_endpoint(runtime_id, body)
 
 
 @no_prefix_router.get("/runtimes")

@@ -105,6 +105,26 @@ def tmp_registry_dir(tmp_path: Path) -> Path:
         },
     }
     (d / "descriptor.json").write_text(json.dumps(descriptor))
+    # ADR-0018: ship an explicit base RuntimeVariant so the composed view
+    # exercises the `variants` array (Task 27 Phase 3).
+    variants_dir = d / "variants"
+    variants_dir.mkdir()
+    (variants_dir / "base.json").write_text(json.dumps({
+        "api_version": "peakvox.io/v1",
+        "kind": "RuntimeVariant",
+        "metadata": {
+            "id": "base",
+            "name": "Kokoro Base",
+            "runtime_id": "kokoro-82m",
+            "trust": "verified",
+        },
+        "spec": {
+            "model_binding": {"model_id": "kokoro-base", "is_default": True},
+            "checkpoint": {"source_type": "bundled", "source_ref": "hexgrad/Kokoro-82M"},
+            "is_default": True,
+            "capabilities": ["tts"],
+        },
+    }))
     return tmp_path
 
 
@@ -309,3 +329,93 @@ def test_with_runtimes_no_prefix_alias_no_manager(client_no_manager) -> None:
     assert len(body["models"]) == 5
     for m in body["models"]:
         assert m["runtimes"] == []
+
+
+# ---------------------------------------------------------------------------
+# Task 27 — RuntimeVariants in the composed view + community import validation
+# ---------------------------------------------------------------------------
+
+
+def _kokoro_card(body: dict) -> dict:
+    for m in body["models"]:
+        for rt in m["runtimes"]:
+            if rt["runtime_id"] == "kokoro-82m":
+                return rt
+    raise AssertionError("kokoro-82m runtime not found in composed view")
+
+
+def test_composed_view_includes_runtime_variants(client_with_manager_attached) -> None:
+    c, _ = client_with_manager_attached
+    rt = _kokoro_card(c.get("/api/models/with-runtimes").json())
+    assert "variants" in rt
+    base = next(v for v in rt["variants"] if v["id"] == "base")
+    assert base["trust"] == "verified"
+    assert base["is_default"] is True
+    assert base["model_id"] == "kokoro-base"
+    assert base["capabilities"] == ["tts"]
+    assert base["source_type"] == "bundled"
+
+
+def test_composed_view_variants_never_leak_checkpoint_internals(
+    client_with_manager_attached,
+) -> None:
+    """ADR-0004 §6: no model internals (source_ref/format/digest) on the public surface."""
+    c, _ = client_with_manager_attached
+    rt = _kokoro_card(c.get("/api/models/with-runtimes").json())
+    base = next(v for v in rt["variants"] if v["id"] == "base")
+    for forbidden in ("source_ref", "format", "digest"):
+        assert forbidden not in base
+
+
+def test_validate_import_accepts_compatible_checkpoint(client_with_manager_attached) -> None:
+    c, _ = client_with_manager_attached
+    r = c.post(
+        "/api/runtimes/kokoro-82m/variants/validate-import",
+        json={
+            "url": "https://huggingface.co/someone/kokoro-extra",
+            "declared_provider": "kokoro",
+            "declared_capabilities": ["tts"],
+        },
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["compatible"] is True
+    assert body["trust"] == "community"
+    assert body["repo_id"] == "someone/kokoro-extra"
+    assert body["proposed_variant_id"] == "kokoro-extra"
+
+
+def test_validate_import_rejects_capability_exceeding_runtime(
+    client_with_manager_attached,
+) -> None:
+    c, _ = client_with_manager_attached
+    r = c.post(
+        "/api/runtimes/kokoro-82m/variants/validate-import",
+        json={
+            "url": "someone/kokoro-singer",
+            "declared_provider": "kokoro",
+            "declared_capabilities": ["tts", "singing"],
+        },
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["compatible"] is False
+    assert any("singing" in reason for reason in body["reasons"])
+
+
+def test_validate_import_rejects_unparseable_url(client_with_manager_attached) -> None:
+    c, _ = client_with_manager_attached
+    r = c.post(
+        "/api/runtimes/kokoro-82m/variants/validate-import",
+        json={"url": "not a real url"},
+    )
+    assert r.status_code == 422
+
+
+def test_validate_import_unknown_runtime_404(client_with_manager_attached) -> None:
+    c, _ = client_with_manager_attached
+    r = c.post(
+        "/api/runtimes/does-not-exist/variants/validate-import",
+        json={"url": "someone/whatever"},
+    )
+    assert r.status_code == 404

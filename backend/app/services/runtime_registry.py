@@ -121,6 +121,36 @@ class RuntimeRegistry:
         """Look up one RuntimeVariant by (runtime_id, variant_id) (ADR-0018)."""
         return self._variants_by_runtime.get(runtime_id, {}).get(variant_id)
 
+    def select_variant(
+        self, runtime_id: str, model_id: str
+    ) -> Optional[RuntimeVariantDescriptor]:
+        """Pick the RuntimeVariant a resolution should use (ADR-0018, Phase 1).
+
+        Selection order, mirroring ``RuntimeManager.resolve`` for runtimes:
+          1. The variant whose ``model_binding.model_id`` matches ``model_id``
+             (an explicit, model-specific checkpoint — e.g. ``f5-tts-pt-br``).
+          2. The runtime's default variant (``is_default = true``).
+          3. ``None`` — the runtime has **no explicit variants**, i.e. it is a
+             single-``base`` runtime. The caller treats ``None`` as the
+             *implicit base*: the runtime's own image/checkpoint, no variant
+             selection needed. This keeps every existing ``*-base`` runtime
+             behaving byte-identically to before Phase 1.
+
+        Returns a descriptor only when there is a *real* explicit variant to
+        select; it never synthesizes one. Additive: callers that ignore the
+        return value are unaffected.
+        """
+        bucket = self._variants_by_runtime.get(runtime_id)
+        if not bucket:
+            return None
+        for variant in bucket.values():
+            if variant.spec.model_binding.model_id == model_id:
+                return variant
+        for variant in bucket.values():
+            if variant.spec.is_default or variant.metadata.id == "base":
+                return variant
+        return None
+
     def __len__(self) -> int:
         return len(self._by_id)
 

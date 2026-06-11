@@ -1,0 +1,22 @@
+{
+  "api_version": "peakvox.io/v1",
+  "kind": "RuntimeVariant",
+  "metadata": {
+    "id": "base",
+    "name": "F5-TTS Base",
+    "runtime_id": "f5-tts-base",
+    "description": "The default F5-TTS 1.0.3 checkpoint bundled with the runtime image. Community language/style checkpoints (e.g. a PT-BR variant) attach to this same runtime as additional RuntimeVariants — no new image.",
+    "trust": "verified",
+    "labels": {"model_family": "f5-tts"}
+  },
+  "spec": {
+    "model_binding": {"model_id": "f5-tts-base", "is_default": true, "priority": 100},
+    "checkpoint": {
+      "source_type": "bundled",
+      "source_ref": "SWivid/F5-TTS",
+      "format": "safetensors"
+    },
+    "is_default": true,
+    "capabilities": ["tts", "voice_cloning", "multilingual", "reference_audio"]
+  }
+}
