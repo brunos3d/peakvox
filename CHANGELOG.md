@@ -1,10 +1,33 @@
 # Changelog
 
-All notable changes to **PeakVox (formerly OmniVoice App)** are documented in this file.
+All notable changes to **PeakVox** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Changed
+
+- **Public documentation, positioning & community governance overhaul** (Task 28):
+  - Repositioned all public-facing docs from "OmniVoice App" (a single-model frontend) to
+    **PeakVox**, a **Universal Voice Runtime** — voice-first, model-agnostic, Community-Edition
+    first. OmniVoice is now documented as the first *provider*, alongside F5-TTS and Kokoro.
+  - **`README.md`** rewritten as the canonical entry point: what PeakVox is and why, the
+    Voice/Variant/Model separation, Runtime Registry and Runtime Variants, the architecture
+    diagram, Community-Edition-first positioning, factual Cloud vision, and a FAQ. Fixed broken
+    links that pointed at removed `docs/ARCHITECTURE.md` / `ROADMAP.md` / `FAQ.md` /
+    `COMMERCIAL_MODEL.md` (now under `docs/.agents/`).
+  - **`CONTRIBUTING.md`** rewritten: ADR-driven decision process, how the Runtime Registry and
+    Runtime Variants evolve, how to propose a new runtime / model family, and model-agnostic
+    coding standards.
+  - **`SECURITY.md`** updated for the runtime threat surface: Docker-socket exposure, runtime/
+    weight downloads (Hugging Face), and community runtime-variant imports + trust tiers.
+  - **`VOICE_USAGE_POLICY.md`**, **`CODE_OF_CONDUCT.md`**, **`LICENSE`**, **`NOTICE`** rebranded
+    to PeakVox; legal meaning preserved, upstream-runtime carve-out generalized beyond OmniVoice.
+  - Added **`PHILOSOPHY.md`** (open-source philosophy), **`GOVERNANCE.md`** (ADR-driven, build-in
+    -public governance), and **`COMMUNITY_VALUES.md`** (community values + exploration-only
+    contributor-recognition section, no financial promises).
+  - Fixed a dead `docs/superpowers/specs/` reference (specs now live under `docs/.agents/SPECS/`).
 
 ### Added
 
@@ -23,12 +46,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - **API platform** — hashed API keys (`ov_live_…`, sha256, shown once), versioned public REST API `/api/v1` (list/get/create/delete voices + text-to-speech with stream or download-URL), in-app API dashboard (Overview / API Keys / Voice API / Usage), and Use-in-API code examples (cURL/JS/Python).
   - **TTS auto-configuration** — selecting a voice applies its language, preset, and voice design, consistent with the API.
   - **SaaS architecture preparation** — identity and rate-limit seams, `EDITION` flag; no authentication/billing implemented.
-  - **Docs**: `API`, `VOICE_MODEL`, `DATA_MODEL`, `LANGUAGES`, `SAAS_ARCHITECTURE`, `DEVELOPER`, and design specs under `docs/superpowers/specs/`.
-- Project governance and documentation suite: `README`, `LICENSE` (PeakVox (formerly OmniVoice App) Community License, based on Elastic License 2.0), `NOTICE`, `CONTRIBUTING`, `CODE_OF_CONDUCT`, `SECURITY`, `VOICE_USAGE_POLICY`, and `docs/` (`ARCHITECTURE`, `ROADMAP`, `FAQ`, `COMMERCIAL_MODEL`).
+  - **Docs**: `API`, `VOICE_MODEL`, `DATA_MODEL`, `LANGUAGES`, `SAAS_ARCHITECTURE`, `DEVELOPER`, and design specs (now under `docs/.agents/SPECS/`).
+- Project governance and documentation suite: `README`, `LICENSE` (PeakVox Community License, based on Elastic License 2.0), `NOTICE`, `CONTRIBUTING`, `CODE_OF_CONDUCT`, `SECURITY`, `VOICE_USAGE_POLICY`, and `docs/` (`ARCHITECTURE`, `ROADMAP`, `FAQ`, `COMMERCIAL_MODEL`).
 
 ## [0.1.0] - 2026-06-02
 
-Initial public preview of PeakVox (formerly OmniVoice App) — a self-hosted Voice Cloning, Text-to-Speech, and Voice Design platform built on [OmniVoice](https://github.com/k2-fsa/OmniVoice).
+Initial public preview of PeakVox — a self-hosted Voice Cloning, Text-to-Speech, and Voice Design platform built on [OmniVoice](https://github.com/k2-fsa/OmniVoice).
 
 ### Added
 
@@ -48,7 +71,7 @@ Initial public preview of PeakVox (formerly OmniVoice App) — a self-hosted Voi
 
 ### Notes
 
-- Persistence defaults to **SQLite**; the data layer is **PostgreSQL-ready** for future multi-user deployments (see [ROADMAP](docs/ROADMAP.md)).
+- Persistence defaults to **SQLite**; the data layer is **PostgreSQL-ready** for future multi-user deployments (see [ROADMAP](docs/.agents/ROADMAP/ROADMAP.md)).
 - The Community Edition ships without built-in user authentication — see [SECURITY.md](SECURITY.md) before any internet-facing deployment.
 
 [Unreleased]: https://github.com/brunos3d/omnivoice-app/compare/v0.1.0...HEAD

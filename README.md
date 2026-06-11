@@ -1,100 +1,234 @@
 <div align="center">
 
-# PeakVox (formerly OmniVoice App)
+# PeakVox
 
-**Self-hosted Voice Cloning, Text-to-Speech, and Voice Design — powered by [OmniVoice](https://github.com/k2-fsa/OmniVoice).**
+**A Universal Voice Runtime — self-hosted, voice-first, model-agnostic.**
 
-A premium, open, self-hostable platform for high-quality multilingual speech synthesis. Clone any voice from a short sample, design entirely new voices from attributes, and generate natural speech in 600+ languages — all running on your own infrastructure.
+Own your voices as portable assets. Run any speech model behind one stable runtime and one
+stable API. Add, swap, or remove models without breaking a single integration.
 
 <!-- PROJECT BANNER -->
 <!-- Place the project banner image at docs/assets/banner.png and it will render here. -->
-<img src="./docs/assets/banner.png" alt="PeakVox (formerly OmniVoice App)" width="100%" />
+<img src="./docs/assets/banner.png" alt="PeakVox — Universal Voice Runtime" width="100%" />
 
 [![License: Community](<https://img.shields.io/badge/license-Community%20(ELv2)-blue.svg>)](LICENSE)
-[![Built on OmniVoice](<https://img.shields.io/badge/engine-OmniVoice%20(Apache--2.0)-orange.svg>)](https://github.com/k2-fsa/OmniVoice)
+[![Edition: Community](https://img.shields.io/badge/edition-Community-success.svg)](#editions-community-now-cloud-later)
+[![Runtime: model-agnostic](https://img.shields.io/badge/runtime-model--agnostic-7c3aed.svg)](docs/.agents/ARCHITECTURE/runtime-architecture.md)
 [![Next.js 15](https://img.shields.io/badge/frontend-Next.js%2015-black.svg)](https://nextjs.org)
 [![FastAPI](https://img.shields.io/badge/backend-FastAPI-009688.svg)](https://fastapi.tiangolo.com)
 [![Docker](https://img.shields.io/badge/deploy-Docker%20Compose-2496ED.svg)](docker-compose.yml)
 
-[Quick Start](#quick-start) · [Features](#key-features) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) · [FAQ](docs/FAQ.md) · [Contributing](CONTRIBUTING.md)
+[What it is](#what-peakvox-is) · [Why](#why-peakvox-exists) · [Architecture](#architecture) ·
+[Quick Start](#quick-start) · [Editions](#editions-community-now-cloud-later) ·
+[Philosophy](PHILOSOPHY.md) · [Contributing](CONTRIBUTING.md) · [Governance](GOVERNANCE.md)
 
 </div>
 
 ---
 
-## Overview
+## What PeakVox is
 
-PeakVox (formerly OmniVoice App) turns the [OmniVoice](https://github.com/k2-fsa/OmniVoice) model into a complete, product-grade application: a polished multi-page web interface, a robust async generation API, voice profile management, generation presets, and object storage — packaged for single-command Docker deployment.
+**PeakVox is a Universal Voice Runtime** — model-agnostic infrastructure for speech
+generation. The product is **not** any single model. The product is the **runtime layer** that
+joins a portable, model-independent **Voice** with an interchangeable **Model** to produce a
+model-specific **VoiceVariant**, and then generates speech:
 
-It is designed as **open core**: a free, source-available **Community Edition** you can self-host today, evolving toward optional **Cloud** and **Enterprise** editions. See [docs/COMMERCIAL_MODEL.md](docs/COMMERCIAL_MODEL.md) for the full strategy.
-
-> **Responsible use:** PeakVox (formerly OmniVoice App) can synthesize and clone human voices. All use is governed by the [Voice Usage Policy](VOICE_USAGE_POLICY.md). Cloning a real person's voice without their informed consent is prohibited.
-
----
-
-## Key Features
-
-- 🎙️ **Voice Cloning** — Clone any voice from a short reference recording (upload or record in-browser).
-- 🗣️ **Text-to-Speech** — Generate natural speech from text with fine-grained generation controls.
-- 🎛️ **Voice Design** — Build entirely new voices from a controlled vocabulary of attributes (gender, age, pitch, accent, style).
-- 📚 **Voice Profiles** — Save, edit, search, and reuse voices in a personal voice library.
-- ⚙️ **Generation Presets** — Persist generation settings and output formats across sessions.
-- ⚡ **GPU Acceleration** — CUDA-accelerated inference with automatic CPU fallback.
-- 🌍 **600+ Languages** — Auto-detection or manual language selection.
-- 🐳 **Docker Deployment** — Full stack up with a single `docker compose up --build`.
-- 🏠 **Self-Hosted** — Your text, audio, and voice data stay on your infrastructure.
-- 🔓 **Source-Available** — Read, modify, and self-host under the [Community License](LICENSE).
-
----
-
-## Screenshot
-
-<img width="1749" height="993" alt="image" src="https://github.com/user-attachments/assets/bbed84c7-c33d-4148-a510-dea942862aa4" />
-
-<img width="1749" height="993" alt="image" src="https://github.com/user-attachments/assets/468d8370-9780-4c81-ab9f-12faea146997" />
-
-<img width="1749" height="993" alt="image" src="https://github.com/user-attachments/assets/157a470d-379c-40df-a03b-36b0f6b3f7e8" />
-
-## Architecture Overview
-
-PeakVox (formerly OmniVoice App) is two services — a **Next.js 15 frontend** and a **FastAPI backend** — plus **MinIO** object storage, all orchestrated by Docker Compose. Generation is fire-and-forget: the API returns a job ID immediately and the frontend polls until completion.
-
-```mermaid
-flowchart LR
-    User([Browser]) -->|HTTP / JSON| FE[Next.js 15 Frontend]
-    FE -->|REST| BE[FastAPI Backend]
-    BE -->|inference| OV[OmniVoice Engine - GPU / CPU]
-    BE -->|metadata| DB[(SQLite - Postgres-ready)]
-    BE -->|audio objects| S3[(MinIO - Object Storage)]
+```
+Voice  +  Model  ──▶  VoiceVariant  ──▶  generated speech
 ```
 
-For the full design — generation pipeline, cloning pipeline, storage flows, and scalability plan — see **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
+The thesis is one sentence: **a voice should not belong to a model.** A voice belongs to
+PeakVox. The same `public_voice_id` survives across every model provider, edition change, and
+rebuild — forever. You integrate once; the model underneath becomes a detail you can change at
+will.
+
+PeakVox is to voice what a few familiar tools are to text and audio, combined and focused
+exclusively on speech:
+
+- **OpenRouter** — model-agnostic routing through one API.
+- **Ollama / LM Studio** — effortless local, self-hosted runtime + model lifecycle.
+- **Hugging Face** — a registry of installable runtimes and assets.
+- **ElevenLabs** — voice products and (eventually) a creator economy.
+
+OmniVoice ([k2-fsa/OmniVoice](https://github.com/k2-fsa/OmniVoice)) is simply the **first
+provider** the runtime supports. F5-TTS and Kokoro ship today as additional runtimes; Fish
+Audio, XTTS, OpenVoice, and future models integrate behind the same contract — **without any
+architectural change**.
+
+> **Heads up on the name:** PeakVox began as a single-model app called "OmniVoice App". It is
+> no longer that. OmniVoice is now one *provider* among several; PeakVox is the runtime above
+> all of them. You do not need the historical context to understand the project — this README
+> is the canonical, current entry point.
 
 ---
 
-## Technology Stack
+## Why PeakVox exists
 
-**Frontend**
+Voice models come and go. They differ in quality, latency, cost, language coverage, licensing,
+and capabilities (cloning, voice design, singing, streaming). If your voices, your library,
+your API, and your integrations are wired to one model, every model change is a migration.
 
-- [Next.js 15](https://nextjs.org) (App Router) + [React 19](https://react.dev)
-- [TypeScript](https://www.typescriptlang.org)
-- [Tailwind CSS](https://tailwindcss.com)
-- [shadcn/ui](https://ui.shadcn.com) (Radix UI primitives)
-- [TanStack Query](https://tanstack.com/query) + [Zustand](https://zustand-demo.pmnd.rs) (data & state)
-- [wavesurfer.js](https://wavesurfer.xyz) (waveform rendering)
+PeakVox removes that coupling structurally:
 
-**Backend**
+| The platform owns | Models only |
+|---|---|
+| Voices (portable, ownable assets) | Consume voices to synthesize speech |
+| Variants, metadata, characteristics | Declare their capabilities |
+| Workflows, the public API, runtime orchestration | Run as interchangeable execution engines |
 
-- [FastAPI](https://fastapi.tiangolo.com) + [Uvicorn](https://www.uvicorn.org)
-- [Python 3.11+](https://www.python.org)
-- [OmniVoice](https://github.com/k2-fsa/OmniVoice) (TTS / cloning / design engine)
-- [SQLAlchemy 2](https://www.sqlalchemy.org) + [Pydantic 2](https://docs.pydantic.dev)
+- **Voices are durable assets.** Persistent, ownable, model-independent.
+- **Models are replaceable execution engines.** Add one, swap one, remove one — freely.
+- **Providers are implementation details.** They never leak into the public API or the UI.
 
-**Infrastructure**
+**Voices do not belong to models.** This single distinction governs the entire architecture.
 
-- [PostgreSQL](https://www.postgresql.org)-ready persistence (SQLite is the Community Edition default)
-- [MinIO](https://min.io) (S3-compatible object storage)
-- [Docker](https://www.docker.com) + Docker Compose
+---
+
+## Key capabilities (Community Edition, today)
+
+- 🎙️ **Voice Cloning** — create a voice from a short reference recording (upload or record
+  in-browser), as a portable Voice with a permanent `public_voice_id`.
+- 🎛️ **Voice Design** — build new voices from a controlled vocabulary of attributes (gender,
+  age, pitch, accent, style), where the selected model declares the capability.
+- 🗣️ **Text-to-Speech** — `voice + model + text`. Switch the model; the voice and the
+  integration shape stay identical.
+- 📚 **Voice Library** — search, filter, favorite, and reuse voices addressed by
+  `public_voice_id`. My / Community / Preset / Recently-Used.
+- 🧩 **Runtime Registry** — install, activate, and run multiple speech runtimes locally
+  (OmniVoice, F5-TTS, Kokoro today). Each runtime is a self-contained, versioned service.
+- 🧬 **Runtime Variants** — share one runtime image across many model variations
+  (e.g. base vs. fine-tuned checkpoints) instead of rebuilding a multi-GB image per variant.
+- 🔌 **Capability-driven UI & API** — model-specific controls (singing, emotion, design,
+  streaming) appear **only** when the active model declares them. No per-model hard-coding.
+- ⚡ **GPU or CPU** — CUDA-accelerated where available, CPU-capable runtimes (e.g. Kokoro) for
+  hardware-light setups.
+- 🐳 **One-command self-hosting** — full stack via Docker Compose. Your text, audio, and voice
+  data stay on your infrastructure.
+- 🔓 **Source-available** — read, modify, and self-host under the [Community License](LICENSE).
+
+---
+
+## Core concepts
+
+A newcomer only needs five terms. Full definitions in the
+[Glossary](docs/.agents/CONTEXT/GLOSSARY.md) and [Domain Model](docs/.agents/DOMAIN_MODEL.md).
+
+| Concept | What it is |
+|---|---|
+| **Voice** | A portable, model-agnostic identity. Addressed by a permanent `public_voice_id`. The thing you own. |
+| **Model / Provider** | An interchangeable inference engine (OmniVoice, F5-TTS, Kokoro, …). Declares its capabilities. |
+| **VoiceVariant** | The model-specific realization of a Voice (the artifacts one model needs). **Internal — never on the public API.** |
+| **Runtime** | The single entry point that resolves `Voice + Model → VoiceVariant → inference`. All generation routes through it. |
+| **Runtime Registry / Runtime Variant** | The registry installs **runtimes** (a runtime = environment + service contract). A **Runtime Variant** reuses one runtime image for many model variations (different weights/config), so a fine-tune doesn't mean a new multi-GB build. |
+
+The load-bearing rule: **`public_voice_id` is a permanent public contract.** It is immutable
+and survives across providers, editions, and rebuilds. A VoiceVariant — embeddings,
+checkpoints, model-specific artifacts — is never exposed publicly. The public surface speaks
+only **Voice + Model**.
+
+---
+
+## Architecture
+
+PeakVox runs as a **Next.js 15 frontend** and a **FastAPI backend**, plus **MinIO** object
+storage, orchestrated by Docker Compose. The backend never imports a model implementation
+directly — every model integrates through the `ModelAdapter` contract, and all generation
+routes through the single `PeakVoxRuntime` entry point.
+
+```mermaid
+flowchart TB
+    User([Browser / API client]) -->|voice + model + text| FE[Next.js 15 Frontend]
+    FE -->|REST /api/v1| BE[FastAPI Backend]
+
+    subgraph Runtime["PeakVox Runtime  (single, model-agnostic entry point)"]
+        direction TB
+        RES[Resolve: Voice + Model → VoiceVariant]
+        REG[[Runtime Registry<br/>installable runtimes + variants]]
+        RES --> REG
+    end
+
+    BE --> RES
+    REG -->|ModelAdapter contract| OV[OmniVoice runtime]
+    REG -->|ModelAdapter contract| F5[F5-TTS runtime]
+    REG -->|ModelAdapter contract| KO[Kokoro runtime]
+    REG -.->|same contract, no arch change| FU[Fish Audio · XTTS · OpenVoice · future]
+
+    BE -->|voice & variant metadata| DB[(SQLite — Postgres-ready)]
+    BE -->|audio + reference objects| S3[(MinIO — object storage)]
+```
+
+Two things the diagram makes load-bearing:
+
+1. **Nothing above the adapter line knows which model it is talking to.** Adding a provider is
+   wiring a new adapter + runtime descriptor — never an API, schema, or UI change.
+2. **Capabilities are declared, not inferred.** The UI and API read each model's
+   `ModelCapabilities`; they never branch on a model id or name.
+
+**Deep dives (authoritative):**
+[Architecture overview](docs/.agents/ARCHITECTURE/overview.md) ·
+[Runtime architecture](docs/.agents/ARCHITECTURE/runtime-architecture.md) ·
+[Voice domain model](docs/.agents/ARCHITECTURE/VOICE_DOMAIN_MODEL.md) ·
+[Vision (north star)](docs/.agents/CONTEXT/VISION.md) ·
+[Constitution (invariants)](docs/.agents/CONSTITUTION.md) ·
+[ADR index](docs/.agents/DECISIONS/ADR_INDEX.md) ·
+[Roadmap](docs/.agents/ROADMAP/ROADMAP.md)
+
+---
+
+## Editions: Community now, Cloud later
+
+PeakVox is **open core**. Community Edition and Cloud Edition share **one** architectural
+foundation — commercial concepts are schema-ready in CE behind feature flags, never a forked
+schema. Enabling them in Cloud is wiring, not a redesign.
+
+| | **Community Edition (CE)** — the focus today | **PeakVox Cloud** — the vision |
+|---|---|---|
+| Role | Infrastructure layer | Ecosystem layer |
+| Hosting | Self-hosted (Docker Compose) | Managed, multi-tenant |
+| Generation, runtimes, voice library, public API | ✅ | ✅ |
+| Model / runtime management | ✅ install · activate · run locally | ✅ |
+| Auth | None (local owner) | Accounts + roles (swappable provider) |
+| Marketplace · creators · royalties · credits · billing | **Schema-ready, disabled** | Enabled |
+
+### Community Edition — the primary target
+
+**Today, PeakVox is Community Edition first.** CE is the entire focus of active development and
+is genuinely useful on its own:
+
+- Self-hosted deployment you fully control.
+- Open-source collaboration and transparent, ADR-driven evolution.
+- Developer accessibility — one integration, many models.
+- Model experimentation and **runtime extensibility** via the Runtime Registry.
+
+CE is not a teaser for a paid product. It is the product, today.
+
+### Cloud Edition — vision, not a promise
+
+PeakVox is **designed** so that a future Cloud Edition shares CE's foundation rather than
+forking it. This section is **direction, not commitment** — there are no dates, no guarantees,
+and no purchasing here.
+
+Potential future cloud offerings *may* explore: hosted runtimes, managed infrastructure,
+simplified deployment, managed voice libraries, and hosted APIs — built so the ecosystem stays
+unified rather than fragmented. The open-core boundary (marketplace, creators, royalties,
+credits, payouts, multi-tenant auth as Cloud-only) exists in the architecture from day one,
+disabled in CE. See [Product Architecture](docs/.agents/ARCHITECTURE/product-architecture.md)
+and [Cloud Architecture](docs/.agents/ARCHITECTURE/cloud-architecture.md).
+
+---
+
+## Open-source philosophy
+
+Open models matter. Open ecosystems matter. Voice technology should remain accessible, and
+voice infrastructure should not be locked behind proprietary systems. PeakVox aims to stay
+extensible, transparent, and built in public. The full statement is in
+**[PHILOSOPHY.md](PHILOSOPHY.md)**; how decisions are made is in
+**[GOVERNANCE.md](GOVERNANCE.md)**; the community we want to be is in
+**[COMMUNITY_VALUES.md](COMMUNITY_VALUES.md)**.
+
+> **Responsible use:** PeakVox can synthesize and clone human voices. All use is governed by
+> the [Voice Usage Policy](VOICE_USAGE_POLICY.md). Cloning a real person's voice without their
+> informed, documented consent is prohibited.
 
 ---
 
@@ -102,14 +236,16 @@ For the full design — generation pipeline, cloning pipeline, storage flows, an
 
 ### Prerequisites
 
-- Docker & Docker Compose v2
-- (Recommended) NVIDIA GPU with CUDA drivers — falls back to CPU if unavailable
-- ~3 GB free disk for the OmniVoice model download on first run
+- Docker & Docker Compose v2.
+- (Recommended) NVIDIA GPU with CUDA drivers for the heavier runtimes — CPU-capable runtimes
+  (e.g. Kokoro) run without one.
+- Disk for the runtime image(s) you install on first run (runtimes range from ~hundreds of MB
+  to several GB depending on the model).
 
 ### Run
 
 ```bash
-git clone git@github.com:brunos3d/omnivoice-app.git
+git clone https://github.com/brunos3d/omnivoice-app.git
 cd omnivoice-app
 
 cp .env.example .env
@@ -117,144 +253,140 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The first startup downloads the OmniVoice model (~2.5 GB) automatically. When the backend health check passes, open:
+> The repository slug (`omnivoice-app`) predates the rename to PeakVox; the clone command above
+> is current and correct.
+
+When the backend health check passes, open:
 
 - **App:** http://localhost:3000
 - **API docs:** http://localhost:8000/docs
-- **MinIO console:** http://localhost:9001 (default `minioadmin` / `minioadmin`)
+- **MinIO console:** http://localhost:9001 (default `minioadmin` / `minioadmin` — change before
+  any non-local use; see [SECURITY.md](SECURITY.md))
+
+The first time you activate a runtime from the Models page, PeakVox installs it via the
+**Runtime Registry**. Runtimes are immutable, versioned services managed by the runtime driver
+— not rebuilt on every change.
+
+### Development (hot reload, no image rebuilds)
+
+```bash
+scripts/start-dev.sh        # backend + MinIO in Docker (uvicorn --reload); frontend on host (next dev)
+scripts/start-dev.sh --build  # rebuild only when backend deps/Dockerfile changed
+```
+
+Editing `backend/app/` reloads the API in seconds; editing `frontend/src/` hot-reloads the UI.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow, standards, and PR process.
+
+### Environment variables
+
+All configuration is environment-driven; [`.env.example`](.env.example) is the source of truth.
+The MinIO values below are set by `docker-compose.yml`. Common variables:
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `DATABASE_URL` | `sqlite+aiosqlite:////data/omnivoice.db` | Database connection URL (PostgreSQL-ready). |
+| `HF_HOME` | `/data/models` | Hugging Face cache directory (runtime weights/checkpoints). |
+| `LOAD_ASR` | `false` | Load Whisper ASR for reference transcription. |
+| `CORS_ORIGINS` | `["http://localhost:3000", ...]` | Allowed CORS origins. Scope these in production. |
+| `MINIO_ENDPOINT` | `minio:9000` | MinIO / S3 endpoint. |
+| `MINIO_ACCESS_KEY` | `minioadmin` | MinIO access key (**change in production**). |
+| `MINIO_SECRET_KEY` | `minioadmin` | MinIO secret key (**change in production**). |
+| `MINIO_BUCKET` | `omnivoice` | Bucket for generated/reference audio. |
+| `MINIO_SECURE` | `false` | Use TLS for MinIO connections. |
+
+> Some identifiers (the SQLite filename, the MinIO bucket, the `omnivoice_data` volume) retain
+> the original repository slug for deployment compatibility — renaming them would migrate
+> existing data. They are internal names, not the project's identity: the project is PeakVox.
 
 ---
 
-## Installation Guide
+## Technology stack
 
-### Docker deployment (recommended)
+**Frontend** — [Next.js 15](https://nextjs.org) (App Router) + [React 19](https://react.dev),
+[TypeScript](https://www.typescriptlang.org), [Tailwind CSS](https://tailwindcss.com),
+[shadcn/ui](https://ui.shadcn.com), [TanStack Query](https://tanstack.com/query) +
+[Zustand](https://zustand-demo.pmnd.rs), [wavesurfer.js](https://wavesurfer.xyz).
 
-The provided [`docker-compose.yml`](docker-compose.yml) starts three services — `backend`, `frontend`, and `minio` — with persistent named volumes for the database, model cache, and object storage.
+**Backend** — [FastAPI](https://fastapi.tiangolo.com) + [Uvicorn](https://www.uvicorn.org),
+[Python 3.11+](https://www.python.org), [SQLAlchemy 2](https://www.sqlalchemy.org) +
+[Pydantic 2](https://docs.pydantic.dev). Models integrate through the `ModelAdapter` contract;
+runtimes run as registry-managed services.
 
-```bash
-docker compose up --build   # build + start everything
-docker compose up           # start without rebuilding
-docker compose down         # stop
-docker compose logs -f backend
-```
-
-#### GPU deployment
-
-The compose file requests all available NVIDIA GPUs via the `deploy.resources` reservation. Requirements:
-
-- NVIDIA driver + [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) installed on the host.
-- Verify with `docker run --rm --gpus all nvidia/cuda:12.4.0-base-ubuntu22.04 nvidia-smi`.
-
-GPU is strongly recommended — OmniVoice reaches a real-time factor as low as ~0.025 (≈40× faster than real time) on a capable GPU.
-
-#### CPU deployment
-
-No GPU? PeakVox (formerly OmniVoice App) still runs. Remove (or comment out) the `deploy.resources.reservations.devices` block in [`docker-compose.yml`](docker-compose.yml) for the `backend` service, then `docker compose up --build`. Expect substantially slower generation.
-
-### Development setup (without Docker)
-
-**Backend**
-
-```bash
-cd backend
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-mkdir -p /tmp/omnivoice-data/{voices,uploads,generated,models}
-DATA_DIR=/tmp/omnivoice-data uvicorn app.main:app --reload
-```
-
-**Frontend**
-
-```bash
-cd frontend
-npm install
-NEXT_PUBLIC_API_URL=http://localhost:8000 npm run dev
-npm run lint        # lint
-npm run build       # production build
-```
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full development workflow, coding standards, and PR process.
-
-### Environment Variables
-
-All configuration is environment-driven. See [`.env.example`](.env.example) for the complete list.
-
-| Variable           | Default                                  | Description                                  |
-| ------------------ | ---------------------------------------- | -------------------------------------------- |
-| `DATABASE_URL`     | `sqlite+aiosqlite:////data/omnivoice.db` | Database connection URL (PostgreSQL-ready)   |
-| `OMNIVOICE_MODEL`  | `k2-fsa/OmniVoice`                       | HuggingFace model repo or local path         |
-| `LOAD_ASR`         | `false`                                  | Load Whisper ASR for reference transcription |
-| `ASR_MODEL`        | `openai/whisper-large-v3-turbo`          | ASR model used when `LOAD_ASR=true`          |
-| `HF_HOME`          | `/data/models`                           | HuggingFace cache directory                  |
-| `CORS_ORIGINS`     | `["http://localhost:3000", ...]`         | Allowed CORS origins                         |
-| `MINIO_ENDPOINT`   | `minio:9000`                             | MinIO/S3 endpoint                            |
-| `MINIO_ACCESS_KEY` | `minioadmin`                             | MinIO access key (**change in production**)  |
-| `MINIO_SECRET_KEY` | `minioadmin`                             | MinIO secret key (**change in production**)  |
-| `MINIO_BUCKET`     | `omnivoice`                              | Bucket for generated/reference audio         |
-| `MINIO_SECURE`     | `false`                                  | Use TLS for MinIO connections                |
+**Infrastructure** — [PostgreSQL](https://www.postgresql.org)-ready persistence (SQLite is the
+CE default), [MinIO](https://min.io) object storage, [Docker](https://www.docker.com) Compose.
 
 ---
 
-## Usage Examples
+## How PeakVox differs
 
-### Voice Design examples
-
-Voice Design builds a voice from a controlled vocabulary of attributes — one attribute per category — instead of free-text prompts. Categories include **Gender**, **Age**, **Pitch**, **Style**, **English Accent**, and **Chinese Dialect**.
-
-| Goal                     | Attributes                                                      |
-| ------------------------ | --------------------------------------------------------------- |
-| Warm female narrator     | `female` · `young adult` · `moderate pitch` · `american accent` |
-| Authoritative announcer  | `male` · `middle-aged` · `low pitch` · `british accent`         |
-| Soft bedtime storyteller | `female` · `elderly` · `low pitch` · `whisper`                  |
-| Energetic young host     | `male` · `teenager` · `high pitch` · `australian accent`        |
-
-### Voice Clone examples
-
-1. **Record or upload** a clean 5–15 second reference clip of the target voice (with consent — see the [Voice Usage Policy](VOICE_USAGE_POLICY.md)).
-2. **Save it as a profile** in your Voice Library, optionally attaching default generation settings.
-3. **Generate** — type your script, pick the profile, and submit. The backend extracts and caches the clone prompt per profile for fast repeat generations.
-
-Tips for best clones: use clean mono audio, minimal background noise, a single speaker, and a consistent speaking style.
+- **Not a model frontend.** It is a runtime above many models. OmniVoice is the first provider,
+  not the center of gravity.
+- **Voices outlive models.** `public_voice_id` is permanent and provider-independent.
+- **One integration, forever.** Adding a model is wiring, never a breaking change to the API,
+  Voice IDs, the library, or your code.
+- **Honest about validation.** PeakVox distinguishes *architecture-validated* (the platform can
+  orchestrate it, proven by tests) from *provider-validated* (a real model generates audio
+  end-to-end). See the [retrospectives](docs/.agents/VALIDATION/RETROSPECTIVES/).
 
 ---
 
-## Project Roadmap
+## FAQ
 
-Short term: better voice management, voice sharing, advanced presets.
-Medium term: teams, workspaces, API keys, usage analytics.
-Long term: SaaS Edition, billing, enterprise features, multi-tenancy.
+**Is this just a UI for OmniVoice?** No. PeakVox is a model-agnostic runtime. OmniVoice is one
+provider; F5-TTS and Kokoro also ship today, and more integrate behind the same contract.
 
-Full details and status in **[docs/ROADMAP.md](docs/ROADMAP.md)**.
+**Do I need a GPU?** Not for every runtime. CPU-capable runtimes (e.g. Kokoro, 82M params) run
+without one; heavier runtimes are much faster on CUDA.
+
+**What's the difference between a Runtime and a Runtime Variant?** A *runtime* is the
+environment + service contract (image, deps, server). A *runtime variant* reuses one runtime
+image for several model variations (e.g. base vs. a fine-tuned checkpoint) so a new variant
+doesn't require a new multi-GB build. See
+[ADR-0018](docs/.agents/DECISIONS/adr-0018-runtime-variants-architecture.md).
+
+**Can I add my own model?** Yes — propose a runtime/provider via the
+[contribution process](CONTRIBUTING.md). New runtimes and model families go through an ADR and
+the Runtime Registry; they never require changing the public API.
+
+**Is the marketplace / billing available?** No. Those are Cloud-only and schema-ready but
+disabled in Community Edition. CE is fully functional without them.
 
 ---
 
 ## Contributing
 
-Contributions are welcome! Please read **[CONTRIBUTING.md](CONTRIBUTING.md)** for the development workflow, branch strategy, commit conventions, and PR requirements, and review our **[Code of Conduct](CODE_OF_CONDUCT.md)** before participating.
-
----
+Contributions are welcome. Read **[CONTRIBUTING.md](CONTRIBUTING.md)** for the workflow, how
+architecture decisions are made (ADRs), and how to propose new runtimes or model families.
+Review the **[Code of Conduct](CODE_OF_CONDUCT.md)** and **[Governance](GOVERNANCE.md)** before
+participating.
 
 ## Security
 
-Found a vulnerability? **Please do not open a public issue.** Follow the responsible-disclosure process in **[SECURITY.md](SECURITY.md)**.
-
----
+Found a vulnerability? **Please do not open a public issue.** Follow the responsible-disclosure
+process in **[SECURITY.md](SECURITY.md)**.
 
 ## License
 
-PeakVox (formerly OmniVoice App) is distributed under the **PeakVox (formerly OmniVoice App) Community License** (based on the [Elastic License 2.0](https://www.elastic.co/licensing/elastic-license)) — a source-available license that permits self-hosting and personal, educational, and internal-business use, while prohibiting resale and competing managed/SaaS offerings. See **[LICENSE](LICENSE)** for the full terms and **[docs/COMMERCIAL_MODEL.md](docs/COMMERCIAL_MODEL.md)** for the licensing strategy.
+PeakVox is distributed under the **PeakVox Community License** (based on the
+[Elastic License 2.0](https://www.elastic.co/licensing/elastic-license)) — a source-available
+license permitting self-hosting and personal, educational, and internal-business use, while
+prohibiting resale and competing managed/SaaS offerings. See **[LICENSE](LICENSE)** for the
+full terms.
 
-The underlying [OmniVoice](https://github.com/k2-fsa/OmniVoice) engine is licensed under the **Apache License 2.0** and is not modified or restricted by this license. See **[NOTICE](NOTICE)** for attributions.
-
----
+The bundled model runtimes are governed by **their own upstream licenses** and are not
+modified or restricted by this license — including [OmniVoice](https://github.com/k2-fsa/OmniVoice)
+(Apache-2.0). See **[NOTICE](NOTICE)** for attributions.
 
 ## Acknowledgements
 
-- **[OmniVoice](https://github.com/k2-fsa/OmniVoice) by the [k2-fsa / Next-gen Kaldi](https://github.com/k2-fsa) team** — the massively-multilingual zero-shot TTS and voice-cloning engine that makes this project possible. All voice synthesis is performed by OmniVoice; PeakVox (formerly OmniVoice App) is an independent application built on top of it and is not affiliated with or endorsed by the k2-fsa team.
-- The open-source maintainers of Next.js, React, FastAPI, MinIO, and the wider ecosystem this project builds on.
+- The open model communities whose runtimes PeakVox integrates — **[OmniVoice](https://github.com/k2-fsa/OmniVoice)**
+  by the [k2-fsa / Next-gen Kaldi](https://github.com/k2-fsa) team, **F5-TTS**, **Kokoro**, and
+  the providers integrating next. PeakVox orchestrates these engines; it is an independent
+  project and is not affiliated with or endorsed by their respective teams.
+- The maintainers of Next.js, React, FastAPI, MinIO, and the wider ecosystem PeakVox builds on.
 
 ---
 
 <div align="center">
-<sub>Copyright © 2026 Bruno Silva and the PeakVox (formerly OmniVoice App) contributors. Built on OmniVoice (Apache-2.0).</sub>
+<sub>Copyright © 2026 Bruno Silva and the PeakVox contributors. A Universal Voice Runtime.</sub>
 </div>

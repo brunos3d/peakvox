@@ -1,26 +1,42 @@
-PeakVox (formerly OmniVoice App)
-Copyright (c) 2026 Bruno Silva and the PeakVox (formerly OmniVoice App) contributors.
+PeakVox — A Universal Voice Runtime
+Copyright (c) 2026 Bruno Silva and the PeakVox contributors.
 
-This product is licensed under the PeakVox (formerly OmniVoice App) Community License (based on the
+This product is licensed under the PeakVox Community License (based on the
 Elastic License 2.0). See the LICENSE file for terms.
 
 --------------------------------------------------------------------------------
 Third-Party Components and Attributions
 --------------------------------------------------------------------------------
 
-This product includes and depends on software developed by third parties. Their
-licenses govern your use of those components and are not modified by the
-PeakVox (formerly OmniVoice App) Community License.
+PeakVox is a model-agnostic Universal Voice Runtime. It integrates and depends
+on software developed by third parties — including multiple speech model
+runtimes. Their licenses govern your use of those components and are not
+modified by the PeakVox Community License. PeakVox orchestrates these runtimes;
+it is an independent project and is not affiliated with or endorsed by their
+respective teams.
 
-1. OmniVoice (k2-fsa/OmniVoice)
-   - Source:  https://github.com/k2-fsa/OmniVoice
-   - Model:   https://huggingface.co/k2-fsa/OmniVoice
-   - License: Apache License 2.0
-   - OmniVoice is the underlying massively-multilingual zero-shot text-to-speech
-     and voice-cloning engine that powers this application. All voice
-     synthesis, voice cloning, and voice design inference is performed by
-     OmniVoice. This project is an independent application built on top of it
-     and is not affiliated with or endorsed by the k2-fsa / Next-gen Kaldi team.
+1. Model runtimes (interchangeable providers)
+
+   a. OmniVoice (k2-fsa/OmniVoice) — the first integrated provider
+      - Source:  https://github.com/k2-fsa/OmniVoice
+      - Model:   https://huggingface.co/k2-fsa/OmniVoice
+      - License: Apache License 2.0
+      - A massively-multilingual zero-shot text-to-speech and voice-cloning
+        engine. Where required by the Apache License 2.0, this NOTICE preserves
+        the relevant attribution and must be retained in redistributions.
+
+   b. F5-TTS — integrated runtime
+      - License and attribution per its upstream project; retained per that
+        project's terms.
+
+   c. Kokoro — integrated runtime (CPU-capable)
+      - Distributed via the `kokoro` package; license and attribution per its
+        upstream project, retained per that project's terms.
+
+   Additional runtimes (e.g. Fish Audio, XTTS, OpenVoice, and future providers)
+   integrate behind the same contract and are governed by their own upstream
+   licenses. Each runtime you install retains its own license; consult that
+   runtime's source and model card for the governing terms.
 
 2. Frontend dependencies
    - Next.js, React (MIT) — https://nextjs.org / https://react.dev
@@ -34,6 +50,7 @@ PeakVox (formerly OmniVoice App) Community License.
      MinIO Python SDK (Apache-2.0), loguru (MIT)
 
 Each component is distributed under its own license. Copies of those licenses
-are available from the respective project repositories. Where required by the
-Apache License 2.0 (including for OmniVoice), this NOTICE file preserves the
-relevant attribution and must be retained in redistributions.
+are available from the respective project repositories. Where required by a
+component's license (including the Apache License 2.0, e.g. for OmniVoice), this
+NOTICE file preserves the relevant attribution and must be retained in
+redistributions.

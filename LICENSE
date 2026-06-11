@@ -1,18 +1,20 @@
-PeakVox (formerly OmniVoice App) Community License
+PeakVox Community License
 ===============================
 
-Copyright (c) 2026 Bruno Silva and the PeakVox (formerly OmniVoice App) contributors.
+Copyright (c) 2026 Bruno Silva and the PeakVox contributors.
 
 This software is licensed under the **Elastic License 2.0** (the "License"),
 reproduced in full in Part A below, together with the Supplemental Terms in
 Part B (which clarify the scope of permitted use) and the binding Acceptable
 Use requirements in Part C. By using the software you agree to all three parts.
 
-The software incorporates and depends on the upstream OmniVoice project
-(https://github.com/k2-fsa/OmniVoice), which is licensed under the Apache
-License 2.0. Nothing in this License modifies, supersedes, or restricts your
-rights in the upstream OmniVoice software, its model weights, or any other
-Apache-2.0 licensed component. See the NOTICE file for required attributions.
+The software incorporates and depends on upstream, third-party model runtimes
+and components, each distributed under its own license — including the
+OmniVoice project (https://github.com/k2-fsa/OmniVoice), which is licensed
+under the Apache License 2.0. Nothing in this License modifies, supersedes, or
+restricts your rights in any such upstream software, its model weights, or any
+other component distributed under its own (including Apache-2.0) license. See
+the NOTICE file for required attributions.
 
 
 ================================================================================
@@ -113,7 +115,7 @@ these terms.
 
 
 ================================================================================
-PART B — SUPPLEMENTAL TERMS (PeakVox (formerly OmniVoice App) Community Edition)
+PART B — SUPPLEMENTAL TERMS (PeakVox Community Edition)
 ================================================================================
 
 These Supplemental Terms clarify how the Limitations in Part A apply to this
@@ -155,11 +157,11 @@ To obtain a commercial license for any of the above, contact the maintainers
 
 ### B.3 Upstream compatibility
 
-This License applies only to the original code authored by the PeakVox (formerly OmniVoice App)
-contributors. It does not, and cannot, restrict your rights under the Apache
-License 2.0 with respect to the upstream OmniVoice project or any other
-third-party component distributed under its own license. You must comply with
-all such upstream licenses; see the NOTICE file.
+This License applies only to the original code authored by the PeakVox
+contributors. It does not, and cannot, restrict your rights with respect to any
+upstream model runtime (such as OmniVoice) or any other third-party component
+distributed under its own license, including under the Apache License 2.0. You
+must comply with all such upstream licenses; see the NOTICE file.
 
 
 ================================================================================
