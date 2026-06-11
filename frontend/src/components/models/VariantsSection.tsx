@@ -224,7 +224,8 @@ function CapabilityPicker({
           <Badge
             key={cap}
             variant="secondary"
-            className="gap-1 rounded bg-primary/10 text-primary text-[11px] hover:bg-primary/15"
+            className="gap-1 rounded text-[11px] hover:bg-primary/15 cursor-pointer"
+            onClick={() => remove(cap)}
           >
             {cap}
             <button
@@ -250,7 +251,10 @@ function CapabilityPicker({
             <Plus className="h-3.5 w-3.5" /> Add capability
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+        <PopoverContent
+          className="w-[var(--radix-popover-trigger-width)] p-0"
+          align="start"
+        >
           <Command shouldFilter={false}>
             <CommandInput
               placeholder="Search or type a custom capability…"
@@ -291,7 +295,10 @@ function CapabilityPicker({
               )}
               {canAddCustom && (
                 <CommandGroup heading="Custom">
-                  <CommandItem value={`__add__${normalizedQuery}`} onSelect={addCustom}>
+                  <CommandItem
+                    value={`__add__${normalizedQuery}`}
+                    onSelect={addCustom}
+                  >
                     <Plus className="h-3.5 w-3.5" />
                     Add &ldquo;{normalizedQuery}&rdquo;
                   </CommandItem>
@@ -327,7 +334,8 @@ function ImportVariantDialog({
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState("");
   // Capabilities default to the runtime's declared set; the user may adjust.
-  const [capabilities, setCapabilities] = useState<string[]>(runtimeCapabilities);
+  const [capabilities, setCapabilities] =
+    useState<string[]>(runtimeCapabilities);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<VariantImportValidation | null>(null);
@@ -402,15 +410,19 @@ function ImportVariantDialog({
               className="text-muted-foreground"
             />
             <p className="text-[11px] text-muted-foreground">
-              Derived from the runtime (<span className="font-mono">{runtimeProvider}</span>).
+              Derived from the runtime (
+              <span className="font-mono">{runtimeProvider}</span>).
             </p>
           </div>
           <div className="space-y-1.5">
             <Label>Capabilities</Label>
-            <CapabilityPicker selected={capabilities} onChange={setCapabilities} />
+            <CapabilityPicker
+              selected={capabilities}
+              onChange={setCapabilities}
+            />
             <p className="text-[11px] text-muted-foreground">
-              Pre-filled from the runtime. A variant may declare a subset; it can
-              never exceed the runtime&apos;s capabilities.
+              Pre-filled from the runtime. A variant may declare a subset; it
+              can never exceed the runtime&apos;s capabilities.
             </p>
           </div>
 
