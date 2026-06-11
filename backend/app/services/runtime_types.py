@@ -397,3 +397,135 @@ class RuntimeDescriptorSpec(BaseModel):
 
 # Forward reference resolution — RuntimeDescriptor references RuntimeDescriptorSpec.
 RuntimeDescriptor.model_rebuild()
+
+
+# ---- RuntimeVariant descriptor schema (ADR-0018) --------------------------------
+#
+# A RuntimeVariant is an INFRASTRUCTURE descriptor concept (ADR-0018), parallel
+# to RuntimeDescriptor — a sub-descriptor of a Runtime that binds a *checkpoint*
+# (weights/config/tokenizer) to that runtime. It is NEVER a domain entity, never
+# persisted as a domain row, never on the public API, and must never be confused
+# with the domain `VoiceVariant` (Voice × Model; ADR-0001/0004/0008/0009).
+#
+# ADR-0018 narrows ADR-0016's `RuntimeVariant` forbidden-pattern entry: the
+# *infrastructure descriptor* form below is permitted; a domain entity /
+# repository remains forbidden.
+#
+# Phase 0 (ADR-0018): this schema + the loader support in
+# ``runtime_registry.py`` are ADDITIVE and NON-WIRED. No resolution or
+# lifecycle path reads them yet (that is migration Phase 1+).
+
+
+class RuntimeCheckpoint(BaseModel):
+    """spec.checkpoint: the weights bundle a RuntimeVariant loads (ADR-0018 §Storage).
+
+    Infrastructure-internal. The checkpoint source/format is never exposed on
+    the public API (ADR-0004 §6). ``source_ref`` is an HF repo id, a URL, or a
+    path under the shared weights cache
+    (``/data/runtime-weights/<runtime>/<variant>/``).
+    """
+
+    source_type: Literal["hf", "url", "local", "bundled"]
+    source_ref: str = Field(..., min_length=1)
+    format: str = Field(default="safetensors", min_length=1)
+    digest: Optional[str] = None
+    size_mb: Optional[float] = Field(default=None, gt=0)
+
+    @field_validator("digest")
+    @classmethod
+    def _validate_digest(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        if not _SHA256_DIGEST_RE.match(v):
+            raise ValueError(
+                "spec.checkpoint.digest, when present, must match 'sha256:[0-9a-f]{64}'"
+            )
+        return v
+
+
+class RuntimeVariantMetadata(BaseModel):
+    """metadata for a RuntimeVariant (ADR-0018).
+
+    ``runtime_id`` names the Runtime this variant belongs to; it is the join key
+    the registry's variant index uses. ``id`` is a DNS-label unique *within* a
+    runtime (e.g. ``base``, ``pt-br``, ``narrator``).
+    """
+
+    id: str = Field(..., min_length=1, max_length=63)
+    name: str = Field(..., min_length=1)
+    runtime_id: str = Field(..., min_length=1)
+    description: str = ""
+    labels: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("id", "runtime_id")
+    @classmethod
+    def _validate_dns_label(cls, v: str) -> str:
+        if len(v) > 63:
+            raise ValueError("id/runtime_id must be ≤ 63 characters")
+        if not _DNS_LABEL_RE.match(v):
+            raise ValueError(
+                "id/runtime_id must be a DNS-label (lowercase alphanumeric, '-', "
+                "'.', starting and ending with alphanumeric)"
+            )
+        return v
+
+
+class RuntimeVariantSpec(BaseModel):
+    """spec for a RuntimeVariant (ADR-0018).
+
+    Reuses ``RuntimeModelBinding`` — a variant binds to a catalog model exactly
+    as a runtime does (no new binding type). ``capabilities`` is optional and,
+    when present, is validated against the closed runtime vocabulary; a variant
+    may not exceed the runtime's capabilities (checked by the caller, mirroring
+    ``RuntimeDescriptor.validate_capabilities_subset_of``). ``edition`` is
+    schema-ready but inert in CE (ADR-0005 extension; ADR-0018 §Cloud).
+    """
+
+    model_config = {"protected_namespaces": ()}
+
+    model_binding: RuntimeModelBinding
+    checkpoint: RuntimeCheckpoint
+    is_default: bool = False
+    capabilities: List[str] = Field(default_factory=list)
+    edition: List[str] = Field(default_factory=list)
+
+    @field_validator("capabilities")
+    @classmethod
+    def _validate_capabilities_vocabulary(cls, v: List[str]) -> List[str]:
+        unknown = [c for c in v if c not in RUNTIME_CAPABILITY_VOCABULARY]
+        if unknown:
+            raise ValueError(
+                f"spec.capabilities contains unknown entries (not in the closed "
+                f"vocabulary): {unknown}"
+            )
+        return v
+
+    @field_validator("edition")
+    @classmethod
+    def _validate_edition_known(cls, v: List[str]) -> List[str]:
+        for ed in v:
+            if ed not in {"ce", "cloud"}:
+                raise ValueError(f"spec.edition contains unknown edition '{ed}'")
+        return v
+
+
+class RuntimeVariantDescriptor(BaseModel):
+    """The ``variants/<id>.json`` contract (ADR-0018).
+
+    Validated against a closed schema, parallel to :class:`RuntimeDescriptor`.
+    A runtime directory with no ``variants/`` folder has zero explicit variants
+    and is a valid single-``base`` runtime (the resolver synthesizes the
+    implicit base in migration Phase 1).
+    """
+
+    api_version: Literal["peakvox.io/v1"] = "peakvox.io/v1"
+    kind: Literal["RuntimeVariant"] = "RuntimeVariant"
+    metadata: RuntimeVariantMetadata
+    spec: RuntimeVariantSpec
+
+    @field_validator("api_version")
+    @classmethod
+    def _check_api_version(cls, v: str) -> str:
+        if v != "peakvox.io/v1":
+            raise ValueError(f"unsupported api_version: {v!r}")
+        return v

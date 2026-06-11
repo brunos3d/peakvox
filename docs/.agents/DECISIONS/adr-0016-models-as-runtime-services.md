@@ -8,6 +8,12 @@
   and strengthens Constitution Articles I, III §8, III §9, V).
 - **Supersedes:** none.
 - **Superseded by:** none.
+- **Amended by:** [ADR-0018](adr-0018-runtime-variants-architecture.md) — narrows
+  the `RuntimeVariant` entry in §"Domain boundary (explicit)" to permit a
+  RuntimeVariant *infrastructure descriptor* (parallel to `RuntimeDescriptor`),
+  while keeping the prohibition on a RuntimeVariant *domain entity / repository*.
+  All other forbidden patterns and architectural invariants 1–12 stand
+  unchanged.
 - **Spec:** [`../SPECS/FEATURES/models-as-runtime-services/`](../SPECS/FEATURES/models-as-runtime-services/)
 
 ---
@@ -161,6 +167,15 @@ only** and must never become a domain entity.
 - `RuntimeVariant`
 - `RuntimeArtifact`
 - Any `*Entity` / `*Repository` that names a runtime concept
+
+> **Amended by [ADR-0018](adr-0018-runtime-variants-architecture.md) (2026-06-11):**
+> the `RuntimeVariant` entry above is **narrowed**. A `RuntimeVariant` is now
+> permitted **as an infrastructure descriptor concept** (a `variants/<id>.json`
+> sub-descriptor of a Runtime, parallel to `RuntimeDescriptor`) — it remains
+> forbidden as a **domain entity** or **persisted domain row**, must never
+> acquire a `*Repository`, must never appear on the public `/api/v1` surface,
+> and must never be confused with `VoiceVariant`. `RuntimeArtifact` and the
+> other entries are **unchanged**.
 
 ### The critical conceptual distinction
 
