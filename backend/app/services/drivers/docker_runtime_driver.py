@@ -437,6 +437,13 @@ class DockerRuntimeDriver:
     def _install_image(self, runtime_id: str, descriptor: RuntimeDescriptor) -> None:
         client = self._ensure_client()
         image = descriptor.spec.image
+        ref = self._image_ref(descriptor)
+        # Capture the real docker build/pull terminal output into an in-memory
+        # buffer so the Models page "Check Logs" dialog can show advanced users
+        # the image being built (GET /api/runtimes/{id}/install-logs). The buffer
+        # is docker-free and write-only from the driver — the API only reads it.
+        from app.services import install_log_buffer
+        install_log_buffer.start(runtime_id, header=f"$ install {runtime_id} → {ref}")
         # T13 — check for the image locally first. Local
         # images (built from runtime-registry/<id>/Dockerfile)
         # do not exist in any registry; pulling them returns
@@ -446,7 +453,6 @@ class DockerRuntimeDriver:
         # the R8 reference shape: the build script is the
         # only consumer of the image, and the runtime driver
         # reuses what is already present.
-        ref = self._image_ref(descriptor)
         try:
             client.images.get(ref)
             logger.info(
@@ -454,10 +460,15 @@ class DockerRuntimeDriver:
                 "skipping pull",
                 runtime_id, ref,
             )
+            install_log_buffer.append(
+                runtime_id, f"Image {ref} already present locally; skipping build."
+            )
         except Exception:
             # Not local. If the descriptor carries build metadata,
             # build first (platform-managed install path). Otherwise
-            # pull from registry.
+            # pull from registry. On any failure, record it in the install-log
+            # buffer (so "Check Logs" shows it) before _translate_install_error
+            # re-raises — which skips the success finish() below.
             if descriptor.spec.build is not None:
                 # Pre-flight: verify the Dockerfile's base image exists
                 # before starting the build. A missing base image would
@@ -468,23 +479,98 @@ class DockerRuntimeDriver:
                     build = descriptor.spec.build
                     assert build is not None
                     context = self._build_context_from_descriptor(descriptor)
-                    client.images.build(
-                        path=str(context),
+                    install_log_buffer.append(
+                        runtime_id,
+                        f"Building image {ref} from {build.build_context}/{build.dockerfile} …",
+                    )
+                    self._build_image_streaming(
+                        client,
+                        runtime_id=runtime_id,
+                        context=str(context),
                         dockerfile=build.dockerfile,
                         tag=ref,
-                        rm=True,
                     )
                 except BaseException as build_exc:
+                    install_log_buffer.finish(runtime_id, ok=False, error=str(build_exc))
                     self._translate_install_error(build_exc, runtime_id)
             else:
                 try:
-                    if image.digest:
-                        client.images.pull(f"{image.repository}@{image.digest}")
-                    else:
-                        client.images.pull(image.repository, tag=image.tag)
+                    install_log_buffer.append(runtime_id, f"Pulling image {ref} …")
+                    self._pull_image_streaming(
+                        client,
+                        runtime_id=runtime_id,
+                        repository=image.repository,
+                        tag=image.tag,
+                        digest=image.digest,
+                    )
                 except BaseException as exc:
+                    install_log_buffer.finish(runtime_id, ok=False, error=str(exc))
                     self._translate_install_error(exc, runtime_id)
+        install_log_buffer.finish(runtime_id, ok=True)
         return None
+
+    def _build_image_streaming(
+        self, client: Any, *, runtime_id: str, context: str, dockerfile: str, tag: str
+    ) -> None:
+        """Run ``docker build`` via the low-level streaming API, forwarding each
+        output line into the install-log buffer.
+
+        Equivalent to ``client.images.build(path, dockerfile, tag, rm=True)`` —
+        same context, dockerfile, tag, and ``rm=True`` — but consumes the
+        line-by-line JSON stream so the build is observable. An ``error`` chunk
+        is raised so ``_translate_install_error`` classifies it exactly as the
+        previous high-level ``BuildError`` did (generic build failure →
+        ``SubstrateError``); ``docker`` is never imported here.
+        """
+        from app.services import install_log_buffer
+
+        last_event: dict = {}
+        for chunk in client.api.build(
+            path=context, dockerfile=dockerfile, tag=tag, rm=True, decode=True
+        ):
+            if not isinstance(chunk, dict):
+                continue
+            last_event = chunk
+            if "stream" in chunk:
+                install_log_buffer.append(runtime_id, chunk["stream"])
+            elif "status" in chunk:
+                progress = chunk.get("progress") or ""
+                line = f"{chunk['status']} {progress}".rstrip()
+                install_log_buffer.append(runtime_id, line)
+            if chunk.get("error"):
+                raise RuntimeError(chunk["error"])
+        # Defensive: a stream that ended with an error detail but no explicit
+        # error key still surfaces as a build failure.
+        if last_event.get("errorDetail"):
+            raise RuntimeError(str(last_event["errorDetail"].get("message", "build failed")))
+
+    def _pull_image_streaming(
+        self,
+        client: Any,
+        *,
+        runtime_id: str,
+        repository: str,
+        tag: Optional[str],
+        digest: Optional[str],
+    ) -> None:
+        """Run ``docker pull`` via the low-level streaming API, forwarding layer
+        status lines into the install-log buffer. Behaviorally equivalent to
+        ``client.images.pull(...)`` for install purposes."""
+        from app.services import install_log_buffer
+
+        ref_repo = f"{repository}@{digest}" if digest else repository
+        pull_tag = None if digest else tag
+        for chunk in client.api.pull(ref_repo, tag=pull_tag, stream=True, decode=True):
+            if not isinstance(chunk, dict):
+                continue
+            if chunk.get("error"):
+                raise RuntimeError(chunk["error"])
+            status = chunk.get("status")
+            if status:
+                layer = chunk.get("id")
+                progress = chunk.get("progress") or ""
+                prefix = f"{layer}: " if layer else ""
+                install_log_buffer.append(runtime_id, f"{prefix}{status} {progress}".rstrip())
 
     @staticmethod
     def _parse_dockerfile_from(dockerfile_path: Path) -> Optional[str]:

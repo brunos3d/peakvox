@@ -243,6 +243,8 @@ export function RuntimeSection({
             phase={defaultRuntime.state.phase}
             pending={actionPending}
             operation={defaultRuntime.state.operation}
+            runtimeId={defaultRuntime.runtime_id}
+            imageRef={`${defaultRuntime.descriptor.spec.image.repository}:${defaultRuntime.descriptor.spec.image.tag}`}
             canCancel={
               !!defaultRuntime.state.operation &&
               !!onCancel &&

@@ -380,6 +380,23 @@ export async function installRuntime(
   return request(`/runtimes/${id}/install`, { method: "POST" })
 }
 
+/** Captured docker build/pull terminal output for a runtime install. Powers the
+ * Models page "Check Logs" dialog (polled while an install/update is running). */
+export interface RuntimeInstallLogs {
+  runtime_id: string
+  lines: string[]
+  active: boolean
+  ok: boolean | null
+  error: string | null
+  seq: number
+  started_at: string | null
+  finished_at: string | null
+}
+
+export async function fetchRuntimeInstallLogs(id: string): Promise<RuntimeInstallLogs> {
+  return request<RuntimeInstallLogs>(`/runtimes/${id}/install-logs`)
+}
+
 export async function startRuntime(
   id: string,
 ): Promise<{ runtime_id: string; phase: string; host: string; port: number; endpoint: string }> {

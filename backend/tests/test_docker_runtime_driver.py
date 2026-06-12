@@ -220,6 +220,41 @@ class _MockApi:
             raise _MockDockerError(f"manifest unknown: {name}")
         return {"Descriptor": {"digest": "sha256:" + "a" * 64}}
 
+    def build(self, path: str, dockerfile: str, tag: str, rm: bool = True,
+              decode: bool = True):
+        """Low-level streaming build (docker-py ``client.api.build``). Yields
+        decoded JSON chunks like the real daemon, while preserving the same
+        side effects the high-level mock had (records built_images, adds the
+        image locally) so existing assertions keep working."""
+        if self._owner.daemon_down:
+            raise _MockAPIError("simulated daemon down")
+        owner = self._owner.images  # reuse the images-api local image set
+        owner._local_images.add(tag)
+        self._owner.built_images.append({
+            "path": path,
+            "dockerfile": dockerfile,
+            "tag": tag,
+        })
+        yield {"stream": f"Step 1/2 : FROM base\n"}
+        yield {"stream": f"Successfully built {tag}\n"}
+
+    def pull(self, repository: str, tag: Optional[str] = None,
+             stream: bool = True, decode: bool = True):
+        """Low-level streaming pull (docker-py ``client.api.pull``). Honors the
+        same error-injection flags the high-level mock honored."""
+        if self._owner.image_pull_404:
+            raise _MockImageNotFound("simulated 404")
+        if self._owner.image_pull_auth_fail:
+            raise _MockImageAuthorizationFailed("simulated auth fail")
+        if self._owner.daemon_down:
+            raise _MockAPIError("simulated daemon down")
+        repo = repository.split("@")[0] if "@" in repository else repository
+        local_tag = "" if "@" in repository else (tag or "latest")
+        if local_tag:
+            self._owner.images._local_images.add(f"{repo}:{local_tag}")
+        yield {"status": "Pulling from " + repo}
+        yield {"status": "Download complete"}
+
 
 # Stand-in exception classes that mimic docker.errors.* names.
 class _MockDockerError(Exception):

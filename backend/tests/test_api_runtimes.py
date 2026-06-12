@@ -151,6 +151,34 @@ def client_no_manager():
 # ---------------------------------------------------------------------------
 
 
+def test_install_logs_empty_for_uninstalled_runtime(client_no_manager) -> None:
+    """GET /runtimes/{id}/install-logs returns an empty, inactive snapshot for a
+    runtime never installed in this process — no 404, so the Check Logs dialog
+    can open at any time."""
+    from app.services import install_log_buffer
+    install_log_buffer.reset("kokoro-82m")
+    r = client_no_manager.get("/api/runtimes/kokoro-82m/install-logs")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["runtime_id"] == "kokoro-82m"
+    assert body["lines"] == []
+    assert body["active"] is False
+
+
+def test_install_logs_returns_captured_build_output(client_no_manager) -> None:
+    """The endpoint serves whatever the driver streamed into the buffer."""
+    from app.services import install_log_buffer
+    install_log_buffer.start("kokoro-82m", header="$ install kokoro-82m")
+    install_log_buffer.append("kokoro-82m", "Step 1/2 : FROM base\nStep 2/2 : RUN pip install kokoro\n")
+    r = client_no_manager.get("/api/runtimes/kokoro-82m/install-logs")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["active"] is True
+    assert body["lines"][0] == "$ install kokoro-82m"
+    assert any("RUN pip install kokoro" in ln for ln in body["lines"])
+    install_log_buffer.reset("kokoro-82m")
+
+
 def test_list_runtimes_returns_503_when_no_manager_attached(
     client_no_manager,
 ) -> None:

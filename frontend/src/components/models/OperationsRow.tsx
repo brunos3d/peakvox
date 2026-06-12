@@ -1,8 +1,19 @@
-import { Download, PauseCircle, PlayCircle, RefreshCw, Trash2, Loader2 } from "lucide-react"
+import { useState } from "react"
+import { Download, PauseCircle, PlayCircle, RefreshCw, Trash2, Loader2, ScrollText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { InstallLogsDialog } from "@/components/models/InstallLogsDialog"
 import type { RuntimeOperation, RuntimePhase } from "@/types"
 import type { RuntimeLifecycleAction } from "@/hooks/use-runtimes"
+
+// Phases that run a docker build/pull whose terminal output the "Check Logs"
+// dialog can show. Other pending phases (starting/stopping/removing) produce no
+// image build output, so the button is hidden for them.
+const BUILD_PHASES: ReadonlySet<RuntimePhase> = new Set<RuntimePhase>([
+  "installing",
+  "pulling",
+  "updating",
+])
 
 type PendingPhase = "installing" | "pulling" | "starting" | "stopping" | "updating" | "removing"
 
@@ -63,6 +74,8 @@ export function OperationsRow({
   operation,
   canCancel,
   onCancel,
+  runtimeId,
+  imageRef,
 }: {
   phase: RuntimePhase
   pending: boolean
@@ -70,8 +83,13 @@ export function OperationsRow({
   operation?: RuntimeOperation | null
   canCancel?: boolean
   onCancel?: () => void
+  runtimeId?: string
+  imageRef?: string
 }) {
+  const [logsOpen, setLogsOpen] = useState(false)
+
   if (isPendingPhase(phase)) {
+    const canShowLogs = !!runtimeId && BUILD_PHASES.has(phase)
     return (
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -81,10 +99,31 @@ export function OperationsRow({
             <span className="text-[10px]">({operation.progress}%)</span>
           )}
         </div>
-        {canCancel && onCancel && (
-          <Button size="sm" variant="outline" onClick={onCancel}>
-            Cancel
-          </Button>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {canCancel && onCancel && (
+            <Button size="sm" variant="outline" onClick={onCancel}>
+              Cancel
+            </Button>
+          )}
+          {canShowLogs && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setLogsOpen(true)}
+              className="gap-1"
+            >
+              <ScrollText className="h-3 w-3" />
+              Check Logs
+            </Button>
+          )}
+        </div>
+        {runtimeId && (
+          <InstallLogsDialog
+            runtimeId={runtimeId}
+            imageRef={imageRef}
+            open={logsOpen}
+            onOpenChange={setLogsOpen}
+          />
         )}
       </div>
     )

@@ -403,6 +403,24 @@ async def install_runtime(runtime_id: str) -> dict[str, Any]:
     }
 
 
+@router.get("/{runtime_id}/install-logs")
+async def get_runtime_install_logs(runtime_id: str) -> dict[str, Any]:
+    """Return the captured docker build/pull terminal output for a runtime
+    install (Models page "Check Logs" dialog).
+
+    The `DockerRuntimeDriver` streams the real `docker build` / `docker pull`
+    output into an in-memory ring buffer during install/update; this endpoint
+    serves it so advanced users can watch the image being built instead of only
+    the coarse "Pulling runtime image (30%)" step text. Polled by the dialog.
+
+    Returns an empty, inactive snapshot for a runtime that has not been installed
+    in this process (no 404 — the dialog can open at any time).
+    """
+    from app.services import install_log_buffer
+
+    return install_log_buffer.snapshot(runtime_id)
+
+
 @router.post("/{runtime_id}/variants/validate-import")
 async def validate_variant_import_endpoint(
     runtime_id: str, body: dict[str, Any]
