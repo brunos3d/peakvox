@@ -338,6 +338,101 @@ BUILTIN_MODELS: list[ModelDescriptor] = [
         is_default=False,
         editions=["community", "cloud"],
     ),
+    # XTTS v2 — Coqui multilingual zero-shot voice cloning (coqui/XTTS-v2).
+    # Reference-audio cloning across 17 languages; GPU-accelerated with a real
+    # CPU fallback (unlike F5-TTS, which is CUDA-only). The fourth Runtime
+    # Service PeakVox ships; the runtime-registry/xtts-v2/ entry binds to this
+    # model id (TASK 30, ADR-0021). CE-disabled by default — XTTS weights are
+    # under the Coqui Public Model License (CPML, non-commercial); enabled per
+    # deployment after license review, like F5-TTS.
+    ModelDescriptor(
+        id="xtts-v2",
+        name="XTTS v2",
+        description="Coqui XTTS v2 is a multilingual zero-shot voice-cloning TTS — clone a voice from ~6s of reference audio across 17 languages. GPU-accelerated with a real CPU fallback. The fourth Runtime Service PeakVox ships (TASK 30).",
+        version="2.0.0",
+        provider="xtts",
+        repo_id="coqui/XTTS-v2",
+        supported_languages=[
+            "en", "es", "fr", "de", "it", "pt", "pl", "tr", "ru",
+            "nl", "cs", "ar", "zh-cn", "hu", "ko", "ja", "hi",
+        ],
+        supported_tags=[],
+        supported_voice_design=[],
+        capabilities=ModelCapabilities(
+            supports_tts=True,
+            supports_voice_cloning=True,
+            supports_multilingual=True,
+            supports_reference_audio=True,
+            supports_api=True,
+            supports_voice_optional=True,
+        ),
+        # gpu_required=False: XTTS runs on CPU (slower). The runtime descriptor's
+        # requirements.gpu="optional" makes the Docker driver honor the global
+        # "Use GPU (CUDA)" setting; server.py picks CUDA or CPU at load.
+        requirements=ModelRequirements(gpu_required=False, min_vram_gb=4, runtime="torch"),
+        settings_schema=SettingsSchema(
+            properties={
+                "temperature": ParameterSchema(
+                    type="number", label="Temperature",
+                    default=0.75, minimum=0.1, maximum=1.5, step=0.05,
+                    description="Sampling temperature. Higher = more varied/expressive, lower = more stable.",
+                ),
+                "length_penalty": ParameterSchema(
+                    type="number", label="Length Penalty",
+                    default=1.0, minimum=0.5, maximum=2.0, step=0.1,
+                    description="Penalizes longer sequences during decoding.",
+                ),
+                "repetition_penalty": ParameterSchema(
+                    type="number", label="Repetition Penalty",
+                    default=5.0, minimum=1.0, maximum=10.0, step=0.5,
+                    description="Discourages repeated tokens. Higher = less repetition.",
+                ),
+                "top_k": ParameterSchema(
+                    type="number", label="Top-K",
+                    default=50, minimum=0, maximum=100, step=1,
+                    description="Top-K sampling cutoff.",
+                ),
+                "top_p": ParameterSchema(
+                    type="number", label="Top-P",
+                    default=0.85, minimum=0.0, maximum=1.0, step=0.05,
+                    description="Nucleus (top-P) sampling cutoff.",
+                ),
+                "speed": ParameterSchema(
+                    type="number", label="Speed",
+                    default=1.0, minimum=0.5, maximum=2.0, step=0.05,
+                    description="Speaking speed multiplier.",
+                ),
+            },
+        ),
+        license=ModelLicense(
+            name="Coqui Public Model License (CPML)",
+            code="coqui-public-model-license-1.0",
+            weights_license="Non-commercial use only. Commercial use is not permitted under the CPML. Reference-audio voice cloning is permitted for non-commercial use.",
+            commercial_use=False,
+            url="https://coqui.ai/cpml",
+        ),
+        provider_metadata={
+            "author": "Coqui",
+            "provider_url": "https://huggingface.co/coqui",
+            "homepage_url": "https://huggingface.co/coqui/XTTS-v2",
+            "repository_url": "https://github.com/idiap/coqui-ai-TTS",
+            "documentation_url": "https://docs.coqui.ai/en/latest/models/xtts.html",
+            "architecture": "GPT-2-style autoregressive token model + HiFi-GAN-style decoder; conditioning latents from reference audio",
+            "model_size": "~1.8 GB checkpoint",
+            "languages_summary": "17 languages with zero-shot cross-lingual voice cloning from reference audio",
+            "engine": "coqui-tts (maintained Idiap fork of the original TTS package); model id tts_models/multilingual/multi-dataset/xtts_v2",
+            "metadata_sources": [
+                "https://huggingface.co/coqui/XTTS-v2",
+                "https://github.com/idiap/coqui-ai-TTS",
+                "https://docs.coqui.ai/en/latest/models/xtts.html",
+            ],
+            "requirements_source": "GPU-optional: ~4 GB VRAM in fp16 on CUDA; CPU inference supported (slower). No published hard minimum.",
+            "edition_availability_basis": "CPML is non-commercial; CE-disabled by default; enabled per deployment after license review (Cloud requires commercial-license clearance)",
+        },
+        status="disabled",
+        is_default=False,
+        editions=["community", "cloud"],
+    ),
     ModelDescriptor(
         id="fish-audio-s2",
         name="Fish Audio S2 Pro",

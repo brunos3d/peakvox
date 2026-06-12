@@ -325,8 +325,11 @@ def test_with_runtimes_no_prefix_alias_no_manager(client_no_manager) -> None:
     r = c.get("/models/with-runtimes")
     assert r.status_code == 200
     body = r.json()
-    # 5 catalog models when no manager is attached.
-    assert len(body["models"]) == 5
+    # All catalog models are returned when no manager is attached (derive the
+    # count from the catalog so adding a model — e.g. xtts-v2, Task 30 — doesn't
+    # break this invariant test).
+    from app.services.model_catalog import BUILTIN_MODELS
+    assert len(body["models"]) == len(BUILTIN_MODELS)
     for m in body["models"]:
         assert m["runtimes"] == []
 

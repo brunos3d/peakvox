@@ -1,0 +1,27 @@
+# peakvox/xtts-runtime requirements.
+#
+# Mirrors runtime-registry/f5-tts-base/requirements.txt with the Coqui TTS
+# engine pin. XTTS v2 runs on the Coqui TTS framework; the original `TTS`
+# package on PyPI is unmaintained, so this runtime uses the maintained Idiap
+# fork `coqui-tts`, which provides the same `TTS.api.TTS` interface.
+
+# The HTTP service framework (5-endpoint Runtime Service Contract).
+# ADR-0017 §6: every runtime service exposes /health, /ready, /v1/generate,
+# /v1/variants/build, /v1/metadata over HTTP/JSON.
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+pydantic==2.9.2
+
+# Coqui TTS engine (maintained fork). Provides `TTS.api.TTS` and the XTTS v2
+# model `tts_models/multilingual/multi-dataset/xtts_v2`. The model is loaded on
+# the first /v1/generate request (lazy), guarded by a lock so concurrent first
+# requests share the same load.
+#
+# VERSION HOLD — do NOT bump without a full re-validation pass. The server
+# (server.py) is validated against this pin: inference is serialized because the
+# XTTS GPT backbone is not concurrency-safe, voice-optional falls back to a
+# built-in studio speaker, and the device is chosen via torch.cuda.is_available()
+# (CPU fallback). A major coqui-tts jump may change the `TTS.api` surface and
+# invalidate these assumptions. Runtime stability wins: hold until a dedicated
+# upgrade+revalidation task.
+coqui-tts==0.24.1

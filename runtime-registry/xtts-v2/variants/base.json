@@ -1,0 +1,22 @@
+{
+  "api_version": "peakvox.io/v1",
+  "kind": "RuntimeVariant",
+  "metadata": {
+    "id": "base",
+    "name": "XTTS v2 Base",
+    "runtime_id": "xtts-v2",
+    "description": "The default Coqui XTTS v2 checkpoint bundled with the runtime image (coqui/XTTS-v2). Fine-tuned, community, and imported Hugging Face XTTS checkpoints attach to this same runtime as additional RuntimeVariants (ADR-0018/0019) — no new image, no new model id. XTTS is the strongest validation target for the Runtime Variants checkpoint ecosystem (Task 30, see VALIDATION/RESEARCH/task-30-xtts-discovery.md §6).",
+    "trust": "verified",
+    "labels": {"model_family": "xtts"}
+  },
+  "spec": {
+    "model_binding": {"model_id": "xtts-v2", "is_default": true, "priority": 100},
+    "checkpoint": {
+      "source_type": "bundled",
+      "source_ref": "coqui/XTTS-v2",
+      "format": "pytorch"
+    },
+    "is_default": true,
+    "capabilities": ["tts", "voice_cloning", "multilingual", "reference_audio"]
+  }
+}

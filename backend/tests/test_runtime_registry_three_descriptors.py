@@ -39,6 +39,7 @@ EXPECTED_RUNTIMES = {
     "kokoro-82m":     "kokoro-base",
     "omnivoice-base": "omnivoice-base",
     "f5-tts-base":    "f5-tts-base",
+    "xtts-v2":        "xtts-v2",       # Task 30 — fourth runtime (ADR-0021)
 }
 
 
@@ -54,8 +55,8 @@ def _read_descriptor(runtime_id: str) -> dict:
 
 
 def test_runtime_registry_root_contains_three_entries() -> None:
-    """The runtime-registry/ directory contains exactly three
-    runtime entries after TASK 12."""
+    """The runtime-registry/ directory contains exactly the expected runtime
+    entries (4 after TASK 30 added xtts-v2)."""
     entries = sorted(
         d.name for d in RUNTIME_REGISTRY_ROOT.iterdir()
         if d.is_dir() and not d.name.startswith("__")
@@ -67,11 +68,11 @@ def test_runtime_registry_root_contains_three_entries() -> None:
 
 
 def test_loader_picks_up_all_three_descriptors() -> None:
-    """The RuntimeRegistryLoader parses all three descriptors
-    without error and the registry has length 3."""
+    """The RuntimeRegistryLoader parses every descriptor without error and the
+    registry length equals the expected runtime count."""
     from app.services.runtime_registry import RuntimeRegistryLoader
     registry = RuntimeRegistryLoader().load_from_directory(RUNTIME_REGISTRY_ROOT)
-    assert len(registry) == 3
+    assert len(registry) == len(EXPECTED_RUNTIMES)
 
 
 @pytest.mark.parametrize("runtime_id,expected_model_id", list(EXPECTED_RUNTIMES.items()))

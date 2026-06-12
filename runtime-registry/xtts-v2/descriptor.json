@@ -1,0 +1,64 @@
+{
+  "api_version": "peakvox.io/v1",
+  "kind": "Runtime",
+  "metadata": {
+    "id": "xtts-v2",
+    "name": "XTTS v2 Runtime",
+    "description": "Runtime service for Coqui XTTS v2 — multilingual zero-shot voice cloning from ~6s of reference audio across 17 languages. GPU-accelerated with a real CPU fallback (substrate reported live on /v1/metadata). Fourth Runtime Service PeakVox ships; mirrors the F5-TTS shape with an 'optional' GPU posture (Task 30, ADR-0021).",
+    "provider": "xtts",
+    "version": "0.1.0",
+    "edition": ["ce", "cloud"],
+    "labels": {
+      "substrate": "gpu-optional",
+      "model_family": "xtts"
+    }
+  },
+  "spec": {
+    "runtime_type": "docker",
+    "image": {
+      "repository": "peakvox/xtts-runtime",
+      "tag": "0.1.0",
+      "image_size_mb": 9216.0
+    },
+    "build": {
+      "entrypoint": "server.py",
+      "build_context": ".",
+      "dockerfile": "Dockerfile"
+    },
+    "service": {
+      "protocol": "http",
+      "port": 8000,
+      "health_path": "/health",
+      "readiness_path": "/ready",
+      "generate_path": "/v1/generate",
+      "build_path": "/v1/variants/build",
+      "metadata_path": "/v1/metadata"
+    },
+    "capabilities": [
+      "tts",
+      "voice_cloning",
+      "multilingual",
+      "reference_audio"
+    ],
+    "requirements": {
+      "gpu": "optional",
+      "min_vram_gb": 4,
+      "cpu_cores": 4,
+      "memory_gb": 8,
+      "edition": ["ce", "cloud"]
+    },
+    "model_binding": {
+      "model_id": "xtts-v2",
+      "is_default": true,
+      "priority": 100
+    },
+    "lifecycle": {
+      "install_policy": "build-on-install",
+      "health_interval_seconds": 10,
+      "health_timeout_seconds": 3,
+      "start_timeout_seconds": 240,
+      "restart_policy": "on-failure",
+      "idle_timeout": "15m"
+    }
+  }
+}

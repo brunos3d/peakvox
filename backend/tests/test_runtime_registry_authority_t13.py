@@ -221,7 +221,10 @@ def test_composed_view_returns_all_catalog_models_when_no_manager(
     r = c.get("/api/models/with-runtimes")
     assert r.status_code == 200
     body = r.json()
-    assert len(body["models"]) == 5
+    # Derive from the catalog so a new model (e.g. xtts-v2, Task 30) doesn't
+    # break this "all catalog models returned" invariant.
+    from app.services.model_catalog import BUILTIN_MODELS
+    assert len(body["models"]) == len(BUILTIN_MODELS)
 
 
 # ---------------------------------------------------------------------------

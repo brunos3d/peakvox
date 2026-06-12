@@ -17,6 +17,7 @@ from app.services.model_adapters.omnivoice_adapter import (
     OmniVoiceAdapter,
     OmniVoiceSingingAdapter,
 )
+from app.services.model_adapters.xtts_adapter import XTTSAdapter
 from app.services.model_catalog import BUILTIN_MODELS
 from app.models.registry_types import (
     ModelCapabilities,
@@ -37,6 +38,7 @@ _ADAPTER_BY_PROVIDER = {
     "fish-audio": FishAudioAdapter,
     "kokoro": KokoroAdapter,
     "f5-tts": F5TTSAdapter,
+    "xtts": XTTSAdapter,
 }
 
 

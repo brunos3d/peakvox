@@ -6,6 +6,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **XTTS v2 — fourth first-class runtime** (Task 30, [ADR-0021](docs/.agents/DECISIONS/adr-0021-xtts-v2-integration.md)):
+  - Integrated **Coqui XTTS v2** (`coqui/XTTS-v2`) — multilingual (17 languages) zero-shot voice
+    cloning — as a native runtime with full parity to OmniVoice, Kokoro, and F5-TTS, **through the
+    existing contracts with no model-specific exception**.
+  - **Runtime Registry entry** `runtime-registry/xtts-v2/`: descriptor, `peakvox/xtts-runtime`
+    FastAPI service (5-endpoint Runtime Service Contract), Dockerfile, requirements, README, and
+    `variants/base.json` (the bundled checkpoint as the explicit, default, `verified` base variant).
+    Auto-discovered by the file-based registry — no central registration.
+  - **`XTTSAdapter`** (`backend/app/services/model_adapters/xtts_adapter.py`): `reference_sample`
+    realization, generation routed exclusively via `HTTPTransport` (no in-process inference),
+    `SOURCE_ASSET` build strategy — a sibling of `F5TTSAdapter`. Wired in `model_wiring.py`
+    (`provider="xtts"`).
+  - **Catalog model** `xtts-v2` (`model_catalog.py`): capabilities declared (ADR-0003) —
+    `tts`, `voice_cloning`, `multilingual`, `reference_audio`, `voice_optional` — identical to F5,
+    so the capability-driven Models page and Public API surface it with **zero frontend changes**.
+  - **The one deliberate divergence from F5-TTS:** XTTS is **CPU-capable**. The descriptor declares
+    `gpu: "optional"` and `server.py` falls back to CPU instead of raising, so **Settings → Use GPU
+    (CUDA)** is an authoritative GPU↔CPU switch via the existing Docker driver. `/v1/metadata`
+    reports the live `substrate`. No setting is silently ignored.
+  - **Licensing:** XTTS weights are under the Coqui Public Model License (CPML, non-commercial) —
+    CE-disabled by default, enabled per deployment after license review (same posture as F5-TTS).
+  - **Runtime Variants:** XTTS is the strongest validation target for the checkpoint ecosystem
+    (ADR-0018/0019) — fine-tuned / community / imported Hugging Face checkpoints attach as siblings
+    of `base` with no new image and no new model id.
+  - **Tests:** `backend/tests/test_xtts_adapter.py` (11) + `runtime-registry/xtts-v2/tests/` (48:
+    server contract, CPU fallback, voice-optional, concurrency, descriptor, base variant). Full
+    backend suite green (765 passed). Discovery + provider-validation reports under
+    `docs/.agents/VALIDATION/`.
+
 ### Changed
 
 - **Public documentation, positioning & community governance overhaul** (Task 28):

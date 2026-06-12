@@ -46,11 +46,28 @@ New ADRs follow the naming convention `adr-NNNN-kebab-case.md`. Template:
 | [0002](adr-0002-model-as-first-class-entity.md) | Model as a first-class persisted entity | Accepted | IMPLEMENTED |
 | [0003](adr-0003-model-capability-contract.md) | Model Capability Contract | Accepted | IMPLEMENTED |
 | [0007](adr-0007-canonical-model-metadata.md) | Canonical Model Metadata Registry | Accepted | IMPLEMENTED |
+| [0021](adr-0021-xtts-v2-integration.md) | XTTS v2 First-Class Runtime Integration | Accepted | IMPLEMENTED |
 
 - **0002** — Model is a persisted, lifecycle-managed entity.
 - **0003** — capabilities are declared (`ModelCapabilities`), never inferred from id/name.
   (`supports_emotion_tags` supersedes legacy `supports_emotions`.)
 - **0007** — provider-backed metadata is normalized once into the registry.
+- **0021** — integrates **Coqui XTTS v2** (`coqui/XTTS-v2`) as the fourth
+  first-class runtime (after OmniVoice, Kokoro, F5-TTS) **through the existing
+  contracts, inventing nothing new**: `runtime-registry/xtts-v2/` (descriptor +
+  `peakvox/xtts-runtime` service + `variants/base.json`), `XTTSAdapter`
+  (`reference_sample`, runtime-routed, sibling of `F5TTSAdapter`), and an
+  `xtts-v2` catalog entry (`provider="xtts"`). Capabilities declared (ADR-0003):
+  `tts`, `voice_cloning`, `multilingual`, `reference_audio`, `voice_optional` —
+  identical to F5, so the capability-driven UI renders it with zero special-case
+  code. **The one deliberate divergence from F5-TTS:** XTTS is **CPU-capable**,
+  so `requirements.gpu="optional"` and `server.py` falls back to CPU instead of
+  raising — making **Settings → Use GPU (CUDA)** an authoritative GPU↔CPU switch
+  via the existing Docker driver. CPML non-commercial ⇒ CE-disabled by default
+  (ADR-0005). Validates the Runtime Variant **checkpoint ecosystem**
+  (ADR-0018/0019): fine-tuned/community/HF checkpoints attach as siblings of
+  `base` with no new image. See
+  [`../VALIDATION/RESEARCH/task-30-xtts-discovery.md`](../VALIDATION/RESEARCH/task-30-xtts-discovery.md).
 
 ## Domain: Editions & Licensing
 
